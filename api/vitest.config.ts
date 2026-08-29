@@ -2,6 +2,12 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
+    // Testes de integracao sobem um Postgres em container. O primeiro deles
+    // paga o custo de baixar a imagem e iniciar; 5s (padrao do vitest) nao
+    // cobre isso.
+    testTimeout: 60_000,
+    hookTimeout: 120_000,
+
     // env.ts valida no import e mata o processo se faltar variavel — e o que a
     // spec 07 exige em producao. Para que os testes possam importar a API,
     // o runner fornece um ambiente valido aqui. parseEnv() continua sendo
