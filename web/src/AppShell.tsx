@@ -19,9 +19,7 @@ import { BarraConexao } from './features/presence/BarraConexao.js'
  * apenas sumir por CSS, e o que impede o leitor de tela de anunciar uma
  * navegacao que ninguem consegue ver.
  */
-export function AppShell({ aoEnviarMensagem }: {
-  aoEnviarMensagem?: (texto: string) => void
-} = {}): ReactNode {
+export function AppShell({ aoDigitar }: { aoDigitar?: () => void } = {}): ReactNode {
   const channels = useStore(e => e.channels)
   const grupoAtivo = useStore(e => e.grupoAtivo)
   const canalAtivo = useStore(e => e.canalAtivo)
@@ -75,8 +73,6 @@ export function AppShell({ aoEnviarMensagem }: {
     return () => window.removeEventListener('keydown', aoTeclar)
   }, [membrosFixos])
 
-  const enviar = aoEnviarMensagem ?? ((): void => undefined)
-
   return (
     <div className="flex h-full flex-col">
       {/* Primeiro elemento focavel da aplicacao. */}
@@ -116,7 +112,7 @@ export function AppShell({ aoEnviarMensagem }: {
           </>
         )}
 
-        <Conversa campoEscrita={campoEscrita} aoEnviar={enviar} />
+        <Conversa campoEscrita={campoEscrita} {...(aoDigitar === undefined ? {} : { aoDigitar })} />
 
         {membrosFixos || membrosVisiveis ? (
           <PainelMembros />

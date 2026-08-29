@@ -11,9 +11,9 @@ import { Composer } from '../messages/Composer.js'
  * anunciado - quem navega por teclado nao ve o destaque na barra lateral, e sem
  * o anuncio a troca acontece em silencio.
  */
-export function Conversa({ campoEscrita, aoEnviar }: {
+export function Conversa({ campoEscrita, aoDigitar }: {
   campoEscrita: RefObject<HTMLTextAreaElement | null>
-  aoEnviar: (texto: string) => void
+  aoDigitar?: () => void
 }): ReactNode {
   const canalAtivo = useStore(e => e.canalAtivo)
   const canal = useStore(e => e.channels.find(c => c.id === e.canalAtivo) ?? null)
@@ -48,7 +48,7 @@ export function Conversa({ campoEscrita, aoEnviar }: {
 
       <Composer
         campo={campoEscrita}
-        aoEnviar={aoEnviar}
+        {...(aoDigitar === undefined ? {} : { aoDigitar })}
         aoFocar={() => setEscrevendo(true)}
         aoDesfocar={() => setEscrevendo(false)}
         desativado={canalAtivo === null}

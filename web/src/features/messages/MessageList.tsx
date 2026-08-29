@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useStore } from '../../lib/store.js'
+import { enviarMensagem } from './envio.js'
 import type { Mensagem } from '../../lib/tipos.js'
 
 /**
@@ -162,7 +163,23 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores }: {
                   )}
                 </p>
                 {mensagem.envio === 'falhou' && (
-                  <p className="text-xs text-danger">Nao foi enviada.</p>
+                  <p className="flex items-center gap-2 text-xs text-danger">
+                    Nao foi enviada.
+                    {/*
+                      O reenvio leva o mesmo ID: se a primeira tentativa chegou
+                      e so a resposta se perdeu, o servidor recusa a duplicata
+                      em vez de aceitar duas vezes a mesma fala.
+                    */}
+                    <button
+                      type="button"
+                      onClick={() => void enviarMensagem(
+                        mensagem.channelId, mensagem.content, mensagem.id,
+                      )}
+                      className="underline underline-offset-2"
+                    >
+                      Tentar de novo
+                    </button>
+                  </p>
                 )}
               </article>
             </div>
