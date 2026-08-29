@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: altcast
+      POSTGRES_PASSWORD: altcast_dev
+      POSTGRES_DB: altcast
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U altcast"]
+      interval: 5s
+      retries: 10
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+
+  api:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm ci && npm --workspace api run dev"
+    environment:
+      DATABASE_URL: postgres://altcast:altcast_dev@postgres:5432/altcast
+      NODE_ENV: development
+      PORT: "3000"
+      ALLOWED_ORIGINS: http://localhost:5173
+      PUBLIC_URL: http://localhost:5173
+      SESSION_COOKIE_NAME: altcast_session
+      SESSION_TTL_DAYS: "30"
+      LOG_LEVEL: debug
+    ports: ["3000:3000"]
+    volumes:
+      # O bind traz o codigo-fonte; os volumes anonimos impedem que o
+      # node_modules Linux do container sobrescreva o do host (Windows).
+      - ".:/app"
+      - "/app/node_modules"
+      - "/app/api/node_modules"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  pgdata:

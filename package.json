@@ -1,0 +1,13 @@
+{
+  "name": "altcast",
+  "private": true,
+  "type": "module",
+  "workspaces": ["api", "web"],
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "dev": "docker compose -f docker-compose.dev.yml up",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint .",
+    "typecheck": "tsc -b"
+  }
+}
