@@ -1,15 +1,18 @@
-import { asc, eq, max } from 'drizzle-orm'
+import { and, asc, eq, getTableColumns, isNotNull, max, or } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { db } from '../db/client.js'
-import { channels } from '../db/schema.js'
+import { channelMembers, channels, groupMembers, users } from '../db/schema.js'
 import { requireAuth } from '../auth/middleware.js'
 import { assertCan, loadChannelActor, loadGroupActor } from '../permissions/context.js'
+import { can, type Actor, type Resource } from '../permissions/can.js'
+import type { Database } from '../db/client.js'
 import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
 import { parse, uuidOu404 } from './groups.routes.js'
 
 type Channel = typeof channels.$inferSelect
+type Transacao = Parameters<Parameters<Database['transaction']>[0]>[0]
 
 /**
  * A coluna aceita 'voice' desde a primeira migracao para que a Fatia 2 nao
@@ -23,11 +26,17 @@ const nomeCru = z.string().min(1).max(64)
 const topico = z.string().trim().max(256).nullable().optional()
 const posicao = z.int().min(-1_000).max(1_000).optional()
 
-const criarSchema = z.object({ name: nomeCru, type: tipoSchema, topic: topico })
-const atualizarSchema = z.object({ name: nomeCru.optional(), topic: topico, position: posicao })
-  .refine(v => v.name !== undefined || v.topic !== undefined || v.position !== undefined, {
-    error: 'Informe ao menos um campo.', path: ['name'],
-  })
+const visibilidade = z.enum(['public', 'private']).optional()
+
+const criarSchema = z.object({
+  name: nomeCru, type: tipoSchema, topic: topico, visibility: visibilidade,
+})
+const atualizarSchema = z.object({
+  name: nomeCru.optional(), topic: topico, position: posicao, visibility: visibilidade,
+}).refine(v => Object.values(v).some(campo => campo !== undefined), {
+  error: 'Informe ao menos um campo.', path: ['name'],
+})
+const membroSchema = z.object({ userId: z.uuid() })
 
 /**
  * Um nome de canal e um identificador visivel, nao um titulo livre: minusculo,
@@ -75,6 +84,52 @@ export function serializeChannel(c: Channel): Record<string, unknown> {
   }
 }
 
+/**
+ * A lista de acesso so existe para canal privado. Canal publico tira o acesso
+ * do grupo, e manter linhas ali seria acesso fantasma esperando o canal voltar
+ * a ser privado.
+ */
+function exigePrivado(canal: Channel): void {
+  if (canal.visibility === 'private') return
+  throw new AppError('validation_failed', {
+    userId: ['Canal publico da acesso a todo o grupo; nao tem lista propria.'],
+  })
+}
+
+/**
+ * Ver a lista de acesso e um `ou` entre os dois eixos, e por isso precisa de
+ * duas perguntas a `can()` em vez de uma condicao propria — a decisao continua
+ * inteira dentro de permissions/can.ts.
+ */
+function podeVerLista(actor: Actor, recurso: Resource): boolean {
+  return can(actor, 'channel.read', recurso) || can(actor, 'channel.manage_members', recurso)
+}
+
+/** O alvo precisa ja pertencer ao grupo: canal nao e porta de entrada. */
+async function membroDoGrupoOu404(groupId: string, userId: string): Promise<void> {
+  const [m] = await db.select({ userId: groupMembers.userId }).from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId))).limit(1)
+  if (!m) throw new AppError('not_found')
+}
+
+/**
+ * Toda troca de visibilidade zera a lista de acesso, e virar privado recomeca
+ * dela com quem fez a mudanca.
+ *
+ * Zerar ao virar publico nao e limpeza cosmetica: se a lista sobrevivesse, o
+ * canal voltando a privado ressuscitaria em silencio o acesso de quem ja tinha
+ * sido tirado dali.
+ */
+async function trocarVisibilidade(
+  tx: Transacao, canal: Channel, nova: 'public' | 'private', autor: string,
+): Promise<void> {
+  await tx.delete(channelMembers).where(eq(channelMembers.channelId, canal.id))
+  if (nova === 'private') {
+    await tx.insert(channelMembers)
+      .values({ channelId: canal.id, userId: autor, addedBy: autor })
+  }
+}
+
 /** Novo canal entra no fim da barra lateral, nunca disputando a posicao 0. */
 async function proximaPosicao(groupId: string): Promise<number> {
   const [linha] = await db.select({ ultima: max(channels.position) })
@@ -85,14 +140,16 @@ async function proximaPosicao(groupId: string): Promise<number> {
 export async function channelsRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/groups/:id/channels', { preHandler: requireAuth }, async (req, reply) => {
     const groupId = uuidOu404((req.params as { id: string }).id)
-    const actor = await loadGroupActor(req.user!.id, groupId)
+    const userId = req.user!.id
+    const actor = await loadGroupActor(userId, groupId)
     assertCan(actor, 'channel.create', { kind: 'channel' })
 
     const campos = parse(criarSchema, req.body)
     const nome = nomeOu422(campos.name)
 
+    const visibility = campos.visibility ?? 'public'
     const linha = {
-      id: newId(), groupId, name: nome,
+      id: newId(), groupId, name: nome, visibility,
       topic: campos.topic ?? null, position: await proximaPosicao(groupId),
     }
 
@@ -100,8 +157,17 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
     // INSERT cabe outro pedido com o mesmo nome, e o banco e o unico lugar
     // onde a corrida nao existe.
     try {
-      const [criado] = await db.insert(channels).values(linha).returning()
-      return reply.status(201).send(serializeChannel(criado!))
+      const criado = await db.transaction(async tx => {
+        const [c] = await tx.insert(channels).values(linha).returning()
+        // Quem cria um canal privado entra nele. Um canal privado sem ninguem
+        // dentro nasceria ilegivel ate para o proprio autor.
+        if (visibility === 'private') {
+          await tx.insert(channelMembers)
+            .values({ channelId: c!.id, userId, addedBy: userId })
+        }
+        return c!
+      })
+      return reply.status(201).send(serializeChannel(criado))
     } catch (erro) {
       if (eNomeDuplicado(erro)) throw new AppError('channel_name_taken')
       throw erro
@@ -113,13 +179,38 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
     const actor = await loadGroupActor(req.user!.id, groupId)
     assertCan(actor, 'group.view', { kind: 'group' })
 
+    // O LEFT JOIN com o filtro no ON e o que faz um unico SELECT resolver as
+    // duas regras: canal publico entra sempre, privado so quando existe linha
+    // em channel_members para quem pergunta. Buscar tudo e filtrar em memoria
+    // depois funcionaria — e seria exatamente o atalho que um refactor futuro
+    // esquece de refazer, transformando invisivel em visivel.
+    //
     // Desempate por id — que e UUIDv7, portanto ordem de criacao — para que a
     // barra lateral nao troque de ordem sozinha entre dois carregamentos.
-    const linhas = await db.select().from(channels)
-      .where(eq(channels.groupId, groupId))
+    const linhas = await db.select(getTableColumns(channels)).from(channels)
+      .leftJoin(channelMembers, and(
+        eq(channelMembers.channelId, channels.id),
+        eq(channelMembers.userId, req.user!.id),
+      ))
+      .where(and(
+        eq(channels.groupId, groupId),
+        or(eq(channels.visibility, 'public'), isNotNull(channelMembers.userId)),
+      ))
       .orderBy(asc(channels.position), asc(channels.id))
 
     return linhas.map(serializeChannel)
+  })
+
+  app.get('/api/channels/:id', { preHandler: requireAuth }, async req => {
+    const channelId = uuidOu404((req.params as { id: string }).id)
+    const carregado = await loadChannelActor(req.user!.id, channelId)
+    if (!carregado) throw new AppError('not_found')
+    // Eixo LER: vem do pertencimento ao canal, jamais do papel no grupo. E por
+    // isso que o admin de fora leva 404 aqui e 204 no DELETE.
+    assertCan(carregado.actor, 'channel.read', {
+      kind: 'channel', visibility: carregado.channel.visibility,
+    })
+    return serializeChannel(carregado.channel)
   })
 
   app.patch('/api/channels/:id', { preHandler: requireAuth }, async req => {
@@ -135,18 +226,98 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
       ...(campos.name !== undefined ? { name: nomeOu422(campos.name) } : {}),
       ...(campos.topic !== undefined ? { topic: campos.topic } : {}),
       ...(campos.position !== undefined ? { position: campos.position } : {}),
+      ...(campos.visibility !== undefined ? { visibility: campos.visibility } : {}),
     }
+    // Repetir a visibilidade atual e um no-op deliberado: sem esta guarda, um
+    // PATCH que so mexe no topico e reenvia `visibility` apagaria a lista de
+    // acesso inteira sem que ninguem tivesse pedido isso.
+    const novaVisibilidade = campos.visibility !== undefined
+      && campos.visibility !== carregado.channel.visibility
+      ? campos.visibility : null
 
     try {
-      const [atualizado] = await db.update(channels).set(mudancas)
-        .where(eq(channels.id, channelId)).returning()
-      if (!atualizado) throw new AppError('not_found')
+      const atualizado = await db.transaction(async tx => {
+        const [c] = await tx.update(channels).set(mudancas)
+          .where(eq(channels.id, channelId)).returning()
+        if (!c) throw new AppError('not_found')
+        if (novaVisibilidade !== null) {
+          await trocarVisibilidade(tx, c, novaVisibilidade, req.user!.id)
+        }
+        return c
+      })
       return serializeChannel(atualizado)
     } catch (erro) {
       if (eNomeDuplicado(erro)) throw new AppError('channel_name_taken')
       throw erro
     }
   })
+
+  app.get('/api/channels/:id/members', { preHandler: requireAuth }, async req => {
+    const channelId = uuidOu404((req.params as { id: string }).id)
+    const carregado = await loadChannelActor(req.user!.id, channelId)
+    if (!carregado) throw new AppError('not_found')
+    const recurso = { kind: 'channel' as const, visibility: carregado.channel.visibility }
+    // Ler a lista e um `ou`: quem participa precisa saber com quem fala, e quem
+    // administra precisa da tela de configuracao do grupo — que mostra os
+    // nomes sem jamais abrir o conteudo. Spec 03 secao 9.
+    if (!podeVerLista(carregado.actor, recurso)) throw new AppError('not_found')
+
+    exigePrivado(carregado.channel)
+
+    return db.select({
+      userId: users.id,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      addedAt: channelMembers.addedAt,
+    })
+      .from(channelMembers)
+      .innerJoin(users, eq(users.id, channelMembers.userId))
+      .where(eq(channelMembers.channelId, channelId))
+      .orderBy(asc(channelMembers.addedAt))
+  })
+
+  app.post('/api/channels/:id/members', { preHandler: requireAuth }, async (req, reply) => {
+    const channelId = uuidOu404((req.params as { id: string }).id)
+    const carregado = await loadChannelActor(req.user!.id, channelId)
+    if (!carregado) throw new AppError('not_found')
+    assertCan(carregado.actor, 'channel.manage_members', {
+      kind: 'channel', visibility: carregado.channel.visibility,
+    })
+
+    exigePrivado(carregado.channel)
+
+    const { userId: alvo } = parse(membroSchema, req.body)
+    await membroDoGrupoOu404(carregado.channel.groupId, alvo)
+
+    // Adicionar duas vezes e a mesma intencao com o mesmo resultado; o segundo
+    // pedido nao merece um 409.
+    await db.insert(channelMembers)
+      .values({ channelId, userId: alvo, addedBy: req.user!.id })
+      .onConflictDoNothing()
+
+    return reply.status(201).send({ userId: alvo, channelId })
+  })
+
+  app.delete('/api/channels/:id/members/:userId', { preHandler: requireAuth },
+    async (req, reply) => {
+      const p = req.params as { id: string; userId: string }
+      const channelId = uuidOu404(p.id)
+      const alvo = uuidOu404(p.userId)
+      const eu = req.user!.id
+
+      const carregado = await loadChannelActor(eu, channelId)
+      if (!carregado) throw new AppError('not_found')
+      const recurso = { kind: 'channel' as const, visibility: carregado.channel.visibility }
+      // Sair e direito de quem participa; tirar outra pessoa exige administrar.
+      assertCan(carregado.actor, alvo === eu ? 'channel.read' : 'channel.manage_members', recurso)
+
+      exigePrivado(carregado.channel)
+
+      await db.delete(channelMembers).where(and(
+        eq(channelMembers.channelId, channelId), eq(channelMembers.userId, alvo),
+      ))
+      return reply.status(204).send()
+    })
 
   app.delete('/api/channels/:id', { preHandler: requireAuth }, async (req, reply) => {
     const channelId = uuidOu404((req.params as { id: string }).id)
