@@ -1,0 +1,100 @@
+@import 'tailwindcss';
+
+/**
+ * As cores NAO sao declaradas aqui: o ThemeProvider as escreve no elemento raiz
+ * a partir de src/ui/tokens.ts, que e o arquivo que o teste de contraste le.
+ * Duplica-las nesta folha criaria uma segunda verdade, e a segunda verdade e
+ * sempre a que envelhece errado.
+ */
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-bg-raised: var(--color-bg-raised);
+  --color-bg-hover: var(--color-bg-hover);
+  --color-fg: var(--color-fg);
+  --color-fg-muted: var(--color-fg-muted);
+  --color-border: var(--color-border);
+  --color-border-subtle: var(--color-border-subtle);
+  --color-accent: var(--color-accent);
+  --color-accent-fg: var(--color-accent-fg);
+  --color-focus-ring: var(--color-focus-ring);
+  --color-danger: var(--color-danger);
+  --color-danger-fg: var(--color-danger-fg);
+  --color-presence-online: var(--color-presence-online);
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Monoespacada nos codigos de convite nao e estetica: 'K7M2P9XQ' assim e
+     ditavel por telefone sem erro, e e literalmente como esse codigo circula. */
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+}
+
+:root {
+  color-scheme: dark;
+  --space-row: 0.5rem;
+  --space-block: 0.875rem;
+  --space-gutter: 1rem;
+  --leading-body: 1.6;
+  --height-row: 2.25rem;
+
+  /* Larguras fixas onde precisam ser estaveis: a barra lateral nao pode mudar
+     de largura porque apareceu um nome longo ou um estado de hover. */
+  --w-groups: 64px;
+  --w-channels: 240px;
+  --w-members: 240px;
+}
+
+:root[data-theme='light'] { color-scheme: light; }
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/**
+ * Foco sempre visivel: anel de 2px com deslocamento, contraste 3:1 garantido
+ * pelo token. Remover o outline sem substituto e proibido (SC 2.4.11).
+ */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/** Alvo minimo de 24x24 (SC 2.5.8), e 44x44 quando a entrada e por toque. */
+@media (pointer: coarse) {
+  :where(button, a[href], [role='button']) { min-block-size: 44px; min-inline-size: 44px; }
+}
+
+/**
+ * Movimento existe para orientar transicao de estado, nunca para enfeitar —
+ * entao desligar tudo nao custa nada a quem pede menos movimento.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/** Primeiro elemento focavel da aplicacao; visivel so quando recebe foco. */
+.pular-para-conversa {
+  position: absolute;
+  inset-inline-start: -9999px;
+  z-index: 100;
+}
+.pular-para-conversa:focus {
+  inset-inline-start: var(--space-gutter);
+  inset-block-start: var(--space-gutter);
+  background: var(--color-bg-raised);
+  color: var(--color-fg);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
