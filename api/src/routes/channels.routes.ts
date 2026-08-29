@@ -219,6 +219,42 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
     return serializeChannel(carregado.channel)
   })
 
+  /**
+   * A unica excecao a invisibilidade (spec 03 secao 9): quem administra ve os
+   * NOMES para poder apagar um canal orfao. E preciso registrar aqui, ao lado
+   * do codigo, por que a excecao nao e uma brecha - a resposta nao traz topico,
+   * nem membros, nem mensagem, e `contentAccessible` declara em voz alta que o
+   * conteudo continua fechado para quem nao participa.
+   */
+  app.get('/api/groups/:id/channels/manage', { preHandler: requireAuth }, async req => {
+    const groupId = uuidOu404((req.params as { id: string }).id)
+    const userId = req.user!.id
+    const actor = await loadGroupActor(userId, groupId)
+    assertCan(actor, 'channel.update', { kind: 'channel' })
+
+    const linhas = await db.select({
+      id: channels.id,
+      name: channels.name,
+      type: channels.type,
+      visibility: channels.visibility,
+      position: channels.position,
+      createdAt: channels.createdAt,
+      participa: channelMembers.userId,
+    })
+      .from(channels)
+      .leftJoin(channelMembers, and(
+        eq(channelMembers.channelId, channels.id),
+        eq(channelMembers.userId, userId),
+      ))
+      .where(eq(channels.groupId, groupId))
+      .orderBy(asc(channels.position), asc(channels.id))
+
+    return linhas.map(({ participa, ...canal }) => ({
+      ...canal,
+      contentAccessible: canal.visibility === 'public' || participa !== null,
+    }))
+  })
+
   app.patch('/api/channels/:id', { preHandler: requireAuth }, async req => {
     const channelId = uuidOu404((req.params as { id: string }).id)
     const carregado = await loadChannelActor(req.user!.id, channelId)

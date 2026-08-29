@@ -4,7 +4,9 @@ import { z } from 'zod'
 import { db } from '../db/client.js'
 import { groupMembers, groups, users } from '../db/schema.js'
 import { DUMMY_HASH, assertPasswordAcceptable, hashPassword, verifyPassword } from '../auth/password.js'
-import { createSession, revokeSession } from '../auth/session.js'
+import {
+  createSession, listSessions, revokeSession, revokeSessionByHandle,
+} from '../auth/session.js'
 import { requireAuth } from '../auth/middleware.js'
 import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
@@ -125,6 +127,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     if (req.sessionId !== undefined) await revokeSession(req.sessionId)
     reply.clearCookie(env.SESSION_COOKIE_NAME, { path: '/' })
     return { ok: true }
+  })
+
+  app.get('/api/auth/sessions', { preHandler: requireAuth }, async req =>
+    listSessions(req.user!.id, req.sessionId!))
+
+  app.delete('/api/auth/sessions/:handle', { preHandler: requireAuth }, async (req, reply) => {
+    const { handle } = req.params as { handle: string }
+    const revogou = await revokeSessionByHandle(req.user!.id, handle)
+    // Sessao de outra conta e sessao inexistente recebem a mesma resposta: um
+    // 403 aqui confirmaria que aquele identificador existe em algum lugar.
+    if (!revogou) throw new AppError('not_found')
+    return reply.status(204).send()
   })
 
   app.get('/api/auth/me', { preHandler: requireAuth }, async req => {

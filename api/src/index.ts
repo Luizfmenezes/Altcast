@@ -58,7 +58,8 @@ export async function buildServer(): Promise<FastifyInstance> {
     // resposta. Sem esta traducao ele cairia no ramo de erro inesperado e o
     // cliente receberia 500 — perdendo justamente a informacao de quando
     // tentar de novo.
-    if (!(err instanceof AppError) && err.statusCode === 429) {
+    const status = (err as { statusCode?: unknown }).statusCode
+    if (!(err instanceof AppError) && status === 429) {
       req.log.info({ requestId }, 'limite de taxa atingido')
       return reply.status(429).send({
         error: {
