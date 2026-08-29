@@ -112,7 +112,12 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
     return linhas.map(serializeMessage)
   })
 
-  app.post('/api/channels/:id/messages', { preHandler: requireAuth }, async (req, reply) => {
+  app.post('/api/channels/:id/messages', {
+    preHandler: requireAuth,
+    // Spec 03 secao 6: 30 por minuto por usuario. Conversa humana nao chega
+    // perto disso; inundacao automatizada passa disso na primeira segunda.
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+  }, async (req, reply) => {
     const channelId = uuidOu404((req.params as { id: string }).id)
     const userId = req.user!.id
     const carregado = await loadChannelActor(userId, channelId)

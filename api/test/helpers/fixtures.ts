@@ -66,16 +66,24 @@ export async function cenarioPrivado(db: Database): Promise<CenarioPrivado> {
   return { grupo, canal, canalPublico, owner, admin, membroDentro, membroFora, estranho }
 }
 
-/** Cria a conta e faz login de verdade, devolvendo o cookie de sessao. */
+/**
+ * Cria a conta e faz login de verdade, devolvendo o cookie de sessao.
+ *
+ * `remoteAddress` existe para os testes que criam varias contas de uma vez: o
+ * login e limitado a 5 por minuto por IP, e sem enderecos distintos a sexta
+ * chamada voltaria 429 em vez do cookie.
+ */
 export async function loginComo(
   app: FastifyInstance,
   db: Database,
   email: string,
   senha = 'senha-longa-boa',
+  remoteAddress?: string,
 ): Promise<{ cookie: string; userId: string }> {
   const userId = await criarUsuario(db, { email, senha })
   const res = await app.inject({
     method: 'POST', url: '/api/auth/login', payload: { email, password: senha },
+    ...(remoteAddress === undefined ? {} : { remoteAddress }),
   })
   const cookie = (res.headers['set-cookie'] as string).split(';')[0]!
   return { cookie, userId }

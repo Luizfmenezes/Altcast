@@ -263,11 +263,19 @@ describe('convites', () => {
 
       const cookies: string[] = []
       for (let i = 0; i < 10; i++) {
-        cookies.push((await loginComo(app, db, `p${i}@x.com`)).cookie)
+        cookies.push(
+          (await loginComo(app, db, `p${i}@x.com`, 'senha-longa-boa', `10.0.0.${i + 1}`)).cookie,
+        )
       }
 
-      const respostas = await Promise.all(cookies.map(cookie =>
-        app.inject({ method: 'POST', url: `/api/invites/${code}/accept`, headers: { cookie } })))
+      // Cada tentativa vem de um endereco proprio: dez pessoas aceitando ao
+      // mesmo tempo sao dez origens, e sem isso o limite de 5 por hora por IP
+      // responderia antes da trava de linha, que e o que este teste mede.
+      const respostas = await Promise.all(cookies.map((cookie, i) =>
+        app.inject({
+          method: 'POST', url: `/api/invites/${code}/accept`,
+          headers: { cookie }, remoteAddress: `10.0.0.${i + 1}`,
+        })))
 
       expect(respostas.filter(r => r.statusCode === 200)).toHaveLength(3)
       expect(respostas.filter(r => r.statusCode === 410)).toHaveLength(7)

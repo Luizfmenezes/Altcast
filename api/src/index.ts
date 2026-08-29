@@ -1,5 +1,6 @@
 import { basename } from 'node:path'
 import cookie from '@fastify/cookie'
+import rateLimit from '@fastify/rate-limit'
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify'
 import { env } from './env.js'
 import { logger } from './shared/logger.js'
@@ -14,6 +15,9 @@ import { gatewayRoutes } from './realtime/gateway.js'
 
 const METODOS_DE_ESCRITA = ['POST', 'PATCH', 'DELETE', 'PUT']
 
+/** Spec 03 secao 6: demais rotas, 300 por minuto por usuario. */
+const LIMITE_PADRAO_POR_MINUTO = 300
+
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
     loggerInstance: logger as FastifyBaseLogger,
@@ -21,6 +25,16 @@ export async function buildServer(): Promise<FastifyInstance> {
   })
 
   await app.register(cookie)
+
+  // Contadores em memoria: um unico processo na Fatia 1. A chave e o cookie de
+  // sessao quando existe, e o IP quando nao — `req.user` so e preenchido pelo
+  // preHandler de autenticacao, que roda DEPOIS deste hook.
+  await app.register(rateLimit, {
+    global: true,
+    max: LIMITE_PADRAO_POR_MINUTO,
+    timeWindow: '1 minute',
+    keyGenerator: req => req.cookies[env.SESSION_COOKIE_NAME] ?? req.ip,
+  })
 
   // CSRF sem token dedicado: SameSite=Lax no cookie impede o envio em
   // requisicao cross-site de escrita, e esta checagem cobre o resto.
@@ -39,6 +53,23 @@ export async function buildServer(): Promise<FastifyInstance> {
   // { statusCode, error: 'Unauthorized' } em vez do envelope da spec 06.
   app.setErrorHandler((err, req, reply) => {
     const requestId = req.id
+
+    // O rate-limit lanca um erro proprio, com o Retry-After ja posto na
+    // resposta. Sem esta traducao ele cairia no ramo de erro inesperado e o
+    // cliente receberia 500 — perdendo justamente a informacao de quando
+    // tentar de novo.
+    if (!(err instanceof AppError) && err.statusCode === 429) {
+      req.log.info({ requestId }, 'limite de taxa atingido')
+      return reply.status(429).send({
+        error: {
+          code: 'rate_limited',
+          message: ERROR_CATALOG.rate_limited.message,
+          requestId,
+          details: null,
+        },
+      })
+    }
+
     if (err instanceof AppError) {
       // 'errorCode' e nao 'code': o logger redige 'code' por causa dos
       // codigos de convite. Ver o comentario em shared/logger.ts.

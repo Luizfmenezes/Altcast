@@ -123,7 +123,11 @@ export async function invitesRoutes(app: FastifyInstance): Promise<void> {
    * campo a campo — nunca espalhando a linha do banco — porque um `...grupo`
    * aqui entregaria o id interno a qualquer um com um codigo vazado.
    */
-  app.get('/api/invites/:code', async req => {
+  // 20 por minuto por IP: a previa e publica, e sem limite viraria oraculo
+  // para varrer o espaco de codigos.
+  app.get('/api/invites/:code', {
+    config: { rateLimit: { max: 20, timeWindow: '1 minute', keyGenerator: req => req.ip } },
+  }, async req => {
     const codigo = normalizeInviteCode((req.params as { code: string }).code)
 
     const [inv] = await db.select().from(invites).where(eq(invites.code, codigo)).limit(1)
@@ -141,7 +145,12 @@ export async function invitesRoutes(app: FastifyInstance): Promise<void> {
     }
   })
 
-  app.post('/api/invites/:code/accept', { preHandler: requireAuth }, async req => {
+  app.post('/api/invites/:code/accept', {
+    preHandler: requireAuth,
+    // Por IP, e nao por sessao: quem varre codigos cria contas novas a cada
+    // tentativa, e o limite por sessao nao veria a varredura.
+    config: { rateLimit: { max: 5, timeWindow: '1 hour', keyGenerator: req => req.ip } },
+  }, async req => {
     const codigo = normalizeInviteCode((req.params as { code: string }).code)
     const userId = req.user!.id
 

@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { db } from '../db/client.js'
 import { groupMembers, groups, users } from '../db/schema.js'
@@ -38,8 +38,15 @@ function cookieOptions() {
   }
 }
 
+/** O limite de rotas nao autenticadas e por origem de rede, nao por sessao. */
+const porIp = (req: FastifyRequest): string => req.ip
+
 export async function authRoutes(app: FastifyInstance): Promise<void> {
-  app.post('/api/auth/register', async (req, reply) => {
+  // Spec 03 secao 6: 3 por hora por IP. Cadastro em massa e o vetor que este
+  // limite fecha, e nenhum humano cria tres contas por hora de boa-fe.
+  app.post('/api/auth/register', {
+    config: { rateLimit: { max: 3, timeWindow: '1 hour', keyGenerator: porIp } },
+  }, async (req, reply) => {
     const parsed = registerSchema.safeParse(req.body)
     if (!parsed.success) {
       throw new AppError('validation_failed', z.flattenError(parsed.error).fieldErrors)
@@ -79,7 +86,20 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     })
   })
 
-  app.post('/api/auth/login', async (req, reply) => {
+  app.post('/api/auth/login', {
+    // 5 por minuto por IP freia a forca bruta distribuida por contas; o
+    // segundo limite, 10 por hora por e-mail, freia a forca bruta concentrada
+    // numa conta so, que trocar de IP contornaria. Sao eixos diferentes, e por
+    // isso dois limitadores em vez de um.
+    config: { rateLimit: { max: 5, timeWindow: '1 minute', keyGenerator: porIp } },
+    preHandler: app.rateLimit({
+      max: 10, timeWindow: '1 hour',
+      keyGenerator: req => {
+        const email = (req.body as { email?: unknown })?.email
+        return typeof email === 'string' ? `login:${email.toLowerCase()}` : req.ip
+      },
+    }),
+  }, async (req, reply) => {
     const parsed = loginSchema.safeParse(req.body)
     if (!parsed.success) throw new AppError('validation_failed')
     const { email, password } = parsed.data
