@@ -3,6 +3,7 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres'
 import pg from 'pg'
 import * as schema from '../../src/db/schema.js'
 import { runMigrations } from '../../src/db/migrate.js'
+import { setDatabase } from '../../src/db/client.js'
 
 let container: StartedPostgreSqlContainer | undefined
 let pool: pg.Pool | undefined
@@ -19,7 +20,11 @@ async function iniciar(): Promise<NodePgDatabase<typeof schema>> {
   // Migrador proprio: o do drizzle-orm exige migrations/meta/_journal.json
   // gerado pelo drizzle-kit, e a spec 02 pede SQL puro escrito a mao.
   await runMigrations(pool)
-  return drizzle(pool, { schema })
+  const db = drizzle(pool, { schema })
+  // Sem isto, session.ts / context.ts / rotas gravariam no banco de
+  // env.DATABASE_URL enquanto o teste insere neste container.
+  setDatabase(db)
+  return db
 }
 
 /** Uma unica promessa compartilhada: subir container e caro. */

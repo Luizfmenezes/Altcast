@@ -8,9 +8,13 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "seed:owner": "node src/cli/seed-owner.ts",
+    "lint": "eslint ."
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@node-rs/argon2": "^2.1.0",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.2.1",
     "pg": "^8.23.0",
@@ -22,6 +26,7 @@
     "@testcontainers/postgresql": "^12.1.0",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.23.1",
+    "@vitest/coverage-v8": "^3.2.7",
     "drizzle-kit": "^0.31.10",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"

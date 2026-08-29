@@ -22,5 +22,19 @@ export default defineConfig({
       SESSION_TTL_DAYS: '30',
       LOG_LEVEL: 'fatal',
     },
+
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary'],
+      include: ['src/**/*.ts'],
+      // Os dois arquivos que concentram o risco do sistema: can.ts decide
+      // quem pode o que, fanout.ts decide quem recebe o que. Abaixo de 100%
+      // o build quebra. fanout.ts entra na Tarefa 17.
+      thresholds: {
+        'src/permissions/can.ts': {
+          statements: 100, branches: 100, functions: 100, lines: 100,
+        },
+      },
+    },
   },
 })

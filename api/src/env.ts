@@ -9,6 +9,10 @@ const schema = z.object({
   SESSION_COOKIE_NAME: z.string().default('altcast_session'),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  // Usadas uma unica vez, por npm run seed:owner. Opcionais para que a API
+  // suba sem elas depois do bootstrap.
+  SEED_OWNER_EMAIL: z.string().optional(),
+  SEED_OWNER_PASSWORD: z.string().optional(),
 })
 
 export type Env = z.infer<typeof schema>

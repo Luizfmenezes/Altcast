@@ -1,0 +1,80 @@
+import { describe, it, expect } from 'vitest'
+import { can, type Action, type Actor, type Resource } from '../src/permissions/can.js'
+
+const ator = (role: Actor['role'], inChannel = false): Actor =>
+  ({ userId: 'u1', role, inChannel })
+
+const canalPublico: Resource = { kind: 'channel', visibility: 'public' }
+const canalPrivado: Resource = { kind: 'channel', visibility: 'private' }
+const grupo: Resource        = { kind: 'group' }
+const msgPropria: Resource   = { kind: 'message', authorId: 'u1' }
+const msgTerceiro: Resource  = { kind: 'message', authorId: 'u2' }
+
+describe('can — tabela de verdade', () => {
+  const casos: Array<[string, Actor, Action, Resource, boolean]> = [
+    ['owner le canal publico',             ator('owner'),         'channel.read',   canalPublico, true],
+    ['member le canal publico',            ator('member'),        'channel.read',   canalPublico, true],
+    ['nao-membro nao le canal publico',    ator(null),            'channel.read',   canalPublico, false],
+    ['member dentro do privado le',        ator('member', true),  'channel.read',   canalPrivado, true],
+    ['member fora do privado nao le',      ator('member', false), 'channel.read',   canalPrivado, false],
+    ['admin fora do privado NAO le',       ator('admin', false),  'channel.read',   canalPrivado, false],
+    ['owner fora do privado NAO le',       ator('owner', false),  'channel.read',   canalPrivado, false],
+    ['admin apaga privado sem ler',        ator('admin', false),  'channel.delete', canalPrivado, true],
+    ['owner apaga privado sem ler',        ator('owner', false),  'channel.delete', canalPrivado, true],
+    ['member nao apaga canal',             ator('member', true),  'channel.delete', canalPrivado, false],
+    ['member escreve em publico',          ator('member'),        'channel.write',  canalPublico, true],
+    ['member fora do privado nao escreve', ator('member', false), 'channel.write',  canalPrivado, false],
+    ['owner apaga grupo',                  ator('owner'),         'group.delete',      grupo, true],
+    ['admin nao apaga grupo',              ator('admin'),         'group.delete',      grupo, false],
+    ['admin convida',                      ator('admin'),         'group.invite',      grupo, true],
+    ['member nao convida',                 ator('member'),        'group.invite',      grupo, false],
+    ['admin remove membro',                ator('admin'),         'group.kick',        grupo, true],
+    ['member nao remove membro',           ator('member'),        'group.kick',        grupo, false],
+    ['owner muda papel',                   ator('owner'),         'group.change_role', grupo, true],
+    ['admin nao muda papel',               ator('admin'),         'group.change_role', grupo, false],
+    ['member ve o grupo',                  ator('member'),        'group.view',        grupo, true],
+    ['admin atualiza o grupo',             ator('admin'),         'group.update',      grupo, true],
+    ['member nao atualiza o grupo',        ator('member'),        'group.update',      grupo, false],
+    ['admin cria canal',                   ator('admin'),         'channel.create',    grupo, true],
+    ['member nao cria canal',              ator('member'),        'channel.create',    grupo, false],
+    ['admin gerencia acesso do canal',     ator('admin', false),  'channel.manage_members', canalPrivado, true],
+    ['member nao gerencia acesso',         ator('member', true),  'channel.manage_members', canalPrivado, false],
+    ['member cria mensagem em publico',    ator('member'),        'message.create',    canalPublico, true],
+    ['member fora do privado nao cria',    ator('member', false), 'message.create',    canalPrivado, false],
+    ['autor edita a propria',              ator('member'),        'message.edit_own',   msgPropria,  true],
+    ['nao edita a de terceiro',            ator('member'),        'message.edit_own',   msgTerceiro, false],
+    ['autor apaga a propria',              ator('member'),        'message.delete_own', msgPropria,  true],
+    ['nao apaga a de terceiro por delete_own', ator('member'),    'message.delete_own', msgTerceiro, false],
+    ['admin apaga a de terceiro',          ator('admin'),         'message.delete_any', msgTerceiro, true],
+    ['owner apaga a de terceiro',          ator('owner'),         'message.delete_any', msgTerceiro, true],
+    ['member nao apaga a de terceiro',     ator('member'),        'message.delete_any', msgTerceiro, false],
+    ['autor apaga a propria por delete_any', ator('member'),      'message.delete_any', msgPropria, true],
+    ['ninguem entra em call na Fatia 1',   ator('owner', true),   'channel.join_call',  canalPublico, false],
+    ['ninguem publica na Fatia 1',         ator('owner', true),   'channel.publish',    canalPublico, false],
+    ['ninguem modera call na Fatia 1',     ator('owner', true),   'channel.moderate_call', canalPublico, false],
+  ]
+
+  for (const [nome, a, acao, recurso, esperado] of casos) {
+    it(nome, () => expect(can(a, acao, recurso)).toBe(esperado))
+  }
+})
+
+it('nao-membro nao pode absolutamente nada', () => {
+  const acoes: Action[] = [
+    'group.view','group.update','group.delete','group.invite','group.kick',
+    'group.change_role','channel.create','channel.update','channel.delete',
+    'channel.read','channel.write','channel.manage_members','message.create',
+    'message.edit_own','message.delete_own','message.delete_any',
+  ]
+  for (const acao of acoes) {
+    expect(can(ator(null), acao, grupo)).toBe(false)
+    expect(can(ator(null), acao, canalPublico)).toBe(false)
+    expect(can(ator(null), acao, canalPrivado)).toBe(false)
+  }
+})
+
+it('acao desconhecida nasce negada', () => {
+  // Garante o return false final: uma acao nova no tipo Action que ninguem
+  // tratou precisa ser recusada, nunca liberada por omissao.
+  expect(can(ator('owner', true), 'group.export' as Action, grupo)).toBe(false)
+})
