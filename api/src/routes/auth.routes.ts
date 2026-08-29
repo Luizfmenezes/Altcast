@@ -3,15 +3,28 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { db } from '../db/client.js'
 import { groupMembers, groups, users } from '../db/schema.js'
-import { DUMMY_HASH, verifyPassword } from '../auth/password.js'
+import { DUMMY_HASH, assertPasswordAcceptable, hashPassword, verifyPassword } from '../auth/password.js'
 import { createSession, revokeSession } from '../auth/session.js'
 import { requireAuth } from '../auth/middleware.js'
 import { AppError } from '../shared/errors.js'
+import { newId } from '../shared/ids.js'
+import { normalizeInviteCode } from '../invites/code.js'
+import { consumirConvite } from './invites.routes.js'
 import { env } from '../env.js'
 
 const loginSchema = z.object({
   email: z.string().min(3).max(254),
   password: z.string().min(1).max(1024),
+})
+
+const registerSchema = z.object({
+  email: z.email().max(254),
+  password: z.string().min(1).max(1024),
+  displayName: z.string().trim().min(2).max(64),
+  // Sem convite valido nao existe cadastro. A porta de entrada do Altcast e a
+  // lista de convidados, e e isso que dispensa verificacao de e-mail, fila de
+  // aprovacao e defesa contra cadastro em massa (spec 03 secao 1).
+  inviteCode: z.string().min(1).max(32),
 })
 
 function cookieOptions() {
@@ -25,6 +38,43 @@ function cookieOptions() {
 }
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
+  app.post('/api/auth/register', async (req, reply) => {
+    const parsed = registerSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new AppError('validation_failed', z.flattenError(parsed.error).fieldErrors)
+    }
+    const { email, password, displayName } = parsed.data
+    const inviteCode = normalizeInviteCode(parsed.data.inviteCode)
+
+    assertPasswordAcceptable(password)
+
+    const [existente] = await db.select({ id: users.id })
+      .from(users).where(eq(users.email, email)).limit(1)
+    if (existente) throw new AppError('email_taken')
+
+    // Fora da transacao: argon2id com 19 MiB leva centenas de milissegundos e
+    // seguraria a linha travada do convite por todo esse tempo.
+    const passwordHash = await hashPassword(password)
+
+    const userId = newId()
+    await db.transaction(async tx => {
+      await tx.insert(users).values({ id: userId, email, passwordHash, displayName })
+      // Mesma transacao que a criacao da conta: um convite esgotado sem conta
+      // criada, ou uma conta orfa sem grupo, seriam os dois estados que
+      // nenhuma tela sabe consertar.
+      await consumirConvite(tx, inviteCode, userId)
+    })
+
+    const s = await createSession(userId, {
+      userAgent: req.headers['user-agent'] ?? null,
+      ip: req.ip ?? null,
+    })
+    reply.setCookie(env.SESSION_COOKIE_NAME, s.id, cookieOptions())
+    return reply.status(201).send({
+      user: { id: userId, email, displayName, avatarUrl: null },
+    })
+  })
+
   app.post('/api/auth/login', async (req, reply) => {
     const parsed = loginSchema.safeParse(req.body)
     if (!parsed.success) throw new AppError('validation_failed')

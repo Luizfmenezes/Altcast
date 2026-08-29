@@ -7,6 +7,7 @@ import { AppError, ERROR_CATALOG } from './shared/errors.js'
 import { newId } from './shared/ids.js'
 import { authRoutes } from './routes/auth.routes.js'
 import { groupsRoutes } from './routes/groups.routes.js'
+import { invitesRoutes } from './routes/invites.routes.js'
 
 const METODOS_DE_ESCRITA = ['POST', 'PATCH', 'DELETE', 'PUT']
 
@@ -58,6 +59,7 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   await app.register(authRoutes)
   await app.register(groupsRoutes)
+  await app.register(invitesRoutes)
 
 
   return app
