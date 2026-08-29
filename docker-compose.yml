@@ -1,0 +1,74 @@
+# Compose de producao. Sobe do zero num host limpo com `docker compose up -d`,
+# desde que exista um .env ao lado (veja .env.example).
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-altcast}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-altcast}
+    # Nenhuma porta publicada: o banco so e alcancavel pela rede interna do
+    # compose. Publicar 5432 no host e como deixar a porta dos fundos aberta
+    # porque foi comodo uma vez durante a depuracao.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-altcast}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: >-
+        postgres://${POSTGRES_USER:-altcast}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-altcast}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?defina ALLOWED_ORIGINS no .env}
+      PUBLIC_URL: ${PUBLIC_URL:?defina PUBLIC_URL no .env}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-altcast_session}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?defina PUBLIC_DOMAIN no .env}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      # Os certificados precisam sobreviver a um recriar de container: sem
+      # isto, cada `up --build` pediria emissao nova e bateria no limite de
+      # taxa da autoridade certificadora.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # A Fatia 2 acrescenta midia. O servico fica registrado aqui, comentado, para
+  # que a decisao ja tomada nao precise ser redescoberta:
+  #
+  # livekit:
+  #   image: livekit/livekit-server:latest
+  #   restart: unless-stopped
+  #   command: --config /etc/livekit.yaml
+  #   volumes: ['./livekit.yaml:/etc/livekit.yaml:ro']
+  #   ports: ['7880:7880', '7881:7881', '50000-50100:50000-50100/udp']
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

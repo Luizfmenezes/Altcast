@@ -1,8 +1,10 @@
 import { basename } from 'node:path'
+import pg from 'pg'
 import cookie from '@fastify/cookie'
 import rateLimit from '@fastify/rate-limit'
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify'
 import { env } from './env.js'
+import { runMigrations } from './db/migrate.js'
 import { logger } from './shared/logger.js'
 import { AppError, ERROR_CATALOG } from './shared/errors.js'
 import { newId } from './shared/ids.js'
@@ -108,6 +110,27 @@ export async function buildServer(): Promise<FastifyInstance> {
 // em producao roda o build compilado.
 const entry = process.argv[1]
 if (entry !== undefined && ['index.ts', 'index.js'].includes(basename(entry))) {
+  // Migrar ANTES de aceitar trafego. Um container novo que ja recebesse
+  // requisicao enquanto o schema ainda nao existe responderia 500 para os
+  // primeiros usuarios de cada implantacao. O lock consultivo dentro de
+  // runMigrations garante que varias instancias subindo juntas migrem uma de
+  // cada vez, em vez de correrem.
+  const pool = new pg.Pool({ connectionString: env.DATABASE_URL })
+  try {
+    const aplicadas = await runMigrations(pool)
+    if (aplicadas.length > 0) logger.info({ aplicadas }, 'migracoes aplicadas')
+  } finally {
+    await pool.end()
+  }
+
   const app = await buildServer()
   await app.listen({ port: env.PORT, host: '0.0.0.0' })
+
+  // Sem isto o container so morre no SIGKILL do orquestrador, derrubando
+  // conexoes abertas em vez de encerra-las.
+  for (const sinal of ['SIGTERM', 'SIGINT'] as const) {
+    process.once(sinal, () => {
+      void app.close().then(() => process.exit(0))
+    })
+  }
 }

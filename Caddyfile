@@ -1,0 +1,35 @@
+# O valor de PUBLIC_DOMAIN decide o modo: um dominio real liga o TLS
+# automatico do Caddy; http://localhost mantem a fumaca e o desenvolvimento
+# em texto claro, sem pedir certificado para um nome que nao existe.
+{$PUBLIC_DOMAIN} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# O upgrade do WebSocket passa pelo mesmo proxy: o Caddy repassa os
+	# cabecalhos de upgrade sozinho, sem configuracao extra.
+	handle /ws {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		root * /srv/web
+		# A aplicacao e de pagina unica: qualquer caminho desconhecido devolve
+		# o index para o roteamento acontecer no cliente. Sem isto, recarregar
+		# em /convite/K7M2P9XQ daria 404.
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# connect-src inclui wss: porque o tempo real e o unico destino externo
+		# ao documento. Nenhum script de terceiro, nenhuma fonte remota.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'"
+		-Server
+	}
+}
