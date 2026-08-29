@@ -27,6 +27,14 @@ export default tseslint.config(
     // O frontend compartilha as regras base; a invariante de papel e da API,
     // onde a autorizacao acontece — o cliente so exibe o que recebeu.
     files: ['web/**/*.{ts,tsx}'],
+    rules: {
+      // Descartar uma chave por desestruturacao e a forma idiomatica de
+      // remove-la de um objeto sem mutar; o nome descartado existe so para
+      // dar lugar a ela.
+      '@typescript-eslint/no-unused-vars': ['error', {
+        varsIgnorePattern: '^_', argsIgnorePattern: '^_', ignoreRestSiblings: true,
+      }],
+    },
     languageOptions: {
       globals: {
         document: 'readonly', window: 'readonly', localStorage: 'readonly',

@@ -12,7 +12,13 @@ export async function violacoes(elemento: HTMLElement): Promise<string[]> {
   const resultado = await axe.run(elemento, {
     // Regras que dependem da pagina inteira nao fazem sentido sobre um trecho
     // isolado dentro do jsdom.
-    rules: { region: { enabled: false }, 'page-has-heading-one': { enabled: false } },
+    rules: {
+      region: { enabled: false },
+      'page-has-heading-one': { enabled: false },
+      // jsdom nao renderiza: a regra de contraste aqui mediria o nada. Quem
+      // cobre contraste e o teste de tokens, sobre os valores reais.
+      'color-contrast': { enabled: false },
+    },
   })
   return resultado.violations.map(v => `${v.id}: ${v.nodes.length} ocorrencia(s)`)
 }
