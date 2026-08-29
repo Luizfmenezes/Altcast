@@ -1,0 +1,103 @@
+name: CI
+
+# A ordem das etapas e deliberada: falha rapido primeiro. Lint e typecheck
+# levam segundos e pegam a maior parte dos erros; subir o stack inteiro leva
+# minutos e so faz sentido depois que o barato ja passou.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  estatico:
+    name: 1. Lint e typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+
+  testes:
+    name: 2. Testes com cobertura
+    needs: estatico
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+
+      # Os testes de integracao sobem o proprio Postgres por Testcontainers,
+      # entao nao existe servico de banco declarado aqui: o teste e dono do
+      # ciclo de vida do banco que ele usa.
+      - name: API com limiares de cobertura
+        run: npx vitest run --coverage --root api
+
+      - name: Frontend
+        run: npm --workspace web run test
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cobertura-api
+          path: api/coverage/
+          retention-days: 7
+
+  build:
+    name: 3. Build das imagens
+    needs: testes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npm --workspace api run build
+      - run: npm --workspace web run build
+
+  fumaca:
+    name: 4. Fumaca e ponta a ponta
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+
+      - name: Fumaca do stack de producao
+        run: bash test/smoke.sh
+
+      - run: npx playwright install --with-deps chromium
+
+      # Os fluxos sobem o stack por conta propria no globalSetup e derrubam no
+      # teardown; a varredura axe roda junto, contra as telas montadas.
+      - name: Fluxos e acessibilidade
+        run: npx playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  dependencias:
+    name: 5. Auditoria de dependencias
+    needs: estatico
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      # Vulnerabilidade alta ou critica quebra o build; moderada e abaixo vira
+      # relatorio. O corte existe para que o alerta continue significando algo.
+      - run: npm audit --audit-level=high

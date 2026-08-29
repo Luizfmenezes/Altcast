@@ -10,10 +10,13 @@
     "node": ">=24"
   },
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "docker compose -f docker-compose.dev.yml up",
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint .",
-    "typecheck": "tsc -b"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:e2e": "playwright test",
+    "test:smoke": "bash test/smoke.sh"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

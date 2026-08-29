@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Etapas 1 a 3 do CI, rodando antes do commit. O ponta a ponta fica de fora de
+# proposito: ele leva minutos e sobe containers, e um hook que atrapalha e um
+# hook que alguem vai desligar.
+set -euo pipefail
+
+echo '==> lint'
+npm run lint
+
+echo '==> typecheck'
+npm run typecheck
+
+echo '==> testes'
+npm run test
+
+echo 'pre-commit OK'

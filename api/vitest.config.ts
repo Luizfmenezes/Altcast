@@ -37,6 +37,18 @@ export default defineConfig({
         'src/realtime/fanout.ts': {
           statements: 100, branches: 100, functions: 100, lines: 100,
         },
+        // A autenticacao inteira, e nao um arquivo: senha, sessao e o
+        // middleware que decide quem e quem. Um caminho descoberto aqui e um
+        // caminho por onde alguem entra sem credencial.
+        'src/auth/**': {
+          statements: 95, branches: 95, functions: 95, lines: 95,
+        },
+        // As rotas sao onde as regras viram resposta HTTP. O limiar de ramos e
+        // mais baixo de proposito: boa parte deles sao guardas defensivas cujo
+        // ramo "impossivel" so seria alcancavel corrompendo o banco.
+        'src/routes/**': {
+          statements: 85, branches: 78, functions: 85, lines: 85,
+        },
       },
     },
   },
