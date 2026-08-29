@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+.vite/
+playwright-report/
+test-results/
+
+# Ferramentas de agente (locais, com caminhos absolutos da maquina)
+.agents/
+.claude/
+CLAUDE.md
+skills-lock.json
+graphify-out/
