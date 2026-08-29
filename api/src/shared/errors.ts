@@ -13,6 +13,7 @@ export const ERROR_CATALOG = {
   rate_limited:        { status: 429, message: 'Muitas tentativas. Aguarde um instante.' },
   owner_cannot_leave:  { status: 409, message: 'Transfira a titularidade antes de sair.' },
   channel_name_taken:  { status: 409, message: 'Ja existe um canal com esse nome.' },
+  message_id_taken:    { status: 409, message: 'Esta mensagem ja foi enviada.' },
   internal_error:      { status: 500, message: 'Algo deu errado. Tente novamente.' },
 } as const
 
