@@ -25,6 +25,9 @@ export function BarraConexao({ latenciaMs }: { latenciaMs?: number | null }): Re
   return (
     <div
       role="status"
+      // `status` ja implica polite; explicitar evita depender de o leitor de
+      // tela derivar o valor implicito do papel.
+      aria-live="polite"
       aria-label="Estado da conexao"
       className="flex shrink-0 items-center gap-2 border-t border-border-subtle bg-bg-raised
                  px-3 py-1 text-[11px] text-fg-muted"

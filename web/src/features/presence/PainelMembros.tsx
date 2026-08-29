@@ -32,6 +32,9 @@ export function PainelMembros(): ReactNode {
         {doGrupo.map(membro => (
           <li
             key={membro.userId}
+            // Nome e estado num unico rotulo: 'Ana, online' e uma frase; nome e
+            // estado separados obrigariam quem ouve a costurar os dois.
+            aria-label={`${membro.displayName}, ${membro.status}`}
             className="flex items-center justify-between gap-2 rounded px-2 text-sm"
             style={{ minHeight: 'var(--height-row)' }}
           >

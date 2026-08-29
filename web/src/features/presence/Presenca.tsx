@@ -11,6 +11,7 @@ export function Presenca({ status }: { status: 'online' | 'offline' }): ReactNod
     <span className="inline-flex items-center gap-1.5">
       <span
         aria-hidden="true"
+        data-presenca={online ? 'cheio' : 'vazado'}
         className={`size-2 rounded-full border ${
           online
             ? 'border-presence-online bg-presence-online'

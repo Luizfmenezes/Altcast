@@ -19,7 +19,10 @@ import { BarraConexao } from './features/presence/BarraConexao.js'
  * apenas sumir por CSS, e o que impede o leitor de tela de anunciar uma
  * navegacao que ninguem consegue ver.
  */
-export function AppShell({ aoDigitar }: { aoDigitar?: () => void } = {}): ReactNode {
+export function AppShell({ aoDigitar, latenciaMs }: {
+  aoDigitar?: () => void
+  latenciaMs?: number | null
+} = {}): ReactNode {
   const channels = useStore(e => e.channels)
   const grupoAtivo = useStore(e => e.grupoAtivo)
   const canalAtivo = useStore(e => e.canalAtivo)
@@ -128,7 +131,7 @@ export function AppShell({ aoDigitar }: { aoDigitar?: () => void } = {}): ReactN
         )}
       </div>
 
-      <BarraConexao />
+      <BarraConexao latenciaMs={latenciaMs ?? null} />
     </div>
   )
 }
