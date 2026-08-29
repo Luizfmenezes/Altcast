@@ -29,9 +29,12 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       // Os dois arquivos que concentram o risco do sistema: can.ts decide
       // quem pode o que, fanout.ts decide quem recebe o que. Abaixo de 100%
-      // o build quebra. fanout.ts entra na Tarefa 17.
+      // o build quebra.
       thresholds: {
         'src/permissions/can.ts': {
+          statements: 100, branches: 100, functions: 100, lines: 100,
+        },
+        'src/realtime/fanout.ts': {
           statements: 100, branches: 100, functions: 100, lines: 100,
         },
       },
