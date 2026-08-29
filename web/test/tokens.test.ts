@@ -17,6 +17,15 @@ const PARES: Array<[keyof typeof LIGHT, keyof typeof LIGHT, number]> = [
   ['focusRing', 'bg', 3],
   ['danger', 'bg', 4.5],
   ['presenceOnline', 'bg', 3],
+  // bgHover e fundo de item selecionado e sob o cursor - o canal ativo escreve
+  // o acento EM CIMA dele. Faltar este par aqui foi o que deixou passar uma
+  // reprovacao real de contraste ate a varredura axe encontra-la no navegador.
+  ['fg', 'bgHover', 4.5],
+  ['fgMuted', 'bgHover', 4.5],
+  ['accent', 'bgHover', 4.5],
+  ['danger', 'bgHover', 4.5],
+  ['border', 'bgHover', 3],
+  ['presenceOnline', 'bgHover', 3],
 ]
 
 describe('contraste WCAG 2.2 AA', () => {

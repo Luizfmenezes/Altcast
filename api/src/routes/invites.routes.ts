@@ -2,7 +2,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { db, type Database } from '../db/client.js'
-import { groupMembers, groups, invites } from '../db/schema.js'
+import { groupMembers, groups, invites, users } from '../db/schema.js'
 import { requireAuth } from '../auth/middleware.js'
 import { assertCan, loadGroupActor } from '../permissions/context.js'
 import { AppError } from '../shared/errors.js'
@@ -157,9 +157,23 @@ export async function invitesRoutes(app: FastifyInstance): Promise<void> {
     const groupId = await db.transaction(tx => consumirConvite(tx, codigo, userId))
 
     const [g] = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1)
+    const [quemEntrou] = await db.select({
+      displayName: users.displayName, avatarUrl: users.avatarUrl,
+    }).from(users).where(eq(users.id, userId)).limit(1)
+
     // Depois do commit: quem ja estava no grupo ve o membro novo aparecer sem
     // recarregar, e o recem-chegado tambem — ele ja faz parte da audiencia.
-    await emit.toGroup(groupId, { t: 'member.joined', d: { groupId, userId, role: 'member' } })
+    //
+    // O evento carrega o nome porque e com ele que a interface desenha a linha.
+    // Mandar so o ID obrigaria cada cliente a buscar o nome por conta propria,
+    // e ate a resposta chegar a lista mostraria um membro sem nome.
+    await emit.toGroup(groupId, {
+      t: 'member.joined',
+      d: {
+        groupId, userId, role: 'member', status: 'online',
+        displayName: quemEntrou?.displayName ?? 'usuario', avatarUrl: quemEntrou?.avatarUrl ?? null,
+      },
+    })
     return { group: { id: g!.id, name: g!.name, iconUrl: g!.iconUrl, role: 'member' } }
   })
 

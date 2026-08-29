@@ -278,7 +278,11 @@ describe('eventos de tempo real', () => {
         expect(aceite.statusCode).toBe(200)
 
         const frame = await esperarFrame(dentro.frames, 'member.joined')
-        expect(frame.d).toMatchObject({ groupId: base.groupId, userId: entrando.userId })
+        // O nome vai junto: sem ele a lista de membros desenharia uma linha
+        // vazia ate cada cliente buscar o nome por conta propria.
+        expect(frame.d).toMatchObject({
+          groupId: base.groupId, userId: entrando.userId, displayName: 'novo', role: 'member',
+        })
         dentro.ws.close()
       })
     })

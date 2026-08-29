@@ -42,9 +42,11 @@ export type Palette = {
 }
 
 /**
- * O ambar do tema claro e mais escuro que o do escuro de proposito: sobre
- * fundo branco, o ambar vivo nao alcanca 4.5:1 com texto branco por cima. A
- * conformidade decide o tom, e nao o inverso.
+ * O ambar do tema claro e bem mais escuro que o do escuro, e nao por gosto: ele
+ * precisa alcancar 4.5:1 duas vezes - com texto branco por cima, quando e fundo
+ * de botao, e sobre `bgHover`, quando e o nome do canal ativo. O tom mais claro
+ * passava no primeiro caso e reprovava no segundo. A conformidade decide o tom,
+ * e nao o inverso.
  */
 export const LIGHT: Palette = {
   bg: '#ffffff',
@@ -54,9 +56,9 @@ export const LIGHT: Palette = {
   fgMuted: '#52525b',
   border: '#71717a',
   borderSubtle: '#d4d4d8',
-  accent: '#b45309',
+  accent: '#92400e',
   accentFg: '#ffffff',
-  focusRing: '#b45309',
+  focusRing: '#92400e',
   danger: '#b91c1c',
   dangerFg: '#ffffff',
   presenceOnline: '#047857',

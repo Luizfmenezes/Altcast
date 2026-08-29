@@ -19,3 +19,6 @@ CLAUDE.md
 skills-lock.json
 graphify-out/
 web/dist/
+e2e/.auth/
+playwright-report/
+test-results/

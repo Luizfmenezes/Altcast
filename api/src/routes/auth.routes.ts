@@ -76,7 +76,12 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       groupId = await consumirConvite(tx, inviteCode, userId)
     })
 
-    await emit.toGroup(groupId, { t: 'member.joined', d: { groupId, userId, role: 'member' } })
+    await emit.toGroup(groupId, {
+      t: 'member.joined',
+      d: {
+        groupId, userId, role: 'member', status: 'online', displayName, avatarUrl: null,
+      },
+    })
 
     const s = await createSession(userId, {
       userAgent: req.headers['user-agent'] ?? null,
