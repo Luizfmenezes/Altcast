@@ -4,6 +4,15 @@
 {$PUBLIC_DOMAIN} {
 	encode zstd gzip
 
+	# Registro de acesso. Sem ele o Caddy so fala no arranque, e "o proxy nao
+	# chegou aqui" fica indistinguivel de "chegou e respondeu errado" — que sao
+	# problemas em maquinas diferentes. Com o log, `docker compose logs web`
+	# responde a pergunta em um comando.
+	log {
+		output stderr
+		format json
+	}
+
 	handle /api/* {
 		reverse_proxy api:3000
 	}
