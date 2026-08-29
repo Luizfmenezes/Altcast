@@ -165,7 +165,7 @@ describe('canais publicos', () => {
     })
   })
 
-  it('tipo voice e recusado nesta fatia', async () => {
+  it('canal de voz e criado e se declara como voz', async () => {
     await withTestDb(async db => {
       const app = await buildServer()
       const { groupId, cookieDono } = await cenarioComAdmin(app, db)
@@ -173,6 +173,35 @@ describe('canais publicos', () => {
       const res = await app.inject({
         method: 'POST', url: `/api/groups/${groupId}/channels`,
         headers: { cookie: cookieDono }, payload: { name: 'sala', type: 'voice' },
+      })
+      expect(res.statusCode).toBe(201)
+      expect(res.json()).toMatchObject({ name: 'sala', type: 'voice' })
+      await app.close()
+    })
+  })
+
+  it('sem tipo declarado, o canal nasce de texto', async () => {
+    await withTestDb(async db => {
+      const app = await buildServer()
+      const { groupId, cookieDono } = await cenarioComAdmin(app, db)
+
+      const res = await app.inject({
+        method: 'POST', url: `/api/groups/${groupId}/channels`,
+        headers: { cookie: cookieDono }, payload: { name: 'avisos' },
+      })
+      expect(res.json().type).toBe('text')
+      await app.close()
+    })
+  })
+
+  it('tipo inventado continua recusado', async () => {
+    await withTestDb(async db => {
+      const app = await buildServer()
+      const { groupId, cookieDono } = await cenarioComAdmin(app, db)
+
+      const res = await app.inject({
+        method: 'POST', url: `/api/groups/${groupId}/channels`,
+        headers: { cookie: cookieDono }, payload: { name: 'sala', type: 'holograma' },
       })
       expect(res.statusCode).toBe(422)
       await app.close()

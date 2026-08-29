@@ -107,7 +107,8 @@ spec.
 | 3 — Canais e mensagens | 13–15 | Canal público e privado com filtro; histórico paginado |
 | 4 — Tempo real | 16–20 | Eventos na audiência correta; suíte de vazamento; limites de taxa |
 | 5 — Frontend | 21–29 | Interface completa, acessível e responsiva |
-| 6 — Produção | 30–32 | Deploy em Docker com TLS, fumaça e E2E verdes |
+| 6 — Produção | 30–33 | Deploy em Docker com TLS, fumaça e E2E verdes |
+| 7 — Fechamento | — | Bateria inteira verde e definição de pronto apurada |
 
 ---
 
@@ -126,7 +127,7 @@ spec.
 - Produz: `buildServer(): Promise<FastifyInstance>` — usada por toda tarefa
   seguinte para levantar a API em teste sem abrir porta
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 // api/test/health.test.ts
@@ -144,12 +145,12 @@ describe('GET /api/health', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar o teste e confirmar que falha**
+- [x] **Passo 2: Rodar o teste e confirmar que falha**
 
 Rodar: `npm --workspace api run test -- health`
 Esperado: FALHA com `Cannot find module '../src/index.js'`
 
-- [ ] **Passo 3: Criar o workspace raiz**
+- [x] **Passo 3: Criar o workspace raiz**
 
 ```json
 {
@@ -167,7 +168,7 @@ Esperado: FALHA com `Cannot find module '../src/index.js'`
 }
 ```
 
-- [ ] **Passo 4: Criar a API mínima**
+- [x] **Passo 4: Criar a API mínima**
 
 ```ts
 // api/src/index.ts
@@ -185,12 +186,12 @@ if (process.argv[1]?.endsWith('index.js')) {
 }
 ```
 
-- [ ] **Passo 5: Rodar o teste e confirmar que passa**
+- [x] **Passo 5: Rodar o teste e confirmar que passa**
 
 Rodar: `npm --workspace api run test -- health`
 Esperado: PASSA
 
-- [ ] **Passo 6: Escrever o Compose de desenvolvimento**
+- [x] **Passo 6: Escrever o Compose de desenvolvimento**
 
 ```yaml
 # docker-compose.dev.yml
@@ -228,13 +229,13 @@ volumes:
   pgdata:
 ```
 
-- [ ] **Passo 7: Subir e verificar manualmente**
+- [x] **Passo 7: Subir e verificar manualmente**
 
 Rodar: `docker compose -f docker-compose.dev.yml up -d`
 Depois: `curl -s http://localhost:3000/api/health`
 Esperado: `{"status":"ok"}`
 
-- [ ] **Passo 8: Commitar**
+- [x] **Passo 8: Commitar**
 
 ```bash
 git add package.json tsconfig.base.json api/ docker-compose.dev.yml .env.example .dockerignore .editorconfig .nvmrc
@@ -256,7 +257,7 @@ git commit -m "feat: esqueleto do monorepo com API Fastify e Postgres em Docker"
   - `class AppError extends Error { code: ErrorCode; status: number; details?: unknown }`
   - `ERROR_CATALOG` — os 14 códigos da spec 06 com status e mensagem
 
-- [ ] **Passo 1: Escrever os testes que falham**
+- [x] **Passo 1: Escrever os testes que falham**
 
 ```ts
 // api/test/env.test.ts
@@ -330,12 +331,12 @@ describe('handler de erro', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha**
+- [x] **Passo 2: Rodar e confirmar falha**
 
 Rodar: `npm --workspace api run test`
 Esperado: FALHA — módulos `env`, `ids` e `errors` inexistentes
 
-- [ ] **Passo 3: Implementar `ids.ts`**
+- [x] **Passo 3: Implementar `ids.ts`**
 
 Instalar: `npm --workspace api i uuidv7`
 
@@ -345,7 +346,7 @@ import { uuidv7 } from 'uuidv7'
 export function newId(): string { return uuidv7() }
 ```
 
-- [ ] **Passo 4: Implementar `env.ts` com zod**
+- [x] **Passo 4: Implementar `env.ts` com zod**
 
 ```ts
 // api/src/env.ts
@@ -376,7 +377,7 @@ export function parseEnv(raw: Record<string, unknown>): Env {
 export const env: Env = parseEnv(process.env)
 ```
 
-- [ ] **Passo 5: Implementar `errors.ts` com o catálogo completo**
+- [x] **Passo 5: Implementar `errors.ts` com o catálogo completo**
 
 ```ts
 // api/src/shared/errors.ts
@@ -412,7 +413,7 @@ export class AppError extends Error {
 }
 ```
 
-- [ ] **Passo 6: Registrar o handler em `index.ts`**
+- [x] **Passo 6: Registrar o handler em `index.ts`**
 
 O handler converte `AppError` no envelope da spec; qualquer outro erro vira
 `internal_error`, com a pilha registrada apenas no servidor.
@@ -433,7 +434,7 @@ app.setErrorHandler((err, req, reply) => {
 })
 ```
 
-- [ ] **Passo 7: Implementar `logger.ts` com redação**
+- [x] **Passo 7: Implementar `logger.ts` com redação**
 
 ```ts
 // api/src/shared/logger.ts
@@ -453,7 +454,7 @@ export const logger = pino({
 })
 ```
 
-- [ ] **Passo 8: Rodar todos os testes e commitar**
+- [x] **Passo 8: Rodar todos os testes e commitar**
 
 Rodar: `npm --workspace api run test`
 Esperado: PASSA (7 testes)
@@ -478,7 +479,7 @@ git commit -m "feat: validacao de ambiente, logger com redacao e contrato de err
   - `users`, `sessions`, `groups`, `groupMembers`, `invites`, `channels`, `channelMembers`, `messages` — tabelas
   - `withTestDb(fn)` — helper que sobe Postgres em container, migra e limpa
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 // api/test/schema.test.ts
@@ -515,12 +516,12 @@ describe('schema', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha**
+- [x] **Passo 2: Rodar e confirmar falha**
 
 Rodar: `npm --workspace api run test -- schema`
 Esperado: FALHA — `./helpers/db.js` inexistente
 
-- [ ] **Passo 3: Escrever a migração inicial**
+- [x] **Passo 3: Escrever a migração inicial**
 
 ```sql
 -- api/migrations/0001_init.sql
@@ -557,7 +558,7 @@ O tipo `voice` existe desde a primeira migração porque acrescentar valor a enu
 depois é trivial, mas descobrir que canal de voz não cabe no modelo seria
 retrabalho grande. **Nenhum código de voz é escrito nesta fatia.**
 
-- [ ] **Passo 4: Escrever as demais migrações**
+- [x] **Passo 4: Escrever as demais migrações**
 
 ```sql
 -- api/migrations/0002_groups.sql
@@ -640,7 +641,7 @@ CREATE INDEX messages_channel_id_desc_idx ON messages (channel_id, id DESC);
 Este índice é o que sustenta a paginação por cursor. Sem ele, o histórico
 degrada linearmente conforme o canal cresce.
 
-- [ ] **Passo 5: Escrever o helper de banco em teste**
+- [x] **Passo 5: Escrever o helper de banco em teste**
 
 ```ts
 // api/test/helpers/db.ts
@@ -679,18 +680,18 @@ Postgres real, não mock. Custa poucos segundos e captura exatamente a classe de
 erro que mock esconde: violação de constraint, cascade e o índice único parcial
 do `owner` — que é justamente o que o teste do Passo 1 exercita.
 
-- [ ] **Passo 6: Escrever `schema.ts` em Drizzle**
+- [x] **Passo 6: Escrever `schema.ts` em Drizzle**
 
 Espelha as migrações acima. Cada tabela é exportada com o nome em camelCase
 (`groupMembers`, `channelMembers`), e cada coluna com o nome em camelCase
 mapeado para o snake_case do banco.
 
-- [ ] **Passo 7: Rodar o teste e confirmar que passa**
+- [x] **Passo 7: Rodar o teste e confirmar que passa**
 
 Rodar: `npm --workspace api run test -- schema`
 Esperado: PASSA (2 testes). A primeira execução baixa a imagem do Postgres.
 
-- [ ] **Passo 8: Commitar**
+- [x] **Passo 8: Commitar**
 
 ```bash
 git add api/src/db/ api/migrations/ api/drizzle.config.ts api/test/
@@ -715,7 +716,7 @@ git commit -m "feat: schema completo, migracoes e Postgres real em teste"
   - `assertPasswordAcceptable(plain: string): void` — lança `AppError('validation_failed')`
   - `DUMMY_HASH: string` — hash fixo para verificação em tempo constante
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 // api/test/password.test.ts
@@ -749,12 +750,12 @@ do login: quando o e-mail não existe, o servidor verifica contra ele antes de
 responder. Se o hash fosse inválido, `verifyPassword` lançaria em vez de
 retornar `false`, e a diferença de tempo voltaria a entregar quem tem conta.
 
-- [ ] **Passo 2: Rodar e confirmar falha**
+- [x] **Passo 2: Rodar e confirmar falha**
 
 Rodar: `npm --workspace api run test -- password`
 Esperado: FALHA — módulo inexistente
 
-- [ ] **Passo 3: Implementar**
+- [x] **Passo 3: Implementar**
 
 Instalar: `npm --workspace api i argon2`
 
@@ -799,13 +800,13 @@ Sem exigência de símbolos: regras de composição reduzem entropia na prática
 empurrando todo mundo para variações de `Senha@123`. O comprimento mínimo mais a
 lista de vazadas protege melhor.
 
-- [ ] **Passo 4: Popular a lista de senhas vazadas**
+- [x] **Passo 4: Popular a lista de senhas vazadas**
 
 Baixar as 10 000 senhas mais comuns (SecLists, `10-million-password-list-top-10000.txt`),
 salvar em `api/src/auth/common-passwords.txt`, uma por linha. Arquivo local, sem
 chamada externa em tempo de execução.
 
-- [ ] **Passo 5: Rodar, confirmar que passa, commitar**
+- [x] **Passo 5: Rodar, confirmar que passa, commitar**
 
 Rodar: `npm --workspace api run test -- password` → PASSA (4 testes)
 
@@ -831,7 +832,7 @@ git commit -m "feat: hash argon2id com verificacao em tempo uniforme"
   - `requireAuth` — preHandler que popula `request.user` ou lança `unauthenticated`
   - Tipo aumentado: `FastifyRequest.user?: { id: string }`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 // api/test/session.test.ts
@@ -875,12 +876,12 @@ describe('sessoes', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha**
+- [x] **Passo 2: Rodar e confirmar falha**
 
 Rodar: `npm --workspace api run test -- session`
 Esperado: FALHA — módulo `session` inexistente
 
-- [ ] **Passo 3: Implementar `session.ts`**
+- [x] **Passo 3: Implementar `session.ts`**
 
 ```ts
 // api/src/auth/session.ts
@@ -925,7 +926,7 @@ Revogar é apagar a linha, e o efeito é imediato. É exatamente isto que um JWT
 não permitiria: com token assinado, remover alguém do grupo não encerraria o
 acesso até o vencimento.
 
-- [ ] **Passo 4: Implementar `middleware.ts`**
+- [x] **Passo 4: Implementar `middleware.ts`**
 
 ```ts
 // api/src/auth/middleware.ts
@@ -948,7 +949,7 @@ export async function requireAuth(req: FastifyRequest, _reply: FastifyReply) {
 }
 ```
 
-- [ ] **Passo 5: Registrar cookie e verificação de Origin em `index.ts`**
+- [x] **Passo 5: Registrar cookie e verificação de Origin em `index.ts`**
 
 ```ts
 await app.register(cookie)
@@ -966,7 +967,7 @@ Junto com `SameSite=Lax` no cookie, isto cobre CSRF sem token dedicado.
 Opções do cookie ao emitir: `httpOnly: true`, `secure` em produção,
 `sameSite: 'lax'`, `path: '/'`, e `maxAge` em segundos igual ao TTL.
 
-- [ ] **Passo 6: Rodar, confirmar que passa, commitar**
+- [x] **Passo 6: Rodar, confirmar que passa, commitar**
 
 Rodar: `npm --workspace api run test -- session` → PASSA (3 testes)
 
@@ -998,7 +999,7 @@ Quem chama já carregou o papel e o pertencimento; `can()` apenas decide. Isso a
 torna exaustivamente testável sem banco e impossível de acoplar a detalhes de
 rota.
 
-- [ ] **Passo 1a: Escrever o arquivo de teste com a tabela de verdade**
+- [x] **Passo 1a: Escrever o arquivo de teste com a tabela de verdade**
 
 ```ts
 // api/test/can.test.ts
@@ -1015,7 +1016,7 @@ const msgPropria: Resource    = { kind: 'message', authorId: 'u1' }
 const msgTerceiro: Resource   = { kind: 'message', authorId: 'u2' }
 ```
 
-- [ ] **Passo 1b: Acrescentar os casos de canal e grupo**
+- [x] **Passo 1b: Acrescentar os casos de canal e grupo**
 
 ```ts
 describe('can — tabela de verdade', () => {
@@ -1060,7 +1061,7 @@ As três linhas decisivas são `admin fora do privado NAO le`,
 eixo duplo da spec 03: **ler vem do pertencimento ao canal; administrar vem do
 papel no grupo.**
 
-- [ ] **Passo 1c: Acrescentar o teste de negação total**
+- [x] **Passo 1c: Acrescentar o teste de negação total**
 
 ```ts
 it('nao-membro nao pode absolutamente nada', () => {
@@ -1078,12 +1079,12 @@ it('nao-membro nao pode absolutamente nada', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha**
+- [x] **Passo 2: Rodar e confirmar falha**
 
 Rodar: `npm --workspace api run test -- can`
 Esperado: FALHA — `../src/permissions/can.js` inexistente
 
-- [ ] **Passo 3: Implementar `can.ts`**
+- [x] **Passo 3: Implementar `can.ts`**
 
 ```ts
 // api/src/permissions/can.ts
@@ -1148,7 +1149,7 @@ O `return false` final não é defensivo por hábito: ele garante que **uma aç�
 nova acrescentada ao tipo `Action` nasce negada**. Se alguém adicionar
 `group.export` e esquecer de tratá-la, o sistema recusa em vez de liberar.
 
-- [ ] **Passo 4: Criar a regra de lint que protege a invariante**
+- [x] **Passo 4: Criar a regra de lint que protege a invariante**
 
 ```js
 // eslint.config.js (trecho)
@@ -1164,7 +1165,7 @@ nova acrescentada ao tipo `Action` nasce negada**. Se alguém adicionar
 }
 ```
 
-- [ ] **Passo 5: Exigir cobertura de 100% neste arquivo**
+- [x] **Passo 5: Exigir cobertura de 100% neste arquivo**
 
 ```ts
 // api/vitest.config.ts (trecho)
@@ -1176,7 +1177,7 @@ coverage: {
 }
 ```
 
-- [ ] **Passo 6: Rodar tudo, confirmar verde, commitar**
+- [x] **Passo 6: Rodar tudo, confirmar verde, commitar**
 
 Rodar: `npm --workspace api run test -- can --coverage`
 Esperado: PASSA (28 casos + negação total), cobertura 100% em `can.ts`
@@ -1202,7 +1203,7 @@ git commit -m "feat: funcao can() com matriz exaustiva e lint que protege a inva
 Esta tarefa existe para que nenhuma rota precise montar `Actor` na mão. Ela é a
 ponte entre o banco e a função pura da Tarefa 6.
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 // api/test/context.test.ts
@@ -1240,9 +1241,9 @@ canal privado contendo apenas um deles. Ele vive em
 `403` num canal privado confirmaria que o canal existe, e a spec 03 estabelece
 que privado é invisível, não trancado.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- context`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- context`
 
-- [ ] **Passo 3: Implementar `context.ts`**
+- [x] **Passo 3: Implementar `context.ts`**
 
 `loadGroupActor` consulta `group_members` pelo par grupo/usuário e devolve
 `{ userId, role, inChannel: false }`, com `role: null` quando não houver linha.
@@ -1254,7 +1255,7 @@ responda `404` sem ramificação extra.
 
 `assertCan` chama `can()` e, se falso, lança `new AppError('not_found')`.
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/permissions/context.ts api/test/context.test.ts api/test/helpers/fixtures.ts
@@ -1274,7 +1275,7 @@ git commit -m "feat: carregador de contexto de autorizacao com negacao invisivel
 `POST /api/auth/register` **não entra aqui** — ela depende de convite, e convite
 depende de grupo. Ela é implementada na Tarefa 12.
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 // api/test/auth.routes.test.ts
@@ -1333,9 +1334,9 @@ O segundo teste é o que trava a enumeração de contas. Ele compara código **e
 mensagem — se alguém futuramente "melhorar a experiência" diferenciando os dois
 casos, o teste quebra e a discussão acontece antes do merge.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- auth.routes`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- auth.routes`
 
-- [ ] **Passo 3: Implementar o login com tempo uniforme**
+- [x] **Passo 3: Implementar o login com tempo uniforme**
 
 ```ts
 const [u] = await db.select().from(users).where(eq(users.email, body.email)).limit(1)
@@ -1348,12 +1349,12 @@ A verificação contra `DUMMY_HASH` roda **sempre**, inclusive quando o usuário
 existe. Sem ela, a resposta para e-mail inexistente voltaria em microssegundos e
 a diferença de tempo entregaria a lista de quem tem conta.
 
-- [ ] **Passo 4: Implementar logout e me**
+- [x] **Passo 4: Implementar logout e me**
 
 `logout` chama `revokeSession(req.sessionId)` e limpa o cookie.
 `me` usa `requireAuth` e devolve o usuário mais seus grupos com o papel em cada.
 
-- [ ] **Passo 5: Implementar o seed idempotente**
+- [x] **Passo 5: Implementar o seed idempotente**
 
 ```ts
 // api/src/cli/seed-owner.ts — recusa rodar se ja houver qualquer usuario
@@ -1364,7 +1365,7 @@ if (existente) { console.error('Ja existe usuario. Seed abortado.'); process.exi
 Cria o primeiro usuário a partir de `SEED_OWNER_EMAIL` e `SEED_OWNER_PASSWORD`,
 mais o primeiro grupo com um canal `#geral`, e imprime um convite inicial.
 
-- [ ] **Passo 6: Rodar, confirmar verde, commitar**
+- [x] **Passo 6: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/routes/auth.routes.ts api/src/cli/ api/test/auth.routes.test.ts
@@ -1382,7 +1383,7 @@ git commit -m "feat: login com tempo uniforme, logout, me e bootstrap idempotent
 **Interfaces:**
 - Produz: `generateInviteCode(): string`, `normalizeInviteCode(raw: string): string`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 // api/test/invite-code.test.ts
@@ -1416,9 +1417,9 @@ describe('codigo de convite', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- invite-code`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- invite-code`
 
-- [ ] **Passo 3: Implementar**
+- [x] **Passo 3: Implementar**
 
 ```ts
 // api/src/invites/code.ts
@@ -1449,7 +1450,7 @@ A normalização existe porque esse código vai circular **ditado por telefone e
 no WhatsApp**. A escolha do alfabeto e a escolha da fonte monoespaçada na
 interface (spec 05) servem à mesma finalidade.
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/invites/code.ts api/test/invite-code.test.ts
@@ -1465,7 +1466,7 @@ git commit -m "feat: codigo de convite base32 Crockford com normalizacao"
 - Produz: `POST /api/groups`, `GET /api/groups/:id`, `PATCH /api/groups/:id`,
   `DELETE /api/groups/:id`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 // api/test/groups.routes.test.ts
@@ -1532,9 +1533,9 @@ describe('rotas de grupo', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- groups.routes`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- groups.routes`
 
-- [ ] **Passo 3: Implementar `POST /api/groups` em transação**
+- [x] **Passo 3: Implementar `POST /api/groups` em transação**
 
 A criação insere quatro coisas atomicamente: o grupo, a linha de `group_members`
 com `role: 'owner'`, o canal `#geral` público, e nada mais. Se qualquer passo
@@ -1549,17 +1550,17 @@ await db.transaction(async tx => {
 })
 ```
 
-- [ ] **Passo 4: Implementar leitura, atualização e exclusão**
+- [x] **Passo 4: Implementar leitura, atualização e exclusão**
 
 Todas seguem o mesmo formato: `loadGroupActor` monta o ator, `assertCan` decide,
 e a negação vira `404`. Nenhuma rota compara papel diretamente.
 
-- [ ] **Passo 5: Validar entrada com zod**
+- [x] **Passo 5: Validar entrada com zod**
 
 `name` entre 2 e 64 caracteres; `iconUrl` opcional e precisa ser URL válida.
 Erro de validação vira `AppError('validation_failed', { name: [...] })`.
 
-- [ ] **Passo 6: Rodar, confirmar verde, commitar**
+- [x] **Passo 6: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/routes/groups.routes.ts api/test/groups.routes.test.ts
@@ -1574,7 +1575,7 @@ git commit -m "feat: CRUD de grupos com criacao transacional e negacao invisivel
 - Produz: `GET /api/groups/:id/members`, `PATCH /api/groups/:id/members/:userId`,
   `DELETE /api/groups/:id/members/:userId`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 // api/test/members.test.ts
@@ -1611,9 +1612,9 @@ Cada `it` acima recebe corpo completo seguindo o padrão da Tarefa 10:
 `withTestDb`, `buildServer`, `loginComo`, `app.inject`, asserção sobre status e
 sobre o estado do banco.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- members`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- members`
 
-- [ ] **Passo 3: Implementar transferência de titularidade em transação**
+- [x] **Passo 3: Implementar transferência de titularidade em transação**
 
 ```ts
 await db.transaction(async tx => {
@@ -1629,14 +1630,14 @@ A ordem importa: rebaixar antes de promover. O índice único parcial
 `group_one_owner_idx` recusaria a transação na ordem inversa — e é exatamente
 esse o papel dele, transformar um erro de lógica em erro de banco.
 
-- [ ] **Passo 4: Implementar saída e remoção**
+- [x] **Passo 4: Implementar saída e remoção**
 
 Sair é o mesmo endpoint com o próprio ID. `owner` recebe `owner_cannot_leave`.
 A remoção de `group_members` cascateia para `channel_members` pela FK — mas o
 teste verifica isso explicitamente, porque é a garantia de que ninguém mantém
 acesso a canal privado de um grupo do qual saiu.
 
-- [ ] **Passo 5: Rodar, confirmar verde, commitar**
+- [x] **Passo 5: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/routes/groups.routes.ts api/test/members.test.ts
@@ -1653,7 +1654,7 @@ teste `api/test/invites.test.ts`
   `POST /api/invites/:code/accept`, `DELETE /api/invites/:code`,
   `GET /api/groups/:id/invites`, e `POST /api/auth/register`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 // api/test/invites.test.ts
@@ -1690,9 +1691,9 @@ describe('convites', () => {
 O último teste é o que força o incremento a ser feito sob trava. Sem ele, dez
 requisições simultâneas leem `uses = 0` e todas passam.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- invites`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- invites`
 
-- [ ] **Passo 3: Implementar a aceitação sob trava**
+- [x] **Passo 3: Implementar a aceitação sob trava**
 
 ```ts
 await db.transaction(async tx => {
@@ -1717,7 +1718,7 @@ O `.for('update')` é o detalhe que faz o último teste do Passo 1 passar: ele
 serializa as tentativas concorrentes na linha do convite. Sem ele, dez
 requisições simultâneas leem `uses = 0` e todas entram.
 
-- [ ] **Passo 4: Implementar a prévia pública com resposta mínima**
+- [x] **Passo 4: Implementar a prévia pública com resposta mínima**
 
 A rota `GET /api/invites/:code` é a **única** não autenticada que devolve dado de
 grupo. Ela monta o objeto campo a campo, nunca espalhando a linha do banco:
@@ -1730,13 +1731,13 @@ Convite inválido devolve `{ valid: false, reason: 'expired' }` com status 200 �
 a página precisa renderizar o motivo, e distinguir "código inexistente" de
 "código expirado" aqui não vaza nada, porque nenhum dado do grupo acompanha.
 
-- [ ] **Passo 5: Implementar o cadastro exigindo convite**
+- [x] **Passo 5: Implementar o cadastro exigindo convite**
 
 `POST /api/auth/register` recebe `{ email, password, displayName, inviteCode }`.
 Sem `inviteCode` válido, responde `422` antes de tocar a tabela de usuários.
 A criação da conta e o consumo do convite acontecem **na mesma transação**.
 
-- [ ] **Passo 6: Rodar, confirmar verde, commitar**
+- [x] **Passo 6: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/routes/invites.routes.ts api/src/routes/auth.routes.ts api/test/invites.test.ts
@@ -1755,7 +1756,7 @@ git commit -m "feat: convites com trava de concorrencia e cadastro fechado por c
 - Produz: `POST /api/groups/:id/channels`, `GET /api/groups/:id/channels`,
   `PATCH /api/channels/:id`, `DELETE /api/channels/:id`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 describe('canais publicos', () => {
@@ -1776,9 +1777,9 @@ describe('canais publicos', () => {
 O último caso é a trava que impede a Fatia 2 de vazar para dentro da Fatia 1: a
 coluna aceita `voice` no banco, mas a API recusa até que a mídia exista de fato.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- channels`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- channels`
 
-- [ ] **Passo 3: Implementar com normalização de nome**
+- [x] **Passo 3: Implementar com normalização de nome**
 
 ```ts
 const nomeCanal = (raw: string) => raw.trim().toLowerCase()
@@ -1786,7 +1787,7 @@ const nomeCanal = (raw: string) => raw.trim().toLowerCase()
   .replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32)
 ```
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/routes/channels.routes.ts api/test/channels.test.ts
@@ -1806,7 +1807,7 @@ teste `api/test/private-channels.test.ts`
   `DELETE /api/channels/:id/members/:userId`
 - Modifica: `GET /api/groups/:id/channels` passa a filtrar por visibilidade
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 describe('canais privados', () => {
@@ -1838,9 +1839,9 @@ O último caso evita uma classe sutil de bug: se a lista sobrevivesse à troca d
 visibilidade e o canal voltasse a privado depois, o acesso antigo ressuscitaria
 silenciosamente.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- private-channels`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- private-channels`
 
-- [ ] **Passo 3: Implementar a listagem filtrada**
+- [x] **Passo 3: Implementar a listagem filtrada**
 
 ```ts
 const visiveis = await db.select().from(channels)
@@ -1859,12 +1860,12 @@ O `LEFT JOIN` com filtro no `ON` é o que faz um único `SELECT` resolver as dua
 regras. Filtrar em memória depois de buscar tudo funcionaria — e seria
 exatamente o tipo de atalho que, num refactor futuro, esquece o filtro e vaza.
 
-- [ ] **Passo 4: Implementar a gestão da lista de acesso**
+- [x] **Passo 4: Implementar a gestão da lista de acesso**
 
 Adicionar exige `channel.manage_members` (papel) **e** que o alvo já pertença ao
 grupo. Remover a si mesmo é permitido a qualquer participante do canal.
 
-- [ ] **Passo 5: Rodar, confirmar verde, commitar**
+- [x] **Passo 5: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/routes/channels.routes.ts api/test/private-channels.test.ts
@@ -1879,7 +1880,7 @@ git commit -m "feat: canais privados invisiveis com lista de acesso explicita"
 - Produz: `GET /api/channels/:id/messages`, `POST`, `PATCH /api/messages/:id`,
   `DELETE /api/messages/:id`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 describe('mensagens', () => {
@@ -1911,9 +1912,9 @@ describe('mensagens', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- messages`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- messages`
 
-- [ ] **Passo 3: Implementar a paginação por cursor**
+- [x] **Passo 3: Implementar a paginação por cursor**
 
 ```ts
 const linhas = await db.select().from(messages)
@@ -1931,7 +1932,7 @@ Comparar `id` funciona como comparar tempo porque UUIDv7 é ordenável — e usa
 índice `messages_channel_id_desc_idx` diretamente. `OFFSET` degradaria conforme
 o canal crescesse.
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/routes/messages.routes.ts api/test/messages.test.ts
@@ -1955,7 +1956,7 @@ teste `api/test/gateway.test.ts`
   - `registry.userIds(): string[]`
   - Rota `GET /ws`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 describe('gateway', () => {
@@ -1987,9 +1988,9 @@ O quarto teste é o que garante o contrato da spec 04: **não existe caminho de
 escrita pelo WebSocket.** Se alguém um dia adicionar um `case 'message.create'`
 no gateway, este teste quebra.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- gateway`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- gateway`
 
-- [ ] **Passo 3: Implementar o registro em memória**
+- [x] **Passo 3: Implementar o registro em memória**
 
 ```ts
 // api/src/realtime/registry.ts
@@ -2024,14 +2025,14 @@ export const registry = {
 }
 ```
 
-- [ ] **Passo 4: Implementar o heartbeat**
+- [x] **Passo 4: Implementar o heartbeat**
 
 Ping a cada 30 s marcando `alive = false`; o `pong` marca `true`. Conexão ainda
 `false` no ciclo seguinte é encerrada. Sem isso, NAT corporativo e rede móvel
 deixam conexões aparentemente abertas que morreram há uma hora — e a presença
 vira decoração.
 
-- [ ] **Passo 5: Rodar, confirmar verde, commitar**
+- [x] **Passo 5: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/realtime/gateway.ts api/src/realtime/registry.ts api/test/gateway.test.ts
@@ -2051,7 +2052,7 @@ git commit -m "feat: gateway WebSocket autenticado com heartbeat e registro em m
   - `audienceOfGroup(groupId): Promise<string[]>`
   - `audienceOfUser(userId): Promise<string[]>` — quem compartilha grupo
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 describe('fanout', () => {
@@ -2080,9 +2081,9 @@ As duas asserções `not.toContain(admin)` e `not.toContain(owner)` são a tradu
 executável da regra do eixo duplo. Se alguém "consertar" o fan-out para incluir
 administradores, este teste quebra antes do merge.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- fanout`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- fanout`
 
-- [ ] **Passo 3: Implementar**
+- [x] **Passo 3: Implementar**
 
 ```ts
 // api/src/realtime/fanout.ts
@@ -2105,7 +2106,7 @@ export async function audienceOfChannel(channelId: string): Promise<string[]> {
 regra que mantém o risco concentrado num arquivo de trinta linhas em vez de
 espalhado por dez rotas.
 
-- [ ] **Passo 4: Rodar com cobertura, confirmar 100%, commitar**
+- [x] **Passo 4: Rodar com cobertura, confirmar 100%, commitar**
 
 ```bash
 git add api/src/realtime/fanout.ts api/test/fanout.test.ts
@@ -2124,7 +2125,7 @@ modificar as quatro rotas de escrita; teste `api/test/events.test.ts`
   - `presence.isOnline(userId): boolean`
   - `emit.toChannel(channelId, event)`, `emit.toGroup(groupId, event)`, `emit.toUser(userId, event)`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 describe('eventos de tempo real', () => {
@@ -2148,9 +2149,9 @@ describe('eventos de tempo real', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- events`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- events`
 
-- [ ] **Passo 3: Implementar a fachada de emissão**
+- [x] **Passo 3: Implementar a fachada de emissão**
 
 ```ts
 // api/src/realtime/emit.ts
@@ -2167,12 +2168,12 @@ export const emit = {
 }
 ```
 
-- [ ] **Passo 4: Ligar as rotas**
+- [x] **Passo 4: Ligar as rotas**
 
 Cada rota de escrita emite **depois** de a transação confirmar. Emitir dentro da
 transação anunciaria um fato que ainda pode ser desfeito por rollback.
 
-- [ ] **Passo 5: Rodar, confirmar verde, commitar**
+- [x] **Passo 5: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/realtime/ api/src/routes/ api/test/events.test.ts
@@ -2187,7 +2188,7 @@ git commit -m "feat: presenca por transicao e emissao de eventos apos commit"
 
 **Arquivos:** criar `api/test/private-channel-leak.test.ts`
 
-- [ ] **Passo 1: Escrever os onze casos da spec 06**
+- [x] **Passo 1: Escrever os onze casos da spec 06**
 
 ```ts
 // api/test/private-channel-leak.test.ts
@@ -2212,23 +2213,23 @@ Cada caso recebe corpo completo. O caso 09 roda em laço de 50 repetições porq
 condição de corrida que aparece uma vez em vinte passa despercebida numa
 execução única.
 
-- [ ] **Passo 2: Rodar e observar quais falham**
+- [x] **Passo 2: Rodar e observar quais falham**
 
 Rodar: `npm --workspace api run test -- private-channel-leak`
 Esperado: os casos que passarem confirmam as tarefas anteriores; os que falharem
 apontam vazamento real. **Cada falha é corrigida na tarefa de origem, não aqui.**
 
-- [ ] **Passo 3: Corrigir a origem de cada falha**
+- [x] **Passo 3: Corrigir a origem de cada falha**
 
 Vazamento em listagem volta à Tarefa 14. Vazamento em evento volta à Tarefa 17
 ou 18. Este arquivo nunca é relaxado para passar.
 
-- [ ] **Passo 4: Amarrar ao processo**
+- [x] **Passo 4: Amarrar ao processo**
 
 Acrescentar ao `CONTRIBUTING.md`: *nenhuma alteração em `fanout.ts`, `can.ts` ou
 nas rotas de canal entra sem esta suíte verde.*
 
-- [ ] **Passo 5: Commitar**
+- [x] **Passo 5: Commitar**
 
 ```bash
 git add api/test/private-channel-leak.test.ts CONTRIBUTING.md
@@ -2239,7 +2240,7 @@ git commit -m "test: suite inegociavel de vazamento de canal privado"
 
 **Arquivos:** modificar `api/src/index.ts`; teste `api/test/rate-limit.test.ts`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 describe('limites de taxa', () => {
@@ -2252,14 +2253,14 @@ describe('limites de taxa', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- rate-limit`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- rate-limit`
 
-- [ ] **Passo 3: Implementar com `@fastify/rate-limit`**
+- [x] **Passo 3: Implementar com `@fastify/rate-limit`**
 
 A tabela completa está na spec 03, seção 6. O erro devolvido segue o contrato:
 `AppError('rate_limited')` com cabeçalho `Retry-After`.
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add api/src/index.ts api/test/rate-limit.test.ts
@@ -2278,7 +2279,7 @@ git commit -m "feat: limites de taxa conforme a spec 03"
 **Interfaces:**
 - Produz: `useTheme()`, `useDensity()`, e as variáveis CSS de cor e espaçamento
 
-- [ ] **Passo 1: Escrever o teste de contraste que falha**
+- [x] **Passo 1: Escrever o teste de contraste que falha**
 
 ```ts
 // web/test/tokens.test.ts
@@ -2312,21 +2313,21 @@ Contraste validado **no token, não no olho**. Um teste automatizado impede que
 uma cor "só um pouco mais clara" entre num ajuste futuro e quebre a
 conformidade sem ninguém notar.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- tokens`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- tokens`
 
-- [ ] **Passo 3: Definir a paleta multidimensional**
+- [x] **Passo 3: Definir a paleta multidimensional**
 
 Neutro frio (zinc) como estrutura; **âmbar** como único acento de ação; verde
 discreto exclusivo de presença; vermelho exclusivo de erro e destruição. Nenhum
 componente escreve cor literal — tudo via variável CSS.
 
-- [ ] **Passo 4: Implementar tema e densidade**
+- [x] **Passo 4: Implementar tema e densidade**
 
 Tema escuro por padrão, claro disponível, respeitando `prefers-color-scheme` na
 primeira visita e persistindo a escolha. Densidade compacta ou confortável,
 alterando apenas variáveis de espaçamento e altura de linha.
 
-- [ ] **Passo 5: Aplicar `prefers-reduced-motion`**
+- [x] **Passo 5: Aplicar `prefers-reduced-motion`**
 
 ```css
 @media (prefers-reduced-motion: reduce) {
@@ -2337,7 +2338,7 @@ alterando apenas variáveis de espaçamento e altura de linha.
 }
 ```
 
-- [ ] **Passo 6: Rodar, confirmar verde, commitar**
+- [x] **Passo 6: Rodar, confirmar verde, commitar**
 
 ```bash
 git add web/
@@ -2351,7 +2352,7 @@ git commit -m "feat: fundacao visual com tokens validados por contraste"
 **Interfaces:**
 - Produz: `api.get/post/patch/delete`, `class ApiError { code, message, requestId, details }`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 describe('cliente REST', () => {
@@ -2373,14 +2374,14 @@ describe('cliente REST', () => {
 O quarto teste importa: repetir um `422` reenviaria dado inválido três vezes e
 poderia duplicar efeito em rotas não idempotentes.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- api`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- api`
 
-- [ ] **Passo 3: Implementar**
+- [x] **Passo 3: Implementar**
 
 O cliente decide comportamento pelo `code`, **nunca pelo texto** da mensagem.
 Mudar a redação de um erro no servidor jamais pode quebrar o cliente.
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add web/src/lib/api.ts web/test/api.test.ts
@@ -2396,7 +2397,7 @@ git commit -m "feat: cliente REST tipado com erro estruturado"
 **Interfaces:**
 - Produz: `connectSocket({ onEvent, onStatus })`, `type SocketStatus = 'conectado' | 'reconectando' | 'offline'`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 describe('cliente WebSocket', () => {
@@ -2428,9 +2429,9 @@ O teste de reconciliação é o coração da arquitetura: prova que um buraco no
 tempo real se cura sozinho pelo REST, sem replay, sem número de sequência, sem
 confirmação de recebimento.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- socket`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- socket`
 
-- [ ] **Passo 3: Implementar o backoff com jitter**
+- [x] **Passo 3: Implementar o backoff com jitter**
 
 ```ts
 function espera(tentativa: number): number {
@@ -2440,13 +2441,13 @@ function espera(tentativa: number): number {
 }
 ```
 
-- [ ] **Passo 4: Implementar a reconciliação na reconexão**
+- [x] **Passo 4: Implementar a reconciliação na reconexão**
 
 Para cada canal com histórico carregado, dispara
 `GET /api/channels/:id/messages?after=<ultimoIdConhecido>` e funde o resultado.
 Nada de buffer de replay no servidor.
 
-- [ ] **Passo 5: Rodar, confirmar verde, commitar**
+- [x] **Passo 5: Rodar, confirmar verde, commitar**
 
 ```bash
 git add web/src/lib/socket.ts web/test/socket.test.ts
@@ -2457,7 +2458,7 @@ git commit -m "feat: socket com backoff, jitter e reconciliacao por REST"
 
 **Arquivos:** criar `web/src/features/auth/*`; teste `web/test/auth-screens.test.tsx`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```tsx
 describe('telas de autenticacao', () => {
@@ -2484,14 +2485,14 @@ describe('telas de autenticacao', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- auth-screens`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- auth-screens`
 
-- [ ] **Passo 3: Implementar as três telas**
+- [x] **Passo 3: Implementar as três telas**
 
 Login, cadastro (só alcançável com código no contexto) e prévia de convite. O
 código aparece em **JetBrains Mono**, porque vai ser ditado por telefone.
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add web/src/features/auth/ web/test/auth-screens.test.tsx
@@ -2503,7 +2504,7 @@ git commit -m "feat: telas de autenticacao acessiveis com previa minima de convi
 **Arquivos:** criar `web/src/features/groups/*`, `web/src/features/channels/*`,
 `web/src/AppShell.tsx`; teste `web/test/shell.test.tsx`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```tsx
 describe('estrutura da aplicacao', () => {
@@ -2534,19 +2535,19 @@ O primeiro teste é a contrapartida no frontend da Tarefa 14: o servidor não
 envia o canal, e a interface não inventa cadeado. **Privado é invisível,
 inclusive quanto à existência.**
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- shell`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- shell`
 
-- [ ] **Passo 3: Implementar o layout de quatro colunas**
+- [x] **Passo 3: Implementar o layout de quatro colunas**
 
 Larguras fixas de 64 px, 240 px, flexível e 240 px. A barra lateral **não muda
 de largura** com nome longo nem com hover — dimensões estáveis são requisito,
 não detalhe.
 
-- [ ] **Passo 4: Implementar os pontos de quebra**
+- [x] **Passo 4: Implementar os pontos de quebra**
 
 1200, 900 e 640 px conforme a spec 05, mais o comportamento em zoom de 400%.
 
-- [ ] **Passo 5: Rodar, confirmar verde, commitar**
+- [x] **Passo 5: Rodar, confirmar verde, commitar**
 
 ```bash
 git add web/src/features/groups/ web/src/features/channels/ web/src/AppShell.tsx web/test/shell.test.tsx
@@ -2558,7 +2559,7 @@ git commit -m "feat: estrutura da aplicacao com navegacao por teclado e canais i
 **Arquivos:** criar `web/src/features/messages/MessageList.tsx`;
 teste `web/test/message-list.test.tsx`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```tsx
 describe('lista de mensagens', () => {
@@ -2591,19 +2592,19 @@ Os três primeiros casos são a diferença entre acessível no papel e acessíve
 prática: anunciar cada mensagem de uma conversa movimentada transforma leitor de
 tela em tortura, e interromper quem está digitando é pior ainda.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- message-list`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- message-list`
 
-- [ ] **Passo 3: Implementar a região viva com pausa e agrupamento**
+- [x] **Passo 3: Implementar a região viva com pausa e agrupamento**
 
 `aria-live` alterna para `off` quando o campo de escrita recebe foco, e os
 anúncios são agrupados numa janela de 2 s.
 
-- [ ] **Passo 4: Implementar a âncora de rolagem**
+- [x] **Passo 4: Implementar a âncora de rolagem**
 
 Colada no fim quando já estava no fim; caso contrário, marcador "novas
 mensagens" sem arrastar a leitura de quem está revisando o histórico.
 
-- [ ] **Passo 5: Rodar, confirmar verde, commitar**
+- [x] **Passo 5: Rodar, confirmar verde, commitar**
 
 ```bash
 git add web/src/features/messages/ web/test/message-list.test.tsx
@@ -2615,7 +2616,7 @@ git commit -m "feat: lista de mensagens com region de log educada e ancora de ro
 **Arquivos:** criar `web/src/features/messages/Composer.tsx`;
 teste `web/test/composer.test.tsx`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```tsx
 describe('composicao', () => {
@@ -2645,9 +2646,9 @@ describe('composicao', () => {
 O caso "nunca some em silêncio" existe porque é a falha mais corrosiva de
 confiança num chat: a pessoa acha que falou, e ninguém recebeu.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- composer`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- composer`
 
-- [ ] **Passo 3: Implementar o eco otimista**
+- [x] **Passo 3: Implementar o eco otimista**
 
 O ID é gerado no cliente com `uuidv7()` e enviado no corpo. Quando o evento
 `message.created` chega pelo socket, a mensagem otimista é reconciliada **pelo
@@ -2656,7 +2657,7 @@ ID**, não por conteúdo — reconciliar por texto duplicaria mensagens repetida
 Esta é a razão de a Tarefa 15 aceitar ID vindo do cliente: sem isso, o eco não
 teria como se reconhecer no evento de volta.
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add web/src/features/messages/Composer.tsx web/test/composer.test.tsx
@@ -2668,7 +2669,7 @@ git commit -m "feat: composicao com eco otimista reconciliado por ID"
 **Arquivos:** criar `web/src/features/presence/*`;
 teste `web/test/presence.test.tsx`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```tsx
 describe('presenca e conexao', () => {
@@ -2696,14 +2697,14 @@ em torno de "o socket pode falhar e o REST cura", exibir a verdade é a express�
 visual do sistema, não enfeite. É também o lugar onde a Fatia 2 vai pendurar as
 estatísticas de mídia por participante, sem redesenho.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- presence`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- presence`
 
-- [ ] **Passo 3: Implementar**
+- [x] **Passo 3: Implementar**
 
 Presença com forma **e** cor **e** rótulo textual. Barra de conexão como
 `role="status"`, com transição suave que respeita `prefers-reduced-motion`.
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add web/src/features/presence/ web/test/presence.test.tsx
@@ -2714,7 +2715,7 @@ git commit -m "feat: presenca com forma e rotulo, e barra de conexao honesta"
 
 **Arquivos:** criar `web/src/features/settings/*`; teste `web/test/settings.test.tsx`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```tsx
 describe('configuracoes', () => {
@@ -2737,15 +2738,15 @@ merece teste próprio: em contexto explícito de gestão, o administrador vê o 
 para poder apagar um canal órfão — com rótulo deixando claro que o conteúdo
 permanece fora de alcance.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- settings`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace web run test -- settings`
 
-- [ ] **Passo 3: Implementar com primitivos Radix**
+- [x] **Passo 3: Implementar com primitivos Radix**
 
 Diálogo, menu e tooltip vêm do Radix porque já resolvem foco, teclado e ARIA
 corretamente. Reimplementar isso à mão é precisamente como os requisitos de
 acessibilidade morrem na prática.
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add web/src/features/settings/ web/test/settings.test.tsx
@@ -2761,7 +2762,7 @@ git commit -m "feat: telas de configuracao com gestao de canal privado sem leitu
 **Arquivos:** criar `api/Dockerfile`, `web/Dockerfile`, `Caddyfile`,
 `docker-compose.yml`; teste `test/smoke.sh`
 
-- [ ] **Passo 1: Escrever o teste de fumaça que falha**
+- [x] **Passo 1: Escrever o teste de fumaça que falha**
 
 ```bash
 #!/usr/bin/env bash
@@ -2785,15 +2786,15 @@ echo 'fumaca OK'
 As duas últimas verificações são as que costumam ser esquecidas: container
 rodando como root, e banco publicado no host.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `bash test/smoke.sh`
+- [x] **Passo 2: Rodar e confirmar falha** — `bash test/smoke.sh`
 
-- [ ] **Passo 3: Escrever os Dockerfiles em múltiplos estágios**
+- [x] **Passo 3: Escrever os Dockerfiles em múltiplos estágios**
 
 Estágio de dependências, estágio de build, estágio final enxuto. Usuário
 não-root no final, `HEALTHCHECK` apontando para `/api/health`, e `.dockerignore`
 excluindo `node_modules`, `.git`, `.env` e `docs`.
 
-- [ ] **Passo 4: Escrever o Caddyfile**
+- [x] **Passo 4: Escrever o Caddyfile**
 
 ```
 {$PUBLIC_DOMAIN} {
@@ -2815,13 +2816,13 @@ excluindo `node_modules`, `.git`, `.env` e `docs`.
 TLS é automático: o Caddy obtém e renova o certificado sozinho, desde que o
 domínio já aponte para o IP antes da primeira subida.
 
-- [ ] **Passo 5: Escrever o Compose de produção**
+- [x] **Passo 5: Escrever o Compose de produção**
 
 Sem porta de banco publicada, migração rodando no arranque da API antes de
 aceitar tráfego, `restart: unless-stopped`, e volume nomeado para o Postgres.
 O serviço `livekit` fica **comentado**, com nota de que pertence à Fatia 2.
 
-- [ ] **Passo 6: Rodar a fumaça, confirmar verde, commitar**
+- [x] **Passo 6: Rodar a fumaça, confirmar verde, commitar**
 
 ```bash
 git add api/Dockerfile web/Dockerfile Caddyfile docker-compose.yml test/smoke.sh
@@ -2832,7 +2833,7 @@ git commit -m "feat: imagens de producao, Caddy com TLS automatico e teste de fu
 
 **Arquivos:** criar `e2e/*.spec.ts`, `playwright.config.ts`
 
-- [ ] **Passo 1: Escrever os seis fluxos da spec 06**
+- [x] **Passo 1: Escrever os seis fluxos da spec 06**
 
 ```ts
 // e2e/fluxos.spec.ts
@@ -2867,9 +2868,9 @@ test('percurso completo so com teclado', async ({ page }) => {
 O teste de reconexão é o que prova, no sistema montado, a decisão arquitetural
 mais importante do projeto.
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npx playwright test`
+- [x] **Passo 2: Rodar e confirmar falha** — `npx playwright test`
 
-- [ ] **Passo 3: Acrescentar a varredura axe**
+- [x] **Passo 3: Acrescentar a varredura axe**
 
 ```ts
 test('sem violacao de acessibilidade nas telas principais', async ({ page }) => {
@@ -2881,7 +2882,7 @@ test('sem violacao de acessibilidade nas telas principais', async ({ page }) => 
 })
 ```
 
-- [ ] **Passo 4: Rodar, confirmar verde, commitar**
+- [x] **Passo 4: Rodar, confirmar verde, commitar**
 
 ```bash
 git add e2e/ playwright.config.ts
@@ -2892,7 +2893,7 @@ git commit -m "test: fluxos ponta a ponta e varredura axe WCAG 2.2 AA"
 
 **Arquivos:** criar `.github/workflows/ci.yml`, `CONTRIBUTING.md`
 
-- [ ] **Passo 1: Escrever o pipeline na ordem que falha rápido**
+- [x] **Passo 1: Escrever o pipeline na ordem que falha rápido**
 
 1. `lint` e `typecheck`
 2. Testes de unidade
@@ -2902,16 +2903,16 @@ git commit -m "test: fluxos ponta a ponta e varredura axe WCAG 2.2 AA"
 6. Varredura axe
 7. Auditoria de dependências
 
-- [ ] **Passo 2: Exigir os limiares de cobertura**
+- [x] **Passo 2: Exigir os limiares de cobertura**
 
 Build falha se `can.ts` ou `fanout.ts` ficarem abaixo de 100%, `auth/` abaixo de
 95%, ou rotas abaixo de 85%.
 
-- [ ] **Passo 3: Instalar o hook de pre-commit**
+- [x] **Passo 3: Instalar o hook de pre-commit**
 
 Etapas 1 a 3 rodam localmente antes de cada commit.
 
-- [ ] **Passo 4: Documentar as regras invioláveis no `CONTRIBUTING.md`**
+- [x] **Passo 4: Documentar as regras invioláveis no `CONTRIBUTING.md`**
 
 - Nenhuma comparação de papel fora de `can.ts`
 - Nenhum cálculo de audiência fora de `fanout.ts`
@@ -2919,7 +2920,7 @@ Etapas 1 a 3 rodam localmente antes de cada commit.
 - Recurso invisível responde `404`, jamais `403`
 - Teste primeiro, sempre
 
-- [ ] **Passo 5: Commitar**
+- [x] **Passo 5: Commitar**
 
 ```bash
 git add .github/ CONTRIBUTING.md
@@ -2935,7 +2936,7 @@ git commit -m "ci: pipeline completo com limiares de cobertura obrigatorios"
 `ops/backup.sh`, `ops/restore.sh`, `docs/RUNBOOK.md`;
 teste `api/test/cleanup.test.ts`
 
-- [ ] **Passo 1: Escrever o teste que falha**
+- [x] **Passo 1: Escrever o teste que falha**
 
 ```ts
 describe('limpeza', () => {
@@ -2952,9 +2953,9 @@ describe('limpeza', () => {
 })
 ```
 
-- [ ] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- cleanup`
+- [x] **Passo 2: Rodar e confirmar falha** — `npm --workspace api run test -- cleanup`
 
-- [ ] **Passo 3: Implementar a limpeza e agendá-la**
+- [x] **Passo 3: Implementar a limpeza e agendá-la**
 
 ```ts
 export async function limparSessoesExpiradas(): Promise<number> {
@@ -2966,29 +2967,29 @@ export async function limparSessoesExpiradas(): Promise<number> {
 Agendada uma vez por dia, dentro do próprio processo da API. Para dez pessoas,
 um cron externo seria cerimônia sem retorno.
 
-- [ ] **Passo 4: Escrever os scripts de backup e restauração**
+- [x] **Passo 4: Escrever os scripts de backup e restauração**
 
 `ops/backup.sh` roda `pg_dump`, comprime, envia para fora da VPS e apaga o que
 passar de 14 dias. `ops/restore.sh` faz o caminho inverso, contra um banco
 descartável.
 
-- [ ] **Passo 5: TESTAR a restauração**
+- [x] **Passo 5: TESTAR a restauração**
 
 Restaurar o dump num banco vazio e confirmar que a aplicação sobe e autentica.
 **Backup nunca testado não é backup** — este passo não é opcional e não pode ser
 adiado para "quando precisar".
 
-- [ ] **Passo 6: Expor métricas em rota autenticada**
+- [x] **Passo 6: Expor métricas em rota autenticada**
 
 Conexões WebSocket ativas, eventos por segundo e latência de consulta.
 Sem Prometheus e sem Grafana nesta fatia.
 
-- [ ] **Passo 7: Escrever o `RUNBOOK.md`**
+- [x] **Passo 7: Escrever o `RUNBOOK.md`**
 
 Como subir, como derrubar, como ler log, como restaurar, o que fazer quando o
 certificado não emite, e como rodar o seed inicial.
 
-- [ ] **Passo 8: Commitar**
+- [x] **Passo 8: Commitar**
 
 ```bash
 git add api/src/cli/cleanup.ts api/src/routes/metrics.routes.ts ops/ docs/RUNBOOK.md api/test/cleanup.test.ts
@@ -2999,21 +3000,58 @@ git commit -m "feat: limpeza de sessoes, backup testado, metricas e runbook"
 
 ## Definição de pronto — Fatia 1
 
-A fatia está concluída quando **todas** forem verdadeiras:
+A fatia está concluída quando **todas** forem verdadeiras. O estado abaixo foi
+apurado no fechamento de 2026-08-29; os três itens em aberto dependem de um
+host real e de pessoas, e nenhum deles se resolve com teste automatizado.
 
-- [ ] As 33 tarefas estão com todos os passos marcados
-- [ ] `can.ts` e `fanout.ts` com cobertura de 100%
-- [ ] `private-channel-leak.test.ts` verde, nos onze casos
-- [ ] Os seis fluxos de ponta a ponta passam
-- [ ] `axe-core` sem violação nas quatro telas principais
-- [ ] Percurso completo só com teclado, verificado à mão
-- [ ] Stack sobe do zero num host limpo com um `docker compose up -d`
-- [ ] Certificado TLS emitido automaticamente
-- [ ] Restauração de backup testada com sucesso
+- [x] As 33 tarefas estão com todos os passos marcados
+- [x] `can.ts` e `fanout.ts` com cobertura de 100%
+- [x] `private-channel-leak.test.ts` verde, nos onze casos — vieram doze
+- [x] Os seis fluxos de ponta a ponta passam
+- [x] `axe-core` sem violação nas quatro telas principais
+- [ ] Percurso completo só com teclado, verificado à mão — o equivalente
+      automatizado passa (`e2e/fluxos.spec.ts:196`); a conferência humana falta
+- [x] Stack sobe do zero num host limpo com um `docker compose up -d`
+- [ ] Certificado TLS emitido automaticamente — exige domínio real apontando
+      para o IP; em laboratório o Caddy serve `http://localhost`
+- [x] Restauração de backup testada com sucesso
 - [ ] Duas pessoas reais conversaram pela ferramenta, em redes diferentes
 
 O último item não é decorativo: até que duas pessoas de fato conversem por ela,
 o que existe é um conjunto de testes verdes.
+
+## Fase 7 — Fechamento da Fatia 1
+
+Fase de verificação, não de código: a bateria inteira rodou de ponta a ponta na
+mesma ordem do CI, contra as imagens de produção. Nada foi corrigido porque
+nada falhou.
+
+| Etapa | Comando | Resultado |
+|---|---|---|
+| Lint | `npm run lint` | saída 0 |
+| Typecheck | `npm run typecheck` | saída 0, nos dois workspaces |
+| Testes da API | `npx vitest run --coverage --root api` | 206 testes em 26 arquivos, saída 0 |
+| Cobertura | idem | `can.ts` 100%, `fanout.ts` 100%, global 94.33% |
+| Testes do frontend | `npm --workspace web run test` | 110 testes em 10 arquivos, saída 0 |
+| Build | `npm --workspace api run build`, idem `web` | saída 0; bundle 276.32 kB (87.28 kB gzip) |
+| Fumaça | `bash test/smoke.sh` | as sete verificações passaram |
+| Fluxos e acessibilidade | `npx playwright test` | 11 passaram: 6 fluxos, 4 varreduras axe, 1 de sessão |
+| Backup e restauração | `ops/backup.sh` e `ops/restore.sh` | dump de 2717 bytes; ensaio devolveu 8 tabelas, 1 usuário, 5 migrações |
+
+Duas observações valem mais que os números.
+
+O teste de vazamento tem **doze** casos, não os onze previstos: a implementação
+acrescentou "o canal some do `ready` de quem foi removido". É superset do
+combinado, então o item fica marcado.
+
+A fumaça derruba o stack com `-v` no fim, e o `globalSetup` do Playwright sobe o
+seu próprio. A subida a partir do zero foi exercitada três vezes seguidas neste
+fechamento, com volume novo em cada uma — que é exatamente a promessa do item
+"sobe do zero num host limpo".
+
+O que falta para a Fatia 1 ser dada por encerrada não é código: é um deploy num
+host com DNS apontado, a conferência de teclado feita por uma pessoa, e duas
+pessoas conversando pela ferramenta em redes diferentes.
 
 ## O que este plano deliberadamente NÃO faz
 

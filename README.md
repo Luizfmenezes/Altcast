@@ -10,9 +10,33 @@ arquitetura mais leve: um círculo fechado de pessoas conhecidas, até cerca de
 
 ## Estado atual
 
-**Fase de planejamento.** Nenhum código foi escrito. Toda a especificação vive
-em [`docs/specs/`](docs/specs/) e o plano de execução em
-[`docs/superpowers/plans/2026-08-28-altcast-fatia-1-fundacao.md`](docs/superpowers/plans/2026-08-28-altcast-fatia-1-fundacao.md).
+**Fatia 2 em andamento: a transmissao esta de pe.** Canal de voz emite token
+assinado pela API, o SFU (LiveKit) valida a assinatura, e a interface entra na
+chamada com microfone, camera e compartilhamento de tela. A audiencia continua
+decidida por `fanout.ts`: quem nao ve o canal nao entra na sala, nao aparece na
+lista e nao recebe evento. O SDK do SFU e carregado sob demanda, entao quem so
+usa texto nao paga por ele.
+
+Para subir a midia e preciso preencher `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` e
+`LIVEKIT_URL` no `.env`. Sem as tres, a API sobe inteira e so a chamada responde
+`503 media_unavailable` — texto continua funcionando.
+
+**Fatia 1 implementada e verificada.** Contas, grupos, convites, canais de texto
+públicos e privados, chat em tempo real e presença estão de pé, com a bateria
+inteira verde: 316 testes de unidade e integração, os seis fluxos de ponta a
+ponta, quatro varreduras `axe-core` sem violação, fumaça contra as imagens de
+produção e ensaio de restauração de backup. `can.ts` e `fanout.ts` têm
+cobertura de 100%.
+
+Falta para dar a fatia por encerrada o que nenhum teste alcança: um deploy num
+host com DNS apontado (para o Caddy emitir o certificado), a conferência de
+teclado feita por uma pessoa, e duas pessoas conversando pela ferramenta em
+redes diferentes.
+
+A especificação vive em [`docs/specs/`](docs/specs/), o plano de execução com o
+registro de fechamento em
+[`docs/superpowers/plans/2026-08-28-altcast-fatia-1-fundacao.md`](docs/superpowers/plans/2026-08-28-altcast-fatia-1-fundacao.md),
+e a operação do dia a dia em [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
 
 ## Documentação
 

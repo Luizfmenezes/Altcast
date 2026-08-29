@@ -50,7 +50,22 @@ function urlPadrao(): string {
   return `${protocolo}//${window.location.host}/ws`
 }
 
-export type Conexao = { fechar: () => void; reconectarAgora: () => void }
+export type QuadroCliente = { t: string; d?: unknown }
+
+export type Conexao = {
+  fechar: () => void
+  reconectarAgora: () => void
+  /**
+   * Manda um quadro ao servidor. Devolve `false` quando nao havia socket
+   * aberto — e a chamada NAO fica em fila.
+   *
+   * Enfileirar seria reconstruir a entrega garantida que a spec 04 recusa de
+   * proposito: um `voice.state` represado por dez segundos chegaria mentindo
+   * sobre o microfone. Quem se importa com o estado o reanuncia ao reconectar,
+   * que e o mesmo caminho que ja cura o buraco das mensagens.
+   */
+  enviar: (quadro: QuadroCliente) => boolean
+}
 
 export function conectarSocket(opcoes: OpcoesSocket = {}): Conexao {
   const { onEvent, onStatus, canaisAbertos } = opcoes
@@ -162,6 +177,12 @@ export function conectarSocket(opcoes: OpcoesSocket = {}): Conexao {
   abrir()
 
   return {
+    enviar: quadro => {
+      if (socket === null || socket.readyState !== WebSocket.OPEN) return false
+      socket.send(JSON.stringify(quadro))
+      return true
+    },
+
     fechar: () => {
       encerrado = true
       document.removeEventListener('visibilitychange', aoVoltar)

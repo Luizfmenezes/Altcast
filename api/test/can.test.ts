@@ -49,9 +49,24 @@ describe('can — tabela de verdade', () => {
     ['owner apaga a de terceiro',          ator('owner'),         'message.delete_any', msgTerceiro, true],
     ['member nao apaga a de terceiro',     ator('member'),        'message.delete_any', msgTerceiro, false],
     ['autor apaga a propria por delete_any', ator('member'),      'message.delete_any', msgPropria, true],
-    ['ninguem entra em call na Fatia 1',   ator('owner', true),   'channel.join_call',  canalPublico, false],
-    ['ninguem publica na Fatia 1',         ator('owner', true),   'channel.publish',    canalPublico, false],
-    ['ninguem modera call na Fatia 1',     ator('owner', true),   'channel.moderate_call', canalPublico, false],
+    // Chamada segue os MESMOS dois eixos do texto. Entrar e publicar vem do
+    // pertencimento; moderar vem do papel. Se o admin entrasse numa chamada de
+    // canal privado por ser admin, "privado" cairia justamente onde mais
+    // importa: na voz de quem esta na sala.
+    ['member entra em call publica',       ator('member'),        'channel.join_call',  canalPublico, true],
+    ['member dentro do privado entra',     ator('member', true),  'channel.join_call',  canalPrivado, true],
+    ['member fora do privado nao entra',   ator('member', false), 'channel.join_call',  canalPrivado, false],
+    ['admin fora do privado NAO entra',    ator('admin', false),  'channel.join_call',  canalPrivado, false],
+    ['owner fora do privado NAO entra',    ator('owner', false),  'channel.join_call',  canalPrivado, false],
+    // Qualquer participante transmite: e a diferenca deliberada para o modelo
+    // de palco do Discord, e o que faz a ferramenta servir a uma reuniao.
+    ['member publica em publica',          ator('member'),        'channel.publish',    canalPublico, true],
+    ['member dentro do privado publica',   ator('member', true),  'channel.publish',    canalPrivado, true],
+    ['member fora do privado nao publica', ator('member', false), 'channel.publish',    canalPrivado, false],
+    ['admin fora do privado NAO publica',  ator('admin', false),  'channel.publish',    canalPrivado, false],
+    ['admin modera a chamada',             ator('admin', false),  'channel.moderate_call', canalPublico, true],
+    ['owner modera a chamada',             ator('owner', false),  'channel.moderate_call', canalPrivado, true],
+    ['member nao modera a chamada',        ator('member', true),  'channel.moderate_call', canalPublico, false],
   ]
 
   for (const [nome, a, acao, recurso, esperado] of casos) {
@@ -65,6 +80,7 @@ it('nao-membro nao pode absolutamente nada', () => {
     'group.change_role','channel.create','channel.update','channel.delete',
     'channel.read','channel.write','channel.manage_members','message.create',
     'message.edit_own','message.delete_own','message.delete_any',
+    'channel.join_call','channel.publish','channel.moderate_call',
   ]
   for (const acao of acoes) {
     expect(can(ator(null), acao, grupo)).toBe(false)

@@ -34,6 +34,7 @@ export function App(): ReactNode {
   const definirConexao = useStore(e => e.definirConexao)
   const carregarMensagens = useStore(e => e.carregarMensagens)
   const limpar = useStore(e => e.limpar)
+  const definirEnvio = useStore(e => e.definirEnvio)
 
   const conexao = useRef<Conexao | null>(null)
   const enviadoEm = useRef(0)
@@ -81,11 +82,17 @@ export function App(): ReactNode {
       },
     })
 
+    // A chamada de voz nasce fundo na arvore e precisa falar com o socket que
+    // vive aqui. Passar o `enviar` pela store evita atravessar cinco
+    // componentes com uma propriedade que nenhum deles usa.
+    definirEnvio(quadro => conexao.current?.enviar(quadro) ?? false)
+
     return () => {
       conexao.current?.fechar()
       conexao.current = null
+      definirEnvio(() => false)
     }
-  }, [sessao, aplicarEvento, aplicarReady, definirConexao])
+  }, [sessao, aplicarEvento, aplicarReady, definirConexao, definirEnvio])
 
   // Abrir um canal carrega o historico dele por REST. O socket so acrescenta
   // o que chegar depois.

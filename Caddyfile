@@ -14,6 +14,14 @@
 		reverse_proxy api:3000
 	}
 
+	# A sinalizacao do LiveKit e um WebSocket em /rtc. Passando por aqui, a
+	# chamada usa o certificado e a porta 443 que ja existem — sem subdominio
+	# novo, sem segunda emissao de certificado. So a midia (UDP) e que vai
+	# direto as portas do SFU, porque RTP nao atravessa proxy HTTP.
+	handle /rtc* {
+		reverse_proxy livekit:7880
+	}
+
 	handle {
 		root * /srv/web
 		# A aplicacao e de pagina unica: qualquer caminho desconhecido devolve
@@ -23,13 +31,20 @@
 		file_server
 	}
 
+	# HSTS SO sobre TLS. Mandado em texto claro, este cabecalho ensina o
+	# navegador a exigir HTTPS de um host que talvez nunca va ter certificado —
+	# e em `http://localhost` isso trava o desenvolvimento com
+	# ERR_CONNECTION_CLOSED, porque nada escuta na 443. O erro nao aparece no
+	# curl, que ignora HSTS: so no navegador, e por um ano.
+	@seguro expression `{http.request.scheme} == "https"`
+	header @seguro Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
 	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		# connect-src inclui wss: porque o tempo real e o unico destino externo
 		# ao documento. Nenhum script de terceiro, nenhuma fonte remota.
-		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; media-src 'self' blob: mediastream:; frame-ancestors 'none'; base-uri 'self'"
 		-Server
 	}
 }

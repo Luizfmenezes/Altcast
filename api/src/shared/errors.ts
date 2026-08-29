@@ -14,6 +14,7 @@ export const ERROR_CATALOG = {
   owner_cannot_leave:  { status: 409, message: 'Transfira a titularidade antes de sair.' },
   channel_name_taken:  { status: 409, message: 'Ja existe um canal com esse nome.' },
   message_id_taken:    { status: 409, message: 'Esta mensagem ja foi enviada.' },
+  media_unavailable:   { status: 503, message: 'A chamada esta indisponivel neste servidor.' },
   internal_error:      { status: 500, message: 'Algo deu errado. Tente novamente.' },
 } as const
 

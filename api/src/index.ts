@@ -26,6 +26,13 @@ export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
     loggerInstance: logger as FastifyBaseLogger,
     genReqId: () => newId(),
+    // Em producao a requisicao chega depois de dois saltos — Nginx Proxy
+    // Manager termina o TLS e o Caddy serve o estatico — e o `req.ip` cru
+    // seria o endereco do container do Caddy. Todos os visitantes viram um so
+    // IP, e o limite de 3 cadastros por hora POR IP vira 3 por hora no site
+    // inteiro. Com a confianca ligada, o Fastify le o X-Forwarded-For e
+    // recupera o endereco de quem realmente chamou.
+    trustProxy: env.TRUST_PROXY,
   })
 
   await app.register(cookie)

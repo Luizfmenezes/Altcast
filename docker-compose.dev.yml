@@ -25,6 +25,11 @@ services:
       SESSION_COOKIE_NAME: altcast_session
       SESSION_TTL_DAYS: "30"
       LOG_LEVEL: debug
+      # Casam com ops/livekit.dev.yaml. O navegador fala com o SFU direto em
+      # localhost:7880 porque em desenvolvimento nao ha Caddy no caminho.
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: devsecret_altcast_desenvolvimento_local_32
+      LIVEKIT_URL: ws://localhost:7880
     ports: ["3000:3000"]
     volumes:
       # O bind traz o codigo-fonte; os volumes anonimos impedem que o
@@ -34,6 +39,19 @@ services:
       - "/app/api/node_modules"
     depends_on:
       postgres: { condition: service_healthy }
+
+  livekit:
+    image: livekit/livekit-server:v1.13
+    command: --config /etc/livekit.yaml
+    volumes: ["./ops/livekit.dev.yaml:/etc/livekit.yaml:ro"]
+    # `host` evita a traducao de portas do Docker: com bridge, os candidatos
+    # ICE anunciariam o IP interno do container e a midia nunca chegaria. Em
+    # Windows e macOS, onde host nao existe, as portas publicadas abaixo dao
+    # conta porque o SFU cai para TCP em 7881.
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50100:50000-50100/udp"
 
 volumes:
   pgdata:

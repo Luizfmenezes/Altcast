@@ -31,6 +31,47 @@ docker compose exec \
 
 O seed é idempotente por recusa: se já existir qualquer usuário, ele aborta.
 
+## Atrás de um proxy externo (a instalação de produção)
+
+A instância de produção **não** termina TLS. Ela divide o host com outro
+sistema e fica atrás de um Nginx Proxy Manager que vive noutra máquina:
+
+```
+navegador --https--> Nginx Proxy Manager --http--> Caddy --> api
+   (443)              (outra máquina)             (8081)     (interno)
+               `--------- UDP 51000-51100 / TCP 17881 ---------> livekit
+                   (direto, sem passar por proxy nenhum)
+```
+
+Duas consequências que explicam quase todo problema desta topologia:
+
+1. **`PUBLIC_DOMAIN=:80`**, e não o domínio. O Caddy serve em texto claro e não
+   pede certificado — o certificado é do proxy de fora. Pôr o domínio aqui faz
+   o Caddy tentar emitir um segundo certificado, falhar o desafio (a 80 é do
+   proxy) e ficar em laço de ACME.
+2. **A mídia não passa pelo proxy.** RTP é UDP e não sobrevive a um salto HTTP.
+   O navegador fala direto com o IP público do host. Se `51000-51100/udp` e
+   `17881/tcp` não estiverem abertos no firewall do host **e** na lista de
+   segurança da nuvem, a chamada conecta, mostra o participante e não leva som.
+
+O que o proxy precisa ter ligado: **Websockets Support** (o `/ws` da conversa e
+o `/rtc` da chamada são upgrades) e o encaminhamento de `X-Forwarded-For` (a
+API confia nele via `TRUST_PROXY=true` para os limites de taxa contarem por
+visitante, e não todo mundo no mesmo balde).
+
+### Mapa de portas no host
+
+| Porta do host | Serviço | Alcance |
+|---|---|---|
+| `8081/tcp` | Caddy (HTTP) | o proxy externo |
+| `17881/tcp` | LiveKit, mídia por TCP (saída de emergência) | navegador, direto |
+| `51000-51100/udp` | LiveKit, mídia por UDP | navegador, direto |
+| — | Postgres, API, sinalização do SFU | só a rede interna do compose |
+
+As portas do LiveKit aparecem em **dois** arquivos que precisam concordar:
+`ops/livekit.yaml` (o que o SFU anuncia nos candidatos ICE) e
+`docker-compose.yml` (o que é publicado no host). Mude sempre os dois juntos.
+
 ## Verificar que está de pé
 
 ```bash
@@ -143,9 +184,32 @@ docker compose logs web | grep -i -E 'acme|certificate|obtain'
 |---|---|
 | API `unhealthy` no `ps` | `docker compose logs api` — quase sempre migração falhando ou `DATABASE_URL` errada |
 | Login devolve 429 | Limite de 5/min por IP. É o sistema funcionando; espere um minuto |
+| 429 para todo mundo, e cedo demais | `TRUST_PROXY` desligado atrás do proxy: `req.ip` vira o endereço do Caddy e os visitantes dividem um balde só. `docker compose exec api printenv TRUST_PROXY` |
 | Barra de conexão em "reconectando" | Socket caindo. `docker compose logs api` e o log do Caddy; a conversa continua funcionando por REST |
 | Mensagens não chegam ao vivo, mas aparecem ao recarregar | Exatamente o cenário que a arquitetura prevê. O WebSocket está degradado; a reconexão cura sozinha |
 | Postgres não sobe | Volume corrompido ou disco cheio. `docker compose logs postgres`, `df -h` |
+| Chamada diz "servidor de mídia não configurado" | Falta `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` ou `LIVEKIT_URL` no `.env`. É um 503 honesto, não um defeito |
+| Entra na chamada mas ninguém se ouve | Portas UDP 51000-51100 fechadas no firewall do host **ou** na lista de segurança da nuvem. A mídia cai para TCP em 17881; se essa também estiver fechada, não há caminho |
+| Chamada entra e cai sozinha ~15s depois | ICE não fechou. Veja `nodeIP` no log do SFU: se for o IP **público** e o navegador estiver na mesma máquina, use `LIVEKIT_CONFIG=./ops/livekit.local.yaml` |
+| Console do navegador: `404` em `/rtc/v1` | Servidor LiveKit velho para o `livekit-client` instalado. O cliente 2.x usa `/rtc/v1`; servidores anteriores só têm `/rtc` |
+| Navegador dá `ERR_CONNECTION_CLOSED` em `http://localhost` | HSTS gravado no navegador de uma versão anterior do Caddyfile. Limpe em `chrome://net-internals/#hsts` (Delete domain: `localhost`) |
+| `invalid token` no log do LiveKit | O segredo do `.env` não é o mesmo que o container do SFU carregou. `docker compose up -d livekit` depois de mudar o `.env` |
+
+## Chamada de voz e vídeo
+
+A mídia é um serviço separado: o `livekit` do compose. Ele não fala com o
+Postgres nem com a API — recebe do navegador um token que a API assinou e
+confere apenas a assinatura.
+
+```bash
+# O SFU está de pé e validando assinatura?
+curl -s "http://localhost:7880/rtc/validate?access_token=$TOKEN"
+# "success" = token aceito; "invalid token" = segredo divergente
+```
+
+Trocar por LiveKit Cloud não muda uma linha de código: basta apontar
+`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` e `LIVEKIT_URL` para o projeto na nuvem
+e remover o serviço `livekit` do compose.
 
 ## Atualizar
 

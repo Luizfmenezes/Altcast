@@ -23,3 +23,10 @@ e2e/.auth/
 playwright-report/
 test-results/
 backups/
+
+# Acesso a maquina de producao. NUNCA versionar: o repositorio e publico, e
+# uma chave privada num repositorio publico e uma maquina perdida.
+vm oracle/
+*.key
+*.pem
+id_rsa*

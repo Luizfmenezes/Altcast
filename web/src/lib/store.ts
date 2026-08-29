@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Canal, Grupo, Membro, Mensagem, Ready, Usuario } from './tipos.js'
-import type { ServerEvent, SocketStatus } from './socket.js'
+import type { QuadroCliente, ServerEvent, SocketStatus } from './socket.js'
 
 /**
  * Estado da aplicacao.
@@ -20,10 +20,24 @@ type Estado = {
   grupoAtivo: string | null
   canalAtivo: string | null
   conexao: SocketStatus
+  /**
+   * Quem esta em chamada, por canal. Espelha `calls.ts` do servidor e some no
+   * refresh de proposito: uma chamada e um fato sobre sockets abertos agora, e
+   * o proximo `voice.participant_joined` reconstroi a lista.
+   */
+  chamadas: Record<string, ParticipanteDeVoz[]>
+
+  /**
+   * Manda um quadro pelo socket. O padrao devolve `false` porque antes de a
+   * conexao existir a resposta honesta e "nao foi enviado" — e nao uma fila que
+   * entregaria um estado de microfone ja vencido.
+   */
+  enviarQuadro: (quadro: QuadroCliente) => boolean
 
   aplicarReady: (ready: Ready) => void
   aplicarEvento: (evento: ServerEvent) => void
   definirConexao: (s: SocketStatus) => void
+  definirEnvio: (enviar: (quadro: QuadroCliente) => boolean) => void
   escolherGrupo: (groupId: string) => void
   escolherCanal: (channelId: string) => void
   carregarMensagens: (channelId: string, mensagens: Mensagem[]) => void
@@ -31,6 +45,29 @@ type Estado = {
   marcarEnvio: (id: string, envio: Mensagem['envio']) => void
   descartarEco: (id: string) => void
   limpar: () => void
+}
+
+/** O que a sala sabe sobre uma pessoa sem precisar assinar a faixa dela. */
+export type ParticipanteDeVoz = {
+  userId: string
+  microfone: boolean
+  camera: boolean
+  tela: boolean
+}
+
+/**
+ * Substitui quem ja estava, ou acrescenta. O `voice.participant_joined` pode
+ * chegar duas vezes — reconexao, segunda aba — e a lista nao pode ganhar a
+ * mesma pessoa duas vezes por causa disso.
+ */
+function fundirParticipante(
+  lista: ParticipanteDeVoz[], novo: ParticipanteDeVoz,
+): ParticipanteDeVoz[] {
+  const i = lista.findIndex(p => p.userId === novo.userId)
+  if (i < 0) return [...lista, novo]
+  const copia = [...lista]
+  copia[i] = novo
+  return copia
 }
 
 /** Ordem estavel: posicao e, no empate, o ID - que e UUIDv7, portanto criacao. */
@@ -65,6 +102,8 @@ export const useStore = create<Estado>(set => ({
   grupoAtivo: null,
   canalAtivo: null,
   conexao: 'reconectando',
+  chamadas: {},
+  enviarQuadro: () => false,
 
   aplicarReady: ready => set(estado => {
     const grupoAtivo = estado.grupoAtivo !== null
@@ -170,15 +209,39 @@ export const useStore = create<Estado>(set => ({
           members: estado.members.map(m => m.userId === userId ? { ...m, status } : m),
         }))
       }
+      case 'voice.participant_joined':
+      case 'voice.track_published': {
+        // Os dois eventos carregam o mesmo formato e a mesma verdade: o estado
+        // completo da pessoa na sala. Trata-los junto e o que faz "entrou" e
+        // "ligou a camera" nao precisarem de dois caminhos que podem divergir.
+        const { channelId, ...participante } = d as unknown as
+          ParticipanteDeVoz & { channelId: string }
+        return set(estado => ({
+          chamadas: {
+            ...estado.chamadas,
+            [channelId]: fundirParticipante(estado.chamadas[channelId] ?? [], participante),
+          },
+        }))
+      }
+      case 'voice.participant_left': {
+        const { channelId, userId } = d as { channelId: string; userId: string }
+        return set(estado => ({
+          chamadas: {
+            ...estado.chamadas,
+            [channelId]: (estado.chamadas[channelId] ?? []).filter(p => p.userId !== userId),
+          },
+        }))
+      }
       default:
-        // Evento desconhecido - inclusive o prefixo `voice.` da Fatia 2 - e
-        // ignorado em silencio, para que um servidor mais novo nunca quebre um
-        // cliente mais velho.
+        // Evento desconhecido e ignorado em silencio, para que um servidor mais
+        // novo nunca quebre um cliente mais velho.
         return
     }
   },
 
   definirConexao: conexao => set({ conexao }),
+
+  definirEnvio: enviar => set({ enviarQuadro: enviar }),
 
   escolherGrupo: groupId => set(estado => ({
     grupoAtivo: groupId,
@@ -216,7 +279,7 @@ export const useStore = create<Estado>(set => ({
 
   limpar: () => set({
     user: null, groups: [], channels: [], members: [], mensagens: {},
-    grupoAtivo: null, canalAtivo: null,
+    grupoAtivo: null, canalAtivo: null, chamadas: {},
   }),
 }))
 

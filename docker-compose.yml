@@ -1,5 +1,13 @@
 # Compose de producao. Sobe do zero num host limpo com `docker compose up -d`,
 # desde que exista um .env ao lado (veja .env.example).
+#
+# O host pode ja estar ocupado. Este arquivo assume que sim: nada aqui escuta
+# em 80, 443, 3000 ou 5432, porque um servidor real costuma ter dono anterior
+# e uma porta tomada derruba o `up` inteiro com um erro de bind — nao so o
+# servico que colidiu. As portas que precisam existir no host sao todas
+# parametrizadas pelo .env, e as que nao precisam nao sao publicadas.
+name: altcast
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -34,6 +42,15 @@ services:
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-altcast_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Ha proxy na frente (o Caddy aqui, e o Nginx Proxy Manager fora). Sem
+      # isto o limite de taxa por IP conta todos os visitantes como um so.
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      # Sem estas tres a API sobe inteira e so a chamada responde 503. Elas
+      # precisam atravessar ate o container: um .env preenchido que o compose
+      # nao repassa e exatamente igual a um .env vazio.
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+      LIVEKIT_URL: ${LIVEKIT_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,8 +63,16 @@ services:
     environment:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?defina PUBLIC_DOMAIN no .env}
     ports:
-      - '80:80'
-      - '443:443'
+      # Só HTTP, e numa porta alta. Quem termina o TLS e emite o certificado e
+      # o Nginx Proxy Manager, que vive fora desta maquina e encaminha para
+      # aqui: publicar 443 seria disputar a porta com o dono do host para
+      # depois nao usa-la. Com PUBLIC_DOMAIN=:80 o Caddy atende em texto claro
+      # e nao tenta emitir certificado para um nome que ja tem um.
+      #
+      # O padrao e 80 para que a fumaca (test/smoke.sh) e os testes de ponta a
+      # ponta continuem falando com http://localhost sem configuracao. Em
+      # producao o .env desloca para uma porta alta.
+      - '${WEB_HTTP_PORT:-80}:80'
     volumes:
       # Os certificados precisam sobreviver a um recriar de container: sem
       # isto, cada `up --build` pediria emissao nova e bateria no limite de
@@ -58,15 +83,48 @@ services:
       api:
         condition: service_healthy
 
-  # A Fatia 2 acrescenta midia. O servico fica registrado aqui, comentado, para
-  # que a decisao ja tomada nao precise ser redescoberta:
+  # O SFU da Fatia 2. Nao fala com o postgres nem com a API: recebe do
+  # navegador um token que a API assinou e confere so a assinatura.
   #
-  # livekit:
-  #   image: livekit/livekit-server:latest
-  #   restart: unless-stopped
-  #   command: --config /etc/livekit.yaml
-  #   volumes: ['./livekit.yaml:/etc/livekit.yaml:ro']
-  #   ports: ['7880:7880', '7881:7881', '50000-50100:50000-50100/udp']
+  # A versao acompanha o `livekit-client` do web: a partir do cliente 2.x a
+  # sinalizacao mudou de /rtc para /rtc/v1, e um servidor anterior a isso
+  # devolve 404 no handshake — a chamada falha sem dizer por que. Ao subir o
+  # SDK, confira a compatibilidade do servidor junto.
+  livekit:
+    image: livekit/livekit-server:v1.13
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml
+    environment:
+      # As chaves entram pelo ambiente para nao viverem num arquivo versionado.
+      # `chave: segredo` e o formato que o LiveKit espera nesta variavel.
+      LIVEKIT_KEYS: >-
+        ${LIVEKIT_API_KEY:?defina LIVEKIT_API_KEY no .env}:
+        ${LIVEKIT_API_SECRET:?defina LIVEKIT_API_SECRET no .env}
+    volumes:
+      # Em producao vale o padrao. Para testar na propria maquina, aponte
+      # LIVEKIT_CONFIG para ./ops/livekit.local.yaml no .env: a diferenca e o
+      # endereco que o SFU anuncia nos candidatos ICE.
+      - ${LIVEKIT_CONFIG:-./ops/livekit.yaml}:/etc/livekit.yaml:ro
+    # As portas de midia sao publicadas no host, e nao passam pelo Caddy: o
+    # trafego RTP e UDP e nao sobrevive a um proxy HTTP. Só a sinalizacao
+    # (7880) e HTTP, e essa o Caddy encaminha em /rtc.
+    ports:
+      # 7880 (sinalizacao) NAO aparece aqui de proposito: quem fala com ela e
+      # o Caddy, pela rede interna do compose, em /rtc. Publicar seria abrir
+      # um segundo caminho ate o SFU sem TLS e sem necessidade.
+      #
+      # Estas duas, sim, o navegador alcanca direto — RTP nao atravessa proxy
+      # HTTP. O mapeamento e 1:1 e obrigatoriamente igual ao que esta em
+      # ops/livekit.yaml: o SFU anuncia ESTES numeros nos candidatos ICE, e um
+      # numero anunciado que nao bate com o publicado e uma chamada que
+      # conecta a sinalizacao, mostra o participante na sala e nunca leva som.
+      #
+      # Literais, e nao variaveis do .env, justamente por causa desse acordo:
+      # sao dois arquivos que precisam concordar, e uma variavel daria a
+      # impressao de que mudar so o .env basta. Para trocar a faixa, mude
+      # ops/livekit.yaml e estas duas linhas juntas.
+      - '17881:17881'
+      - '51000-51100:51000-51100/udp'
 
 volumes:
   pgdata:

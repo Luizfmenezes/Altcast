@@ -3,14 +3,7 @@ import type { ReactNode } from 'react'
 import { api } from '../../lib/api.js'
 import { Botao } from '../../ui/Botao.js'
 import { ConfirmarAcao } from '../../ui/ConfirmarAcao.js'
-
-type CanalDeGestao = {
-  id: string
-  name: string
-  visibility: 'public' | 'private'
-  position: number
-  contentAccessible: boolean
-}
+import { GestaoDeCanais } from './GestaoDeCanais.js'
 
 type Convite = {
   code: string
@@ -34,7 +27,6 @@ export function ConfiguracoesGrupo({ groupId, aoFechar }: {
   groupId: string
   aoFechar: () => void
 }): ReactNode {
-  const [canais, setCanais] = useState<CanalDeGestao[]>([])
   const [convites, setConvites] = useState<Convite[]>([])
   const [novoConvite, setNovoConvite] = useState<Convite | null>(null)
 
@@ -44,10 +36,8 @@ export function ConfiguracoesGrupo({ groupId, aoFechar }: {
   }, [groupId])
 
   useEffect(() => {
-    void api.get<CanalDeGestao[]>(`/groups/${groupId}/channels/manage`)
-      .then(setCanais).catch(() => undefined)
     void carregarConvites().catch(() => undefined)
-  }, [groupId, carregarConvites])
+  }, [carregarConvites])
 
   async function gerarConvite(): Promise<void> {
     const criado = await api.post<Convite>(`/groups/${groupId}/invites`, {})
@@ -67,37 +57,7 @@ export function ConfiguracoesGrupo({ groupId, aoFechar }: {
         <Botao variante="discreto" onClick={aoFechar}>Fechar</Botao>
       </header>
 
-      <div>
-        <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-          Canais
-        </h2>
-        <ul className="flex flex-col gap-1">
-          {canais.map(canal => (
-            <li
-              key={canal.id}
-              className="flex items-center justify-between gap-3 rounded border
-                         border-border-subtle px-3 py-2"
-            >
-              <span className="flex items-center gap-2 text-sm text-fg">
-                <span aria-hidden="true" className="text-fg-muted">#</span>
-                <span>{canal.name}</span>
-                <span className="text-[11px] text-fg-muted">
-                  {canal.visibility === 'private' ? 'privado' : 'publico'}
-                </span>
-              </span>
-
-              {!canal.contentAccessible && (
-                <span
-                  className="rounded border border-border-subtle px-2 py-0.5 text-[11px]
-                             text-fg-muted"
-                >
-                  Conteudo inacessivel
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <GestaoDeCanais groupId={groupId} />
 
       <div>
         <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">

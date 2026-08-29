@@ -11,18 +11,16 @@ import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
 import { emit } from '../realtime/emit.js'
 import { audienceOfChannel } from '../realtime/fanout.js'
+import { calls } from '../realtime/calls.js'
+import { assinarTokenDeMidia, configuracaoDeMidia, VALIDADE_DO_TOKEN_S } from '../media/token.js'
+import { env } from '../env.js'
 import { parse, uuidOu404 } from './groups.routes.js'
 
 type Channel = typeof channels.$inferSelect
 type Transacao = Parameters<Parameters<Database['transaction']>[0]>[0]
 
-/**
- * A coluna aceita 'voice' desde a primeira migracao para que a Fatia 2 nao
- * vire retrabalho de schema. A API recusa ate que a midia exista de fato: sem
- * esta trava, um canal de voz criavel e inutilizavel entraria na barra lateral
- * como funcionalidade quebrada.
- */
-const tipoSchema = z.literal('text').optional()
+/** Texto ou voz. A coluna aceita os dois desde a primeira migracao. */
+const tipoSchema = z.enum(['text', 'voice']).optional()
 
 const nomeCru = z.string().min(1).max(64)
 const topico = z.string().trim().max(256).nullable().optional()
@@ -151,7 +149,7 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
 
     const visibility = campos.visibility ?? 'public'
     const linha = {
-      id: newId(), groupId, name: nome, visibility,
+      id: newId(), groupId, name: nome, visibility, type: campos.type ?? 'text',
       topic: campos.topic ?? null, position: await proximaPosicao(groupId),
     }
 
@@ -386,6 +384,64 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
       })
       return reply.status(204).send()
     })
+
+  /**
+   * Credencial de entrada na chamada.
+   *
+   * A decisao de quem entra e de quem transmite acontece AQUI, no servidor,
+   * antes de existir token — o cliente nunca pede uma permissao, ele recebe
+   * (ou nao) uma credencial ja limitada. Canal privado de quem nao participa
+   * responde 404 pelo mesmo `assertCan` do texto: entrar numa sala nao pode
+   * revelar o que ler o canal esconde.
+   */
+  app.post('/api/channels/:id/call-token', { preHandler: requireAuth }, async req => {
+    const channelId = uuidOu404((req.params as { id: string }).id)
+    const carregado = await loadChannelActor(req.user!.id, channelId)
+    if (!carregado) throw new AppError('not_found')
+
+    const recurso = {
+      kind: 'channel' as const, visibility: carregado.channel.visibility,
+    }
+    assertCan(carregado.actor, 'channel.join_call', recurso)
+
+    if (carregado.channel.type !== 'voice') {
+      throw new AppError('validation_failed', {
+        channelId: ['Este canal e de texto; nao tem chamada.'],
+      })
+    }
+
+    // Sem as tres variaveis, a API continua servindo texto normalmente e so a
+    // chamada fica fora do ar — com um codigo que diz exatamente isso.
+    const midia = configuracaoDeMidia({
+      chave: env.LIVEKIT_API_KEY, segredo: env.LIVEKIT_API_SECRET, url: env.LIVEKIT_URL,
+    })
+    if (midia === null) throw new AppError('media_unavailable')
+
+    const [eu] = await db.select({ displayName: users.displayName })
+      .from(users).where(eq(users.id, req.user!.id)).limit(1)
+
+    const podePublicar = can(carregado.actor, 'channel.publish', recurso)
+    const moderador = can(carregado.actor, 'channel.moderate_call', recurso)
+
+    const token = assinarTokenDeMidia({
+      sala: channelId,
+      usuario: req.user!.id,
+      nomeExibido: eu?.displayName ?? '',
+      podePublicar,
+      moderador,
+    }, midia.chave, midia.segredo)
+
+    // As duas permissoes voltam ao cliente junto do token porque a interface
+    // precisa delas ANTES de qualquer tentativa: quem so escuta ve o botao de
+    // microfone desabilitado, em vez de clicar e receber uma falha do SFU que
+    // ele nao tem como explicar.
+    return {
+      url: midia.url, token, room: channelId, identity: req.user!.id,
+      expiresIn: VALIDADE_DO_TOKEN_S,
+      podePublicar, moderador,
+      participants: calls.participantes(channelId),
+    }
+  })
 
   app.delete('/api/channels/:id', { preHandler: requireAuth }, async (req, reply) => {
     const channelId = uuidOu404((req.params as { id: string }).id)

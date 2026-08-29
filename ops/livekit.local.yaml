@@ -1,0 +1,28 @@
+# O mesmo SFU, para quando o navegador e o servidor estao na MESMA maquina.
+#
+# A diferenca esta em `node_ip`. Com `use_external_ip: true`, o LiveKit
+# descobre por STUN o IP publico da conexao e anuncia os candidatos ICE nele —
+# correto num servidor de verdade, e fatal em localhost: o navegador teria de
+# sair para a internet e voltar pelo NAT, o que quase nenhuma rede domestica
+# faz. O sintoma e cruel: a sinalizacao conecta, tudo parece certo, e quinze
+# segundos depois o servidor derruba o participante por falta de midia.
+#
+# Fixar 127.0.0.1 faz o navegador mandar a midia para as portas que o Docker
+# publica no host, que e o caminho que de fato existe.
+port: 7880
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: false
+  node_ip: 127.0.0.1
+
+# As chaves continuam vindo do ambiente (LIVEKIT_KEYS), como em producao.
+
+logging:
+  level: info
+
+room:
+  empty_timeout: 60
+  departure_timeout: 20

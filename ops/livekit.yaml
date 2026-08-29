@@ -1,0 +1,38 @@
+# Servidor de midia (SFU) da Fatia 2.
+#
+# O LiveKit nao conhece usuarios — spec 01 secao "O ponto critico da
+# separacao". Ele so confere a assinatura do token que a API emite e, a partir
+# dela, decide quem publica e quem escuta. Nenhuma identidade, nenhuma senha e
+# nenhum dado do banco atravessa este processo.
+port: 7880
+
+rtc:
+  # 7881 e a saida de emergencia: quando o UDP esta bloqueado — rede
+  # corporativa, hotel, celular em roaming — a midia cai para TCP em vez de a
+  # chamada simplesmente nao abrir.
+  #
+  # Faixa deslocada da padrao (7881 / 50000-50100) porque este SFU divide o
+  # host com outro sistema. Os numeros aqui sao os que o LiveKit ANUNCIA nos
+  # candidatos ICE, entao precisam ser identicos aos publicados em
+  # docker-compose.yml. Se divergirem, a chamada conecta, a sala aparece
+  # povoada e nenhum audio passa — a falha nao se parece com um erro de porta.
+  tcp_port: 17881
+  port_range_start: 51000
+  port_range_end: 51100
+  # Em producao o container precisa anunciar o IP publico do host, e nao o
+  # endereco interno da rede do compose: o candidato ICE que o navegador
+  # recebesse seria inalcancavel a partir da internet.
+  use_external_ip: true
+
+# As chaves vem do ambiente, nunca deste arquivo: ele e montado como somente
+# leitura no container e vive no repositorio. LIVEKIT_KEYS tem a forma
+# `chave: segredo` e e montada pelo compose a partir do .env.
+
+logging:
+  level: info
+
+# Uma sala sem ninguem nao precisa existir. O fechamento rapido evita que um
+# canal usado uma vez fique consumindo estado no SFU pelo resto do dia.
+room:
+  empty_timeout: 60
+  departure_timeout: 20

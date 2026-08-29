@@ -21,6 +21,9 @@ export default defineConfig({
       SESSION_COOKIE_NAME: 'altcast_session',
       SESSION_TTL_DAYS: '30',
       LOG_LEVEL: 'fatal',
+      LIVEKIT_API_KEY: 'chave-de-teste',
+      LIVEKIT_API_SECRET: 'segredo-de-teste-com-32-bytes-ou-mais',
+      LIVEKIT_URL: 'ws://localhost:7880',
     },
 
     coverage: {

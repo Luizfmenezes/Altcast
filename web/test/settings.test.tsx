@@ -56,7 +56,10 @@ function servidorFalso(sobrescritas: Record<string, unknown> = {}) {
     '/api/auth/sessions': SESSOES,
     ...sobrescritas,
   }
-  return vi.fn(async (url: string) => {
+  // O segundo parametro entra porque os testes de canal precisam conferir o
+  // METODO e o corpo — nao basta saber que a rota foi chamada.
+  return vi.fn(async (url: string, init?: RequestInit) => {
+    void init
     const caminho = String(url).split('?')[0]!
     const corpo = respostas[caminho] ?? {}
     return new Response(JSON.stringify(corpo), {
@@ -85,6 +88,66 @@ describe('configuracoes', () => {
 
     const linhaPublica = screen.getByText('geral').closest('li')!
     expect(within(linhaPublica).queryByText('Conteudo inacessivel')).not.toBeInTheDocument()
+  })
+
+  it('cria canal de voz mandando o tipo que a pessoa escolheu', async () => {
+    const fetchFalso = servidorFalso()
+    vi.stubGlobal('fetch', fetchFalso)
+    render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+
+    const formulario = await screen.findByRole('form', { name: 'Novo canal' })
+    await userEvent.type(within(formulario).getByLabelText('Nome do canal'), 'reuniao')
+    await userEvent.selectOptions(within(formulario).getByLabelText('Tipo'), 'voice')
+    await userEvent.click(within(formulario).getByRole('button', { name: 'Criar canal' }))
+
+    const chamada = fetchFalso.mock.calls.find(
+      ([url, init]) => String(url).endsWith('/channels') && (init as RequestInit)?.method === 'POST',
+    )
+    expect(chamada).toBeDefined()
+    // Sem o `type`, o servidor criaria um canal de texto em silencio e a
+    // pessoa so descobriria ao abrir e nao achar a chamada.
+    expect(JSON.parse(String((chamada![1] as RequestInit).body))).toMatchObject({
+      name: 'reuniao', type: 'voice', visibility: 'public',
+    })
+  })
+
+  it('editar um canal manda PATCH com o nome novo', async () => {
+    const fetchFalso = servidorFalso()
+    vi.stubGlobal('fetch', fetchFalso)
+    render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar geral' }))
+    const edicao = screen.getByRole('form', { name: 'Editar geral' })
+    const nome = within(edicao).getByLabelText('Nome')
+    await userEvent.clear(nome)
+    await userEvent.type(nome, 'avisos')
+    await userEvent.click(within(edicao).getByRole('button', { name: 'Salvar' }))
+
+    const chamada = fetchFalso.mock.calls.find(
+      ([, init]) => (init as RequestInit)?.method === 'PATCH',
+    )
+    expect(chamada).toBeDefined()
+    expect(JSON.parse(String((chamada![1] as RequestInit).body))).toMatchObject({
+      name: 'avisos',
+    })
+  })
+
+  it('apagar um canal pede confirmacao antes de mandar o DELETE', async () => {
+    const fetchFalso = servidorFalso()
+    vi.stubGlobal('fetch', fetchFalso)
+    render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Apagar geral' }))
+    // Antes de confirmar, nada saiu: apagar canal leva as mensagens junto.
+    expect(fetchFalso.mock.calls.some(
+      ([, init]) => (init as RequestInit)?.method === 'DELETE',
+    )).toBe(false)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Apagar canal' }))
+    expect(fetchFalso.mock.calls.some(
+      ([url, init]) => (init as RequestInit)?.method === 'DELETE'
+        && String(url).endsWith('/channels/c1'),
+    )).toBe(true)
   })
 
   it('gerar convite mostra o codigo em fonte monoespacada', async () => {

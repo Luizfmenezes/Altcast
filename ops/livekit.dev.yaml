@@ -1,0 +1,27 @@
+# Mesmo servidor, ajustado para a maquina de quem desenvolve.
+#
+# A diferenca que importa e `use_external_ip: false`: em desenvolvimento o
+# navegador e o SFU estao no mesmo host, e anunciar um IP externo faria o
+# candidato ICE apontar para fora e a chamada nunca conectar.
+port: 7880
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: false
+  # O navegador esta no host; o IP interno do container nao e alcancavel a
+  # partir dele. Anunciar 127.0.0.1 aponta a midia para as portas publicadas.
+  node_ip: 127.0.0.1
+
+keys:
+  # Chave de desenvolvimento, publica de proposito: ela so vale contra este
+  # compose local. Producao le as chaves do .env, nunca daqui.
+  devkey: devsecret_altcast_desenvolvimento_local_32
+
+logging:
+  level: debug
+
+room:
+  empty_timeout: 60
+  departure_timeout: 20
