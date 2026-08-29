@@ -12,6 +12,7 @@ export const ERROR_CATALOG = {
   invalid_credentials: { status: 401, message: 'E-mail ou senha incorretos.' },
   rate_limited:        { status: 429, message: 'Muitas tentativas. Aguarde um instante.' },
   owner_cannot_leave:  { status: 409, message: 'Transfira a titularidade antes de sair.' },
+  channel_name_taken:  { status: 409, message: 'Ja existe um canal com esse nome.' },
   internal_error:      { status: 500, message: 'Algo deu errado. Tente novamente.' },
 } as const
 
