@@ -9,6 +9,8 @@ import { can, type Actor, type Resource } from '../permissions/can.js'
 import type { Database } from '../db/client.js'
 import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
+import { emit } from '../realtime/emit.js'
+import { audienceOfChannel } from '../realtime/fanout.js'
 import { parse, uuidOu404 } from './groups.routes.js'
 
 type Channel = typeof channels.$inferSelect
@@ -167,7 +169,11 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
         }
         return c!
       })
-      return reply.status(201).send(serializeChannel(criado))
+      // Depois do commit, nunca dentro dele: anunciar de dentro da transacao
+      // seria contar um fato que um rollback ainda pode desfazer.
+      const dados = serializeChannel(criado)
+      await emit.toChannel(criado.id, { t: 'channel.created', d: dados })
+      return reply.status(201).send(dados)
     } catch (erro) {
       if (eNomeDuplicado(erro)) throw new AppError('channel_name_taken')
       throw erro
@@ -235,6 +241,11 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
       && campos.visibility !== carregado.channel.visibility
       ? campos.visibility : null
 
+    // A audiencia e capturada antes porque uma troca de visibilidade a
+    // reescreve: quem perdeu acesso precisa saber pela audiencia ANTIGA, e
+    // quem ganhou, pela nova.
+    const antes = await audienceOfChannel(channelId)
+
     try {
       const atualizado = await db.transaction(async tx => {
         const [c] = await tx.update(channels).set(mudancas)
@@ -245,7 +256,18 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
         }
         return c
       })
-      return serializeChannel(atualizado)
+
+      const dados = serializeChannel(atualizado)
+      const depois = await audienceOfChannel(channelId)
+      // Para quem perdeu o acesso o canal nao mudou: ele deixou de existir.
+      emit.toUsers(antes.filter(id => !depois.includes(id)),
+        { t: 'channel.deleted', d: { id: channelId, groupId: atualizado.groupId } })
+      emit.toUsers(depois.filter(id => !antes.includes(id)),
+        { t: 'channel.created', d: dados })
+      emit.toUsers(depois.filter(id => antes.includes(id)),
+        { t: 'channel.updated', d: dados })
+
+      return dados
     } catch (erro) {
       if (eNomeDuplicado(erro)) throw new AppError('channel_name_taken')
       throw erro
@@ -295,6 +317,10 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
       .values({ channelId, userId: alvo, addedBy: req.user!.id })
       .onConflictDoNothing()
 
+    // So para quem foi adicionado: o canal aparece na barra lateral dele na
+    // hora, e continua invisivel para todo o resto do grupo.
+    emit.toUser(alvo, { t: 'channel.created', d: serializeChannel(carregado.channel) })
+
     return reply.status(201).send({ userId: alvo, channelId })
   })
 
@@ -316,6 +342,12 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
       await db.delete(channelMembers).where(and(
         eq(channelMembers.channelId, channelId), eq(channelMembers.userId, alvo),
       ))
+
+      // Espelho da adicao: o canal some da barra lateral de quem saiu, e o
+      // cliente descarta da memoria as mensagens que ele nao pode mais ver.
+      emit.toUser(alvo, {
+        t: 'channel.deleted', d: { id: channelId, groupId: carregado.channel.groupId },
+      })
       return reply.status(204).send()
     })
 
@@ -329,8 +361,16 @@ export async function channelsRoutes(app: FastifyInstance): Promise<void> {
       kind: 'channel', visibility: carregado.channel.visibility,
     })
 
+    // Capturar a audiencia antes de apagar: depois do DELETE o canal nao
+    // existe, e perguntar quem o via devolveria lista vazia.
+    const audiencia = await audienceOfChannel(channelId)
+
     // Mensagens e lista de acesso caem por ON DELETE CASCADE.
     await db.delete(channels).where(eq(channels.id, channelId))
+
+    emit.toUsers(audiencia, {
+      t: 'channel.deleted', d: { id: channelId, groupId: carregado.channel.groupId },
+    })
     return reply.status(204).send()
   })
 }

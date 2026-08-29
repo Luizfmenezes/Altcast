@@ -7,6 +7,8 @@ import { requireAuth } from '../auth/middleware.js'
 import { assertCan, loadGroupActor } from '../permissions/context.js'
 import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
+import { emit } from '../realtime/emit.js'
+import { audienceOfGroup } from '../realtime/fanout.js'
 
 const nome = z.string().trim().min(2).max(64)
 const iconUrl = z.url().max(2048).nullable().optional()
@@ -178,7 +180,9 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
         .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, alvo)))
     }
 
-    return { userId: alvo, role: novoPapel, joinedAt: atual.joinedAt }
+    const dados = { groupId, userId: alvo, role: novoPapel, joinedAt: atual.joinedAt }
+    await emit.toGroup(groupId, { t: 'member.updated', d: dados })
+    return dados
   })
 
   app.delete('/api/groups/:id/members/:userId', { preHandler: requireAuth }, async (req, reply) => {
@@ -199,6 +203,10 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
     // titularidade e o unico caminho.
     if (alvo === g.ownerId) throw new AppError('owner_cannot_leave')
 
+    // Antes da remocao, para que quem saiu tambem receba o aviso e limpe o
+    // grupo da propria barra lateral sem precisar recarregar.
+    const audiencia = await audienceOfGroup(groupId)
+
     await db.transaction(async tx => {
       await tx.delete(groupMembers)
         .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, alvo)))
@@ -215,6 +223,7 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
       ))
     })
 
+    emit.toUsers(audiencia, { t: 'member.left', d: { groupId, userId: alvo } })
     return reply.status(204).send()
   })
 }

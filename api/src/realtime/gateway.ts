@@ -6,6 +6,9 @@ import { channelMembers, channels, groupMembers, groups, users } from '../db/sch
 import { validateSession } from '../auth/session.js'
 import { env } from '../env.js'
 import { registry } from './registry.js'
+import { presence } from './presence.js'
+import { audienceOfChannel } from './fanout.js'
+import { emit } from './emit.js'
 import { serializeChannel } from '../routes/channels.routes.js'
 
 /** Spec 04 secao 6: ping a cada 30s; sem pong em 60s a conexao e encerrada. */
@@ -68,10 +71,24 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
     // `status` sai do registro em memoria, nunca do banco: presenca e um fato
     // sobre conexoes existentes agora.
     members: membros.map(m => ({
-      ...m, status: registry.connectionsOf(m.userId) > 0 ? 'online' : 'offline',
+      ...m, status: presence.isOnline(m.userId) ? 'online' : 'offline',
     })),
     serverTime: new Date().toISOString(),
   }
+}
+
+/**
+ * `typing` e o unico frame do cliente com efeito visivel, e mesmo assim nao
+ * toca o banco: e efemero, expira em 5s no proprio cliente e nunca volta para
+ * o autor. A audiencia sai do fanout como qualquer outro evento, entao um canal
+ * privado continua mudo para quem nao participa.
+ */
+async function repassarTyping(userId: string, quadro: unknown): Promise<void> {
+  const channelId = (quadro as { d?: { channelId?: unknown } })?.d?.channelId
+  if (typeof channelId !== 'string') return
+
+  const audiencia = (await audienceOfChannel(channelId)).filter(id => id !== userId)
+  emit.toUsers(audiencia, { t: 'typing.start', d: { channelId, userId } })
 }
 
 export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
@@ -99,9 +116,26 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
     const userId = req.user!.id
     const connectionId = registry.add(userId, socket)
 
+    // A ordem importa: `add` pode derrubar a aba mais antiga do mesmo usuario,
+    // e o `close` dela chega depois. Contar a nova primeiro evita um `offline`
+    // espurio no meio de uma troca de aba.
+    const ficouOnline = presence.connect(userId)
+
+    let jaSaiu = false
+    const encerrar = (): void => {
+      // `close` e `error` podem chegar os dois para a mesma conexao; sem esta
+      // trava o contador de presenca cairia duas vezes.
+      if (jaSaiu) return
+      jaSaiu = true
+      registry.remove(connectionId)
+      if (presence.disconnect(userId)) {
+        void emit.toPeersOf(userId, { t: 'presence.update', d: { userId, status: 'offline' } })
+      }
+    }
+
     socket.on('pong', () => registry.markAlive(connectionId))
-    socket.on('close', () => registry.remove(connectionId))
-    socket.on('error', () => registry.remove(connectionId))
+    socket.on('close', encerrar)
+    socket.on('error', encerrar)
 
     socket.on('message', bruto => {
       // Nao existe caminho de escrita pelo WebSocket. Frame desconhecido — ou
@@ -116,10 +150,14 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
       }
       const tipo = (quadro as { t?: unknown })?.t
       if (tipo === 'pong') return registry.markAlive(connectionId)
-      if (tipo === 'typing') return
+      if (tipo === 'typing') return repassarTyping(userId, quadro)
       req.log.warn({ connectionId, tipo }, 'frame de tipo desconhecido descartado')
     })
 
     socket.send(JSON.stringify({ t: 'ready', d: await montarReady(userId) }))
+
+    if (ficouOnline) {
+      void emit.toPeersOf(userId, { t: 'presence.update', d: { userId, status: 'online' } })
+    }
   })
 }

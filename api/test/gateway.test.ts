@@ -1,49 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { WebSocket } from 'ws'
-import type { FastifyInstance } from 'fastify'
 import { withTestDb } from './helpers/db.js'
 import { cenarioComAdmin, loginComo } from './helpers/fixtures.js'
+import { comServidor, conectar, espere, fechado, primeiroFrame } from './helpers/ws.js'
 import { registry } from '../src/realtime/registry.js'
-import { buildServer } from '../src/index.js'
-
-/** Sobe o servidor numa porta livre e devolve a URL do gateway. */
-async function comServidor<T>(fn: (app: FastifyInstance, url: string) => Promise<T>): Promise<T> {
-  const app = await buildServer()
-  await app.listen({ port: 0, host: '127.0.0.1' })
-  const porta = (app.server.address() as { port: number }).port
-  try {
-    return await fn(app, `ws://127.0.0.1:${porta}/ws`)
-  } finally {
-    registry.clear()
-    await app.close()
-  }
-}
-
-/** Resolve quando o socket abre; rejeita com o status quando o upgrade e negado. */
-function conectar(url: string, cookie?: string): Promise<WebSocket> {
-  const ws = new WebSocket(url, cookie ? { headers: { cookie } } : {})
-  return new Promise((resolve, reject) => {
-    ws.on('open', () => resolve(ws))
-    ws.on('unexpected-response', (_req, res) => reject(new Error(`status ${res.statusCode}`)))
-    ws.on('error', erro => reject(erro))
-  })
-}
-
-/** Primeiro frame recebido, ja decodificado. */
-function primeiroFrame(ws: WebSocket): Promise<{ t: string; d: Record<string, unknown> }> {
-  return new Promise(resolve => {
-    ws.once('message', dados => resolve(JSON.parse(dados.toString())))
-  })
-}
-
-function fechado(ws: WebSocket): Promise<void> {
-  return new Promise(resolve => {
-    if (ws.readyState === WebSocket.CLOSED) return resolve()
-    ws.once('close', () => resolve())
-  })
-}
-
-const espere = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))
 
 describe('gateway', () => {
   it('recusa upgrade sem cookie de sessao', async () => {

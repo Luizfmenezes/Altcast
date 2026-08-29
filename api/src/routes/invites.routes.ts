@@ -7,6 +7,7 @@ import { requireAuth } from '../auth/middleware.js'
 import { assertCan, loadGroupActor } from '../permissions/context.js'
 import { AppError } from '../shared/errors.js'
 import { generateInviteCode, normalizeInviteCode } from '../invites/code.js'
+import { emit } from '../realtime/emit.js'
 import { contarMembros, parse, uuidOu404 } from './groups.routes.js'
 
 type Invite = typeof invites.$inferSelect
@@ -147,6 +148,9 @@ export async function invitesRoutes(app: FastifyInstance): Promise<void> {
     const groupId = await db.transaction(tx => consumirConvite(tx, codigo, userId))
 
     const [g] = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1)
+    // Depois do commit: quem ja estava no grupo ve o membro novo aparecer sem
+    // recarregar, e o recem-chegado tambem — ele ja faz parte da audiencia.
+    await emit.toGroup(groupId, { t: 'member.joined', d: { groupId, userId, role: 'member' } })
     return { group: { id: g!.id, name: g!.name, iconUrl: g!.iconUrl, role: 'member' } }
   })
 

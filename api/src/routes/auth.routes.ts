@@ -10,6 +10,7 @@ import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
 import { normalizeInviteCode } from '../invites/code.js'
 import { consumirConvite } from './invites.routes.js'
+import { emit } from '../realtime/emit.js'
 import { env } from '../env.js'
 
 const loginSchema = z.object({
@@ -57,13 +58,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const passwordHash = await hashPassword(password)
 
     const userId = newId()
+    let groupId = ''
     await db.transaction(async tx => {
       await tx.insert(users).values({ id: userId, email, passwordHash, displayName })
       // Mesma transacao que a criacao da conta: um convite esgotado sem conta
       // criada, ou uma conta orfa sem grupo, seriam os dois estados que
       // nenhuma tela sabe consertar.
-      await consumirConvite(tx, inviteCode, userId)
+      groupId = await consumirConvite(tx, inviteCode, userId)
     })
+
+    await emit.toGroup(groupId, { t: 'member.joined', d: { groupId, userId, role: 'member' } })
 
     const s = await createSession(userId, {
       userAgent: req.headers['user-agent'] ?? null,

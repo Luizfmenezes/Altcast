@@ -8,6 +8,7 @@ import { assertCan, loadChannelActor } from '../permissions/context.js'
 import type { Actor, Resource } from '../permissions/can.js'
 import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
+import { emit } from '../realtime/emit.js'
 import { parse, uuidOu404 } from './groups.routes.js'
 
 type Message = typeof messages.$inferSelect
@@ -126,7 +127,11 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
       const [criada] = await db.insert(messages).values({
         id: campos.id ?? newId(), channelId, authorId: userId, content: campos.content,
       }).returning()
-      return reply.status(201).send(serializeMessage(criada!))
+      const dados = serializeMessage(criada!)
+      // O autor tambem esta na audiencia: e o que mantem as outras abas dele
+      // em dia e permite reconciliar o eco otimista pelo mesmo ID.
+      await emit.toChannel(channelId, { t: 'message.created', d: dados })
+      return reply.status(201).send(dados)
     } catch (erro) {
       // Reenviar o mesmo ID e o sintoma normal de um cliente que reconectou
       // sem saber se o primeiro POST chegou. O 409 diz "ja esta la", e o
@@ -149,7 +154,9 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(messages.id, messageId)).returning()
     if (!editada) throw new AppError('not_found')
 
-    return serializeMessage(editada)
+    const dados = serializeMessage(editada)
+    await emit.toChannel(editada.channelId, { t: 'message.updated', d: dados })
+    return dados
   })
 
   app.delete('/api/messages/:id', { preHandler: requireAuth }, async (req, reply) => {
@@ -163,6 +170,9 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
     await db.update(messages).set({ deletedAt: new Date() })
       .where(eq(messages.id, messageId))
 
+    await emit.toChannel(mensagem.channelId, {
+      t: 'message.deleted', d: { id: messageId, channelId: mensagem.channelId },
+    })
     return reply.status(204).send()
   })
 }
