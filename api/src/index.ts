@@ -6,6 +6,7 @@ import { logger } from './shared/logger.js'
 import { AppError, ERROR_CATALOG } from './shared/errors.js'
 import { newId } from './shared/ids.js'
 import { authRoutes } from './routes/auth.routes.js'
+import { groupsRoutes } from './routes/groups.routes.js'
 
 const METODOS_DE_ESCRITA = ['POST', 'PATCH', 'DELETE', 'PUT']
 
@@ -56,6 +57,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   app.get('/api/health', async () => ({ status: 'ok' }))
 
   await app.register(authRoutes)
+  await app.register(groupsRoutes)
 
 
   return app

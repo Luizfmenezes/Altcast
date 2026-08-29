@@ -1,3 +1,4 @@
+import type { FastifyInstance } from 'fastify'
 import type { Database } from '../../src/db/client.js'
 import { channelMembers, channels, groupMembers, groups, users } from '../../src/db/schema.js'
 import { hashPassword } from '../../src/auth/password.js'
@@ -63,4 +64,48 @@ export async function cenarioPrivado(db: Database): Promise<CenarioPrivado> {
   })
 
   return { grupo, canal, canalPublico, owner, admin, membroDentro, membroFora, estranho }
+}
+
+/** Cria a conta e faz login de verdade, devolvendo o cookie de sessao. */
+export async function loginComo(
+  app: FastifyInstance,
+  db: Database,
+  email: string,
+  senha = 'senha-longa-boa',
+): Promise<{ cookie: string; userId: string }> {
+  const userId = await criarUsuario(db, { email, senha })
+  const res = await app.inject({
+    method: 'POST', url: '/api/auth/login', payload: { email, password: senha },
+  })
+  const cookie = (res.headers['set-cookie'] as string).split(';')[0]!
+  return { cookie, userId }
+}
+
+/**
+ * Grupo criado pela rota (portanto com #geral e o vinculo de owner reais),
+ * mais um admin. Serve aos testes que precisam provar o que o admin NAO pode.
+ */
+export async function cenarioComAdmin(
+  app: FastifyInstance,
+  db: Database,
+): Promise<{
+  groupId: string
+  cookieDono: string; ownerId: string
+  cookieAdmin: string; adminId: string
+}> {
+  const dono = await loginComo(app, db, 'dono@x.com')
+  const res = await app.inject({
+    method: 'POST', url: '/api/groups',
+    headers: { cookie: dono.cookie }, payload: { name: 'Time' },
+  })
+  const groupId = res.json().id as string
+
+  const admin = await loginComo(app, db, 'admin@x.com')
+  await db.insert(groupMembers).values({ groupId, userId: admin.userId, role: 'admin' })
+
+  return {
+    groupId,
+    cookieDono: dono.cookie, ownerId: dono.userId,
+    cookieAdmin: admin.cookie, adminId: admin.userId,
+  }
 }
