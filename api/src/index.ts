@@ -14,6 +14,8 @@ import { invitesRoutes } from './routes/invites.routes.js'
 import { channelsRoutes } from './routes/channels.routes.js'
 import { messagesRoutes } from './routes/messages.routes.js'
 import { gatewayRoutes } from './realtime/gateway.js'
+import { metricsRoutes } from './routes/metrics.routes.js'
+import { agendarLimpeza } from './cli/cleanup.js'
 
 const METODOS_DE_ESCRITA = ['POST', 'PATCH', 'DELETE', 'PUT']
 
@@ -100,6 +102,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(channelsRoutes)
   await app.register(messagesRoutes)
   await app.register(gatewayRoutes)
+  await app.register(metricsRoutes)
 
 
   return app
@@ -124,6 +127,7 @@ if (entry !== undefined && ['index.ts', 'index.js'].includes(basename(entry))) {
   }
 
   const app = await buildServer()
+  agendarLimpeza()
   await app.listen({ port: env.PORT, host: '0.0.0.0' })
 
   // Sem isto o container so morre no SIGKILL do orquestrador, derrubando

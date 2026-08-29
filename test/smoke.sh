@@ -18,6 +18,10 @@ export PUBLIC_URL="${PUBLIC_URL:-http://localhost}"
 falhar() { echo "FALHA: $1" >&2; exit 1; }
 
 echo '==> subindo o stack'
+# Estado limpo antes de subir: reconstruir por cima de um stack vivo faz o
+# container novo disputar com o antigo e o `depends_on: service_healthy`
+# desistir antes de a API ficar pronta.
+docker compose down -v --remove-orphans >/dev/null 2>&1 || true
 docker compose up -d --build
 trap 'docker compose down -v --remove-orphans' EXIT
 
