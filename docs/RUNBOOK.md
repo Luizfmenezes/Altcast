@@ -211,6 +211,70 @@ Trocar por LiveKit Cloud não muda uma linha de código: basta apontar
 `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` e `LIVEKIT_URL` para o projeto na nuvem
 e remover o serviço `livekit` do compose.
 
+### Qualidade da transmissão
+
+Quem transmite escolhe a qualidade em **Configurar dispositivos → Qualidade da
+minha tela**. O padrão é **1080p60**. A escolha fica no `localStorage` do
+navegador (`altcast:qualidade-da-tela`), e não na conta: a resposta certa é da
+máquina e da rede dela, e o mesmo usuário num desktop de fibra e num notebook
+em 4G quer respostas diferentes.
+
+| Opção | Captura | Codificação | Subida somada |
+|---|---|---|---|
+| 1080p · 60 fps — Máxima | 1920×1080 @60 | 8 Mb/s | ~10 Mb/s |
+| 1080p · 30 fps — Equilibrada | 1920×1080 @30 | 5 Mb/s | ~7 Mb/s |
+| 720p · 30 fps — Banda leve | 1280×720 @30 | 2 Mb/s | ~3 Mb/s |
+
+Trocar vale **na próxima partilha**, não durante a atual: recapturar faria o
+navegador perguntar de novo qual janela mostrar, no meio de uma apresentação.
+
+O catálogo está em `QUALIDADES`, em `web/src/lib/midia.ts` — no **cliente**, e
+não no `ops/livekit.yaml`: quem escolhe resolução e taxa de quadros é quem
+publica, e o SFU só repassa. Para acrescentar ou mudar uma opção, mexa lá; a
+interface se monta a partir das chaves do objeto.
+
+**Cada opção tem duas metades, e ter só uma não entrega nada:**
+
+| Metade | Onde | Sem ela |
+|---|---|---|
+| Captura — `resolution.frameRate` | segundo argumento de `setScreenShareEnabled` | O `getDisplayMedia` do Chrome grava a 30, e nenhum ajuste posterior inventa os quadros que nunca existiram |
+| Codificação — `maxFramerate` | terceiro argumento (`screenShareEncoding`) | O codificador joga metade dos quadros capturados fora |
+
+Nenhuma das duas dá erro quando falta ou diverge: a transmissão simplesmente
+sai na qualidade errada, sem rastro em log nenhum. Ao mexer, mexa nas duas —
+há teste cobrindo exatamente essa coerência.
+
+O terceiro argumento é o que faz a troca valer sem sair da chamada. Sem ele a
+codificação ficaria congelada no `publishDefaults` da construção da sala.
+
+Dois parâmetros ficam fora do seletor, iguais para todas as opções:
+
+| Parâmetro | Valor | Efeito de mudar |
+|---|---|---|
+| `screenShareSimulcastLayers` | 720p a 30 fps | Camada entregue a quem está com banda apertada ou janela pequena. O padrão do SDK aqui é 360p a **3** fps |
+| `degradationPreference` | `maintain-framerate` | `maintain-resolution` troca fluidez por nitidez — melhor para slide parado, pior para vídeo e jogo |
+
+**Banda.** Os números da tabela já somam as duas camadas do simulcast. Três
+pessoas em 1080p60 ao mesmo tempo são 30 Mb/s de subida. Se o link do host ou
+de quem publica não comporta, mande baixar a qualidade antes de procurar
+defeito no SFU — o sintoma de banda insuficiente é idêntico ao de SFU com
+problema.
+
+**CPU.** 1080p60 em VP8 por software é caro para quem publica. Se travar *na
+máquina de quem transmite* (ventoinha alta, resto do sistema lento), é
+encoding e não rede: `chrome://webrtc-internals` mostra em `framesEncoded` se
+o gargalo está na saída. A saída aqui é escolher 1080p30 nessa máquina — foi
+para isso que o seletor existe.
+
+`videoCodec` continua no VP8 padrão. Trocar para `'vp9'` melhora visivelmente a
+nitidez de texto na mesma banda, ao custo de ainda mais CPU — a 60 fps essa
+troca é bem mais arriscada do que a 30, então teste com as máquinas reais do
+grupo antes de fixar.
+
+A câmera continua no padrão do SDK (30 fps). A esmagadora maioria das webcams
+não captura acima disso, e pedir 60 lá gastaria banda para receber os mesmos
+30 quadros duplicados.
+
 ## Atualizar
 
 ```bash

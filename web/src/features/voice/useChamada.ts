@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { criarChamada, ESTADO_INICIAL } from '../../lib/midia.js'
-import type { Chamada, EstadoDaChamada, TipoDeDispositivo } from '../../lib/midia.js'
+import type {
+  Chamada, EstadoDaChamada, PapelSonoro, QualidadeDaTela, TipoDeDispositivo,
+} from '../../lib/midia.js'
 import { useStore } from '../../lib/store.js'
 
 export type ControleDaChamada = {
@@ -12,6 +14,8 @@ export type ControleDaChamada = {
   alternarTela: () => void
   trocarDispositivo: (tipo: TipoDeDispositivo, deviceId: string) => void
   destravarAudio: () => void
+  definirVolume: (userId: string, papel: PapelSonoro, volume: number) => void
+  definirQualidade: (qualidade: QualidadeDaTela) => void
 }
 
 /**
@@ -66,6 +70,12 @@ export function useChamada(channelId: string | null): ControleDaChamada {
     trocarDispositivo: (tipo, deviceId) => {
       void chamada.current?.trocarDispositivo(tipo, deviceId)
     },
+    definirVolume: useCallback((userId: string, papel: PapelSonoro, volume: number): void => {
+      chamada.current?.definirVolume(userId, papel, volume)
+    }, []),
+    definirQualidade: useCallback((qualidade: QualidadeDaTela): void => {
+      chamada.current?.definirQualidade(qualidade)
+    }, []),
     alternarMicrofone: () => alternar('microfone', !estado.microfone),
     alternarCamera: () => alternar('camera', !estado.camera),
     alternarTela: () => alternar('tela', !estado.tela),

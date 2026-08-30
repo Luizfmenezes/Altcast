@@ -2,10 +2,12 @@ import type { ReactNode } from 'react'
 import { Mic, MicOff, MonitorUp, Video, VideoOff, PhoneOff, Volume2 } from 'lucide-react'
 import { Botao } from '../../ui/Botao.js'
 import { useStore } from '../../lib/store.js'
-import { FaixaDeMidia } from './FaixaDeMidia.js'
+import { ControleDeVolume, FaixaDeMidia } from './FaixaDeMidia.js'
 import { useChamada } from './useChamada.js'
 import { ConfiguracaoDeMidia } from './ConfiguracaoDeMidia.js'
+import { chaveDeVolume } from '../../lib/midia.js'
 import type { ParticipanteDeVoz } from '../../lib/store.js'
+import type { PapelSonoro } from '../../lib/midia.js'
 
 /**
  * Uma referencia estavel para "ninguem na chamada".
@@ -32,7 +34,7 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
 }): ReactNode {
   const {
     estado, entrar, sair, alternarMicrofone, alternarCamera, alternarTela, trocarDispositivo,
-    destravarAudio,
+    destravarAudio, definirVolume, definirQualidade,
   } = useChamada(channelId)
   const participantes = useStore(e => e.chamadas[channelId]) ?? NINGUEM
   const members = useStore(e => e.members)
@@ -47,6 +49,36 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
   const ehSom = (papel: string): boolean => papel === 'audio' || papel === 'audio-tela'
   const videos = estado.faixas.filter(f => !ehSom(f.papel))
   const audios = estado.faixas.filter(f => ehSom(f.papel))
+
+  /**
+   * Um volume nao ajustado e 1, e nao 0: o padrao de uma sala e todo mundo se
+   * ouvindo. O `??` cobre tanto quem nunca foi ajustado quanto quem foi
+   * ajustado num navegador em que o armazenamento esta bloqueado.
+   */
+  const volumeDe = (userId: string, papel: PapelSonoro): number =>
+    estado.volumes[chaveDeVolume(userId, papel)] ?? 1
+
+  /**
+   * O som de uma tela compartilhada pertence a ELA, e nao a quem a transmite:
+   * quem baixa o volume de um jogo que estao mostrando nao quer,
+   * com isso, deixar de ouvir a pessoa comentando o jogo. Por isso o controle
+   * do `audio-tela` mora no quadro do video, e o do microfone mora na lista de
+   * participantes — sao duas fontes independentes da mesma pessoa.
+   */
+  const volumeDaTela = (faixa: { userId: string; papel: string; local: boolean }): {
+    volume?: number
+    aoMudarVolume?: (v: number) => void
+  } => {
+    if (faixa.papel !== 'tela' || faixa.local) return {}
+    // Sem faixa de som publicada nao ha o que ajustar. Mostrar o cursor assim
+    // mesmo prometeria um controle sobre um silencio.
+    const temSom = audios.some(a => a.userId === faixa.userId && a.papel === 'audio-tela')
+    if (!temSom) return {}
+    return {
+      volume: volumeDe(faixa.userId, 'audio-tela'),
+      aoMudarVolume: (v: number) => { definirVolume(faixa.userId, 'audio-tela', v) },
+    }
+  }
 
   return (
     <section
@@ -95,6 +127,7 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
               key={faixa.track.sid ?? `${faixa.userId}-${faixa.papel}`}
               faixa={faixa}
               rotulo={nomeDe(faixa.userId)}
+              {...volumeDaTela(faixa)}
             />
           ))}
         </div>
@@ -114,7 +147,7 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
           <li
             key={p.userId}
             aria-label={`${nomeDe(p.userId)}, ${p.microfone ? 'microfone ligado' : 'microfone desligado'}`}
-            className="flex items-center gap-2 rounded px-2 text-sm"
+            className="group flex items-center gap-2 rounded px-2 text-sm"
             style={{ minHeight: 'var(--height-row)' }}
           >
             {/*
@@ -131,6 +164,31 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
               {nomeDe(p.userId)}
             </span>
             {p.tela && <MonitorUp aria-hidden="true" className="size-4 text-fg-muted" />}
+
+            {/*
+              O volume do MICROFONE desta pessoa. Fica na lista, e nao no
+              quadro de video, porque a maior parte de uma sala de voz nao tem
+              video nenhum — amarrar o controle a um quadrado deixaria sem
+              ajuste justamente o caso comum.
+
+              So aparece dentro da chamada: fora dela nao existe faixa de audio
+              nenhuma, e um cursor que nao move som e pior do que a ausencia
+              dele.
+            */}
+            {dentro && p.userId !== eu?.id && (
+              <span
+                className="ml-auto flex items-center opacity-0 transition-opacity
+                           focus-within:opacity-100 group-hover:opacity-100
+                           [@media(hover:none)]:opacity-100"
+              >
+                <ControleDeVolume
+                  tom="lista"
+                  rotulo={nomeDe(p.userId)}
+                  volume={volumeDe(p.userId, 'audio')}
+                  aoMudar={v => { definirVolume(p.userId, 'audio', v) }}
+                />
+              </span>
+            )}
           </li>
         ))}
       </ul>
@@ -143,6 +201,9 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
         nivel={estado.nivel}
         microfoneLigado={estado.microfone}
         aoTrocar={trocarDispositivo}
+        qualidade={estado.qualidade}
+        aoTrocarQualidade={definirQualidade}
+        compartilhandoTela={estado.tela}
       />
 
       <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">

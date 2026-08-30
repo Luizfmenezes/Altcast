@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { listarDispositivos, lerPreferencias } from '../../lib/midia.js'
-import type { Dispositivo, TipoDeDispositivo } from '../../lib/midia.js'
+import { listarDispositivos, lerPreferencias, QUALIDADES } from '../../lib/midia.js'
+import type { Dispositivo, QualidadeDaTela, TipoDeDispositivo } from '../../lib/midia.js'
 
 const ROTULOS: Record<TipoDeDispositivo, string> = {
   audioinput: 'Microfone',
@@ -32,6 +32,53 @@ function Escolha({ tipo, valor, aoEscolher, dispositivos }: {
           <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
         ))}
       </select>
+    </label>
+  )
+}
+
+/**
+ * A qualidade da propria tela compartilhada.
+ *
+ * Fica ao lado dos dispositivos porque e a mesma classe de decisao: uma
+ * escolha da MAQUINA e da rede dela, tomada antes de transmitir. A banda de
+ * cada opcao aparece no rotulo porque e o unico numero que permite escolher
+ * com informacao — "maxima" e "leve" sozinhos nao dizem se o link aguenta.
+ */
+function EscolhaDeQualidade({ valor, aoEscolher, compartilhando }: {
+  valor: QualidadeDaTela
+  aoEscolher: (qualidade: QualidadeDaTela) => void
+  compartilhando: boolean
+}): ReactNode {
+  const chaves = Object.keys(QUALIDADES) as QualidadeDaTela[]
+
+  return (
+    <label className="flex min-w-[180px] flex-1 flex-col gap-1">
+      <span className="text-[13px] font-medium text-fg">Qualidade da minha tela</span>
+      <select
+        value={valor}
+        onChange={e => aoEscolher(e.target.value as QualidadeDaTela)}
+        // `aria-describedby` e nao `title`: o aviso de que a troca so vale na
+        // proxima partilha precisa ser lido, e nao so aparecer no ponteiro.
+        aria-describedby={compartilhando ? 'aviso-qualidade' : undefined}
+        className="h-9 rounded border border-border bg-bg-raised px-2 text-sm text-fg"
+      >
+        {chaves.map(chave => (
+          <option key={chave} value={chave}>
+            {QUALIDADES[chave].rotulo} ({QUALIDADES[chave].bandaAproximada})
+          </option>
+        ))}
+      </select>
+      {/*
+        Trocar no meio da partilha exigiria recapturar a tela, e o navegador
+        perguntaria de novo qual janela mostrar — uma caixa de dialogo que
+        ninguem pediu, no meio de uma apresentacao. Dizer a verdade custa uma
+        linha e evita a pessoa concluir que o seletor nao funciona.
+      */}
+      {compartilhando && (
+        <span id="aviso-qualidade" className="text-xs text-fg-muted">
+          Vale quando voce recomecar a compartilhar.
+        </span>
+      )}
     </label>
   )
 }
@@ -81,10 +128,15 @@ function Medidor({ nivel, ativo }: { nivel: number; ativo: boolean }): ReactNode
  * identificar a maquina sem pedir. Por isso a lista e relida quando o microfone
  * liga: e nesse instante que os nomes de verdade aparecem.
  */
-export function ConfiguracaoDeMidia({ nivel, microfoneLigado, aoTrocar }: {
+export function ConfiguracaoDeMidia({
+  nivel, microfoneLigado, aoTrocar, qualidade, aoTrocarQualidade, compartilhandoTela,
+}: {
   nivel: number
   microfoneLigado: boolean
   aoTrocar: (tipo: TipoDeDispositivo, deviceId: string) => void
+  qualidade: QualidadeDaTela
+  aoTrocarQualidade: (qualidade: QualidadeDaTela) => void
+  compartilhandoTela: boolean
 }): ReactNode {
   const [dispositivos, setDispositivos] = useState<Record<TipoDeDispositivo, Dispositivo[]>>({
     audioinput: [], videoinput: [], audiooutput: [],
@@ -135,6 +187,12 @@ export function ConfiguracaoDeMidia({ nivel, microfoneLigado, aoTrocar }: {
         ))}
 
         <Medidor nivel={nivel} ativo={microfoneLigado} />
+
+        <EscolhaDeQualidade
+          valor={qualidade}
+          aoEscolher={aoTrocarQualidade}
+          compartilhando={compartilhandoTela}
+        />
       </div>
 
       {dispositivos.audioinput.length === 0 && (
