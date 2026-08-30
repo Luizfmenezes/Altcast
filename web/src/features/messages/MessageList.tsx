@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useStore } from '../../lib/store.js'
+import { Anexos } from './Anexos.js'
 import { enviarMensagem } from './envio.js'
 import type { Mensagem } from '../../lib/tipos.js'
 
@@ -156,12 +157,20 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores }: {
                     </time>
                   </p>
                 )}
-                <p className="whitespace-pre-wrap break-words text-sm text-fg">
-                  {mensagem.content}
-                  {mensagem.editedAt !== null && (
-                    <span className="ml-1 text-[11px] text-fg-muted">(editada)</span>
-                  )}
-                </p>
+                {/*
+                  Foto sem legenda e mensagem legitima, e o servidor a aceita.
+                  Um paragrafo vazio abriria um buraco de linha entre o nome e a
+                  imagem, entao ele so existe quando ha texto.
+                */}
+                {mensagem.content !== '' && (
+                  <p className="whitespace-pre-wrap break-words text-sm text-fg">
+                    {mensagem.content}
+                    {mensagem.editedAt !== null && (
+                      <span className="ml-1 text-[11px] text-fg-muted">(editada)</span>
+                    )}
+                  </p>
+                )}
+                <Anexos anexos={mensagem.attachments ?? []} />
                 {mensagem.envio === 'falhou' && (
                   <p className="flex items-center gap-2 text-xs text-danger">
                     Nao foi enviada.

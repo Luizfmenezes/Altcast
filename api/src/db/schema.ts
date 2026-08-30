@@ -117,3 +117,32 @@ export const messages = pgTable('messages', {
 }, t => [
   index('messages_channel_id_desc_idx').on(t.channelId, t.id.desc()),
 ])
+
+/**
+ * Anexos de mensagem.
+ *
+ * `channelId` parece derivavel de `messageId` e nao e: o anexo nasce ANTES da
+ * mensagem — e o que permite progresso de upload e previa antes de enviar — e
+ * enquanto `messageId` for nulo o canal e a unica ancora de autorizacao que
+ * existe. Depois, ele ainda poupa um JOIN em toda leitura de arquivo.
+ */
+export const attachments = pgTable('attachments', {
+  id: uuid('id').primaryKey(),
+  channelId: uuid('channel_id').notNull().references(() => channels.id, { onDelete: 'cascade' }),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'cascade' }),
+  uploaderId: uuid('uploader_id').references(() => users.id, { onDelete: 'set null' }),
+  /** Caminho no armazenamento. Derivado do id, nunca do nome enviado. */
+  objectKey: text('object_key').notNull(),
+  /** O nome original. Serve para exibir e para baixar, jamais como caminho. */
+  filename: text('filename').notNull(),
+  /** O tipo DETECTADO no servidor, nao o que o cliente declarou. */
+  contentType: text('content_type').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  width: integer('width'),
+  height: integer('height'),
+  thumbKey: text('thumb_key'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  index('attachments_message_id_idx').on(t.messageId),
+  index('attachments_channel_id_idx').on(t.channelId),
+])

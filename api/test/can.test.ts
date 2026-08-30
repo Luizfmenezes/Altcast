@@ -41,6 +41,17 @@ describe('can — tabela de verdade', () => {
     ['member nao gerencia acesso',         ator('member', true),  'channel.manage_members', canalPrivado, false],
     ['member cria mensagem em publico',    ator('member'),        'message.create',    canalPublico, true],
     ['member fora do privado nao cria',    ator('member', false), 'message.create',    canalPrivado, false],
+    ['member anexa em publico',            ator('member'),        'message.attach',    canalPublico, true],
+    ['member fora do privado nao anexa',   ator('member', false), 'message.attach',    canalPrivado, false],
+    ['member dentro do privado anexa',     ator('member', true),  'message.attach',    canalPrivado, true],
+    ['admin fora do privado NAO anexa',    ator('admin', false),  'message.attach',    canalPrivado, false],
+    ['member le anexo de publico',         ator('member'),        'attachment.read',   canalPublico, true],
+    ['member fora do privado nao le anexo',ator('member', false), 'attachment.read',   canalPrivado, false],
+    ['member dentro do privado le anexo',  ator('member', true),  'attachment.read',   canalPrivado, true],
+    // O anexo herda o segredo do canal: se o admin de fora lesse o arquivo por
+    // ser admin, "privado" valeria para o texto e nao para o que vai junto.
+    ['admin fora do privado NAO le anexo', ator('admin', false),  'attachment.read',   canalPrivado, false],
+    ['owner fora do privado NAO le anexo', ator('owner', false),  'attachment.read',   canalPrivado, false],
     ['autor edita a propria',              ator('member'),        'message.edit_own',   msgPropria,  true],
     ['nao edita a de terceiro',            ator('member'),        'message.edit_own',   msgTerceiro, false],
     ['autor apaga a propria',              ator('member'),        'message.delete_own', msgPropria,  true],
@@ -81,6 +92,7 @@ it('nao-membro nao pode absolutamente nada', () => {
     'channel.read','channel.write','channel.manage_members','message.create',
     'message.edit_own','message.delete_own','message.delete_any',
     'channel.join_call','channel.publish','channel.moderate_call',
+    'message.attach','attachment.read',
   ]
   for (const acao of acoes) {
     expect(can(ator(null), acao, grupo)).toBe(false)

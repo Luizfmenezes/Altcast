@@ -30,6 +30,14 @@ services:
       LIVEKIT_API_KEY: devkey
       LIVEKIT_API_SECRET: devsecret_altcast_desenvolvimento_local_32
       LIVEKIT_URL: ws://localhost:7880
+      # Casam com o servico minio abaixo. Credenciais de brinquedo: este
+      # arquivo nunca sobe em producao.
+      STORAGE_ENDPOINT: minio
+      STORAGE_PORT: "9000"
+      STORAGE_ACCESS_KEY: altcast
+      STORAGE_SECRET_KEY: altcast_dev_minio
+      STORAGE_BUCKET: altcast
+      STORAGE_USE_SSL: "false"
     ports: ["3000:3000"]
     volumes:
       # O bind traz o codigo-fonte; os volumes anonimos impedem que o
@@ -39,6 +47,7 @@ services:
       - "/app/api/node_modules"
     depends_on:
       postgres: { condition: service_healthy }
+      minio: { condition: service_started }
 
   livekit:
     image: livekit/livekit-server:v1.13
@@ -53,5 +62,17 @@ services:
       - "7881:7881"
       - "50000-50100:50000-50100/udp"
 
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: altcast
+      MINIO_ROOT_PASSWORD: altcast_dev_minio
+    # Em desenvolvimento o console ajuda a ver o que subiu. Em producao nao ha
+    # porta nenhuma publicada — ver docker-compose.yml.
+    ports: ["9001:9001"]
+    volumes: ["miniodata:/data"]
+
 volumes:
   pgdata:
+  miniodata:

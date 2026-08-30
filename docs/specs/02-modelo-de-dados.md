@@ -7,9 +7,9 @@ tipagem derivada do schema, sem geração de cliente).
 
 ```
 users ──┬─< sessions
-        ├─< group_members >── groups ──< channels ──< messages
-        ├─< invites                        │
-        └─< channel_members >──────────────┘
+        ├─< group_members >── groups ──< channels ──< messages ──< attachments
+        ├─< invites                        │            │              │
+        └─< channel_members >──────────────┘            └──────────────┘
 ```
 
 ## 2. Tabelas
@@ -120,6 +120,31 @@ expressá-la diretamente.
 | `deleted_at` | `timestamptz` NULL | Soft delete |
 
 Índice crítico: `(channel_id, id DESC)`.
+
+### `attachments`
+| Coluna | Tipo | Notas |
+|---|---|---|
+| `id` | `uuid` PK | UUIDv7 |
+| `channel_id` | `uuid` NOT NULL → `channels` CASCADE | âncora de autorização |
+| `message_id` | `uuid` NULL → `messages` CASCADE | nulo até a mensagem existir |
+| `uploader_id` | `uuid` NULL → `users` SET NULL | |
+| `object_key` | `text` NOT NULL | caminho no MinIO, derivado do `id` |
+| `filename` | `text` NOT NULL | nome original — rótulo, nunca caminho |
+| `content_type` | `text` NOT NULL | detectado no servidor por magic bytes |
+| `byte_size` | `integer` NOT NULL | |
+| `width`, `height` | `integer` NULL | preenchidos para imagem |
+| `thumb_key` | `text` NULL | só imagem; vídeo usaria ffmpeg |
+| `created_at` | `timestamptz` NOT NULL | |
+
+`channel_id` parece derivável de `message_id` e não é. O anexo nasce **antes**
+da mensagem — é o que permite barra de progresso e prévia antes de enviar — e
+enquanto `message_id` for nulo o canal é a única âncora de autorização que
+existe. Depois, ele ainda poupa um JOIN em toda leitura de arquivo.
+
+O órfão que nunca vira mensagem é removido pela faxina de `cli/cleanup.ts`
+depois de 24 horas, junto das sessões vencidas.
+
+Desenho completo em `docs/superpowers/specs/2026-08-29-chat-rico-design.md`.
 
 ## 3. Por que UUIDv7
 

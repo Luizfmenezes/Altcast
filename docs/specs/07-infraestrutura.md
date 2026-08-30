@@ -60,6 +60,27 @@ Arquivo `.env.example` versionado; `.env` real **nunca** no repositório.
 Faltando ou inválida, o processo morre imediatamente com mensagem clara — nunca
 sobe pela metade para falhar depois em produção.
 
+### MinIO (anexos)
+
+Armazena os bytes dos anexos e **não publica porta nenhuma**. O navegador nunca
+fala com ele: todo byte entra e sai pela API, que é o único lugar onde `can()`
+existe. Um anexo de canal privado servido por URL do próprio MinIO seria
+legível por quem tivesse o link, membro ou não — e a spec 03 seção 9 gasta uma
+seção inteira impedindo exatamente isso para o texto.
+
+Consequência prática: não há console web alcançável de fora. Para inspecionar o
+bucket, use `docker compose exec minio mc` ou publique 9001 temporariamente em
+`127.0.0.1`.
+
+Variáveis: `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` (obrigatórias, o compose
+recusa subir sem elas), e do lado da API `STORAGE_ENDPOINT`, `STORAGE_PORT`,
+`STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET`,
+`STORAGE_USE_SSL`. As da API são opcionais de propósito: faltando, a API sobe
+inteira, o texto funciona e só o anexo devolve 503 explícito.
+
+Volume `minio_data`. Entra no backup pelo mesmo motivo que o `pgdata`: perder
+os anexos é perder conteúdo que as pessoas mandaram.
+
 ## 4. Imagens
 
 Build em múltiplos estágios, para as duas aplicações:

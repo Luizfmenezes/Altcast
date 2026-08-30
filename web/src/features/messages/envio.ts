@@ -1,7 +1,7 @@
 import { uuidv7 } from 'uuidv7'
 import { api } from '../../lib/api.js'
 import { useStore } from '../../lib/store.js'
-import type { Mensagem } from '../../lib/tipos.js'
+import type { Anexo, Mensagem } from '../../lib/tipos.js'
 
 export const LIMITE_DE_CARACTERES = 4000
 
@@ -18,7 +18,7 @@ export const LIMITE_DE_CARACTERES = 4000
  * criar uma segunda mensagem identica.
  */
 export async function enviarMensagem(
-  channelId: string, conteudo: string, idExistente?: string,
+  channelId: string, conteudo: string, idExistente?: string, anexos: Anexo[] = [],
 ): Promise<void> {
   const { user, registrarEco, marcarEnvio } = useStore.getState()
   const id = idExistente ?? uuidv7()
@@ -30,12 +30,16 @@ export async function enviarMensagem(
     content: conteudo,
     createdAt: new Date().toISOString(),
     editedAt: null,
+    // Os anexos ja existem no servidor quando a mensagem sai, entao o eco
+    // otimista mostra a imagem de verdade e nao um espaco vazio que salta
+    // quando a confirmacao chega.
+    attachments: anexos,
     envio: 'enviando',
   })
 
   try {
     const confirmada = await api.post<Mensagem>(`/channels/${channelId}/messages`, {
-      id, content: conteudo,
+      id, content: conteudo, attachmentIds: anexos.map(a => a.id),
     })
     // A versao do servidor substitui o eco pelo mesmo ID: horario real, autor
     // canonico, e sem o marcador de envio.

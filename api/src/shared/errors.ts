@@ -15,6 +15,11 @@ export const ERROR_CATALOG = {
   channel_name_taken:  { status: 409, message: 'Ja existe um canal com esse nome.' },
   message_id_taken:    { status: 409, message: 'Esta mensagem ja foi enviada.' },
   media_unavailable:   { status: 503, message: 'A chamada esta indisponivel neste servidor.' },
+  storage_unavailable: { status: 503, message: 'Os anexos estao indisponiveis neste servidor.' },
+  file_too_large:      { status: 413, message: 'O arquivo passa do limite de 25 MB.' },
+  quota_exceeded:      { status: 413, message: 'O canal atingiu o limite de armazenamento.' },
+  too_many_attachments:{ status: 422, message: 'No maximo 10 arquivos por mensagem.' },
+  attachment_in_use:   { status: 409, message: 'Este anexo ja pertence a outra mensagem.' },
   internal_error:      { status: 500, message: 'Algo deu errado. Tente novamente.' },
 } as const
 

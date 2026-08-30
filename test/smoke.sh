@@ -14,6 +14,8 @@ export PUBLIC_DOMAIN="${PUBLIC_DOMAIN:-http://localhost}"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-fumaca_local}"
 export ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-http://localhost}"
 export PUBLIC_URL="${PUBLIC_URL:-http://localhost}"
+export MINIO_ROOT_USER="${MINIO_ROOT_USER:-altcast}"
+export MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-fumaca_local_minio}"
 
 falhar() { echo "FALHA: $1" >&2; exit 1; }
 
@@ -48,6 +50,15 @@ echo '==> o Postgres nao esta publicado no host'
 portas_do_banco="$(docker compose ps --format '{{.Ports}}' postgres)"
 case "$portas_do_banco" in
   *'->'*) falhar "Postgres exposto no host: $portas_do_banco" ;;
+esac
+
+echo '==> o MinIO nao esta publicado no host'
+# Mesma logica da checagem do Postgres, e pela mesma razao — so que aqui o
+# risco e maior: uma porta publicada do storage entregaria anexo de canal
+# privado a quem tivesse a URL, sem passar por `can()` nenhuma vez.
+portas_do_minio="$(docker compose ps --format '{{.Ports}}' minio)"
+case "$portas_do_minio" in
+  *'->'*) falhar "MinIO exposto no host: $portas_do_minio" ;;
 esac
 
 echo '==> o frontend e servido pela raiz'

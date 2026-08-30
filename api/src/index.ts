@@ -1,6 +1,7 @@
 import { basename } from 'node:path'
 import pg from 'pg'
 import cookie from '@fastify/cookie'
+import multipart from '@fastify/multipart'
 import rateLimit from '@fastify/rate-limit'
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify'
 import { env } from './env.js'
@@ -13,6 +14,8 @@ import { groupsRoutes } from './routes/groups.routes.js'
 import { invitesRoutes } from './routes/invites.routes.js'
 import { channelsRoutes } from './routes/channels.routes.js'
 import { messagesRoutes } from './routes/messages.routes.js'
+import { attachmentsRoutes } from './routes/attachments.routes.js'
+import { armazemPadrao, LIMITE_POR_ARQUIVO, type Armazem } from './media/armazenamento.js'
 import { gatewayRoutes } from './realtime/gateway.js'
 import { metricsRoutes } from './routes/metrics.routes.js'
 import { agendarLimpeza } from './cli/cleanup.js'
@@ -22,7 +25,14 @@ const METODOS_DE_ESCRITA = ['POST', 'PATCH', 'DELETE', 'PUT']
 /** Spec 03 secao 6: demais rotas, 300 por minuto por usuario. */
 const LIMITE_PADRAO_POR_MINUTO = 300
 
-export async function buildServer(): Promise<FastifyInstance> {
+/**
+ * `armazem` existe para o teste poder exercitar upload e download sem subir um
+ * MinIO — o mesmo motivo da `SalaDeMidia` injetavel no cliente. Em producao
+ * ninguem passa nada e vale `armazemPadrao()`, lido do ambiente.
+ */
+export type OpcoesDoServidor = { armazem?: Armazem | null }
+
+export async function buildServer(opcoes: OpcoesDoServidor = {}): Promise<FastifyInstance> {
   const app = Fastify({
     loggerInstance: logger as FastifyBaseLogger,
     genReqId: () => newId(),
@@ -36,6 +46,12 @@ export async function buildServer(): Promise<FastifyInstance> {
   })
 
   await app.register(cookie)
+
+  // O teto vive aqui e nao so na rota: o plugin corta o fluxo assim que passa,
+  // em vez de deixar o processo receber 4 GB na memoria para so depois
+  // recusar. `files: 1` porque cada anexo sobe numa requisicao propria — e o
+  // que da progresso por arquivo e permite descartar um sem refazer os outros.
+  await app.register(multipart, { limits: { fileSize: LIMITE_POR_ARQUIVO, files: 1 } })
 
   // Contadores em memoria: um unico processo na Fatia 1. A chave e o cookie de
   // sessao quando existe, e o IP quando nao — `req.user` so e preenchido pelo
@@ -108,6 +124,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(invitesRoutes)
   await app.register(channelsRoutes)
   await app.register(messagesRoutes)
+  // `armazemPadrao()` devolve null quando o operador nao configurou storage.
+  // A API sobe inteira assim mesmo e so a rota de anexo responde 503 — texto
+  // que funciona vale mais que um processo que se recusa a arrancar.
+  await app.register(attachmentsRoutes(opcoes.armazem ?? armazemPadrao()))
   await app.register(gatewayRoutes)
   await app.register(metricsRoutes)
 

@@ -29,6 +29,17 @@ const schema = z.object({
   LIVEKIT_API_KEY: z.string().optional(),
   LIVEKIT_API_SECRET: z.string().optional(),
   LIVEKIT_URL: z.string().optional(),
+  // Armazenamento de anexos. Opcionais pelo mesmo motivo da voz: sem elas a
+  // API sobe inteira, o texto funciona e so o anexo devolve 503 explicito.
+  // Nada aqui vaza para o navegador — o cliente nunca fala com o storage.
+  STORAGE_ENDPOINT: z.string().optional(),
+  STORAGE_PORT: z.coerce.number().int().positive().default(9000),
+  STORAGE_ACCESS_KEY: z.string().optional(),
+  STORAGE_SECRET_KEY: z.string().optional(),
+  STORAGE_BUCKET: z.string().default('altcast'),
+  // Falso porque o destino e a rede interna do compose, onde nao ha
+  // certificado nem terceiro escutando. Um S3 externo pediria true.
+  STORAGE_USE_SSL: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
 })
 
 export type Env = z.infer<typeof schema>

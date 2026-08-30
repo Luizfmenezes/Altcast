@@ -98,6 +98,41 @@ describe('limites de taxa', () => {
     })
   })
 
+  /**
+   * A criacao de conta nao tem teto proprio.
+   *
+   * O limite anterior era de tres por hora por IP, e ele nao distinguia um
+   * ataque de um escritorio inteiro atras do mesmo NAT: bastavam tres pessoas
+   * entrando no mesmo convite para a quarta bater em 429 e nao ter o que fazer
+   * pela hora seguinte. Sobra o teto geral da aplicacao, que nenhum cadastro
+   * de gente real alcanca.
+   */
+  it('cadastro nao trava depois de tres contas na mesma hora', async () => {
+    await withTestDb(async (db) => {
+      const app = await buildServer()
+      const base = await cenarioComAdmin(app, db)
+      const convite = await app.inject({
+        method: 'POST', url: `/api/groups/${base.groupId}/invites`,
+        headers: { cookie: base.cookieDono }, payload: { maxUses: 20 },
+      })
+      const code = convite.json().code as string
+
+      for (let i = 0; i < 6; i++) {
+        const res = await app.inject({
+          method: 'POST', url: '/api/auth/register',
+          payload: {
+            email: `pessoa${String(i)}@x.com`,
+            inviteCode: code,
+            password: 'senha-longa-boa',
+            displayName: `Pessoa ${String(i)}`,
+          },
+        })
+        expect(res.statusCode).toBe(201)
+      }
+      await app.close()
+    })
+  })
+
   it('rotas normais aceitam bem mais que as limitadas', async () => {
     await withTestDb(async db => {
       const app = await buildServer()

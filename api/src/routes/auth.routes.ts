@@ -44,11 +44,22 @@ function cookieOptions() {
 const porIp = (req: FastifyRequest): string => req.ip
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
-  // Spec 03 secao 6: 3 por hora por IP. Cadastro em massa e o vetor que este
-  // limite fecha, e nenhum humano cria tres contas por hora de boa-fe.
-  app.post('/api/auth/register', {
-    config: { rateLimit: { max: 3, timeWindow: '1 hour', keyGenerator: porIp } },
-  }, async (req, reply) => {
+  /**
+   * Sem teto proprio: o cadastro cai no limite geral da aplicacao.
+   *
+   * O limite anterior era de tres por hora por IP, e a premissa dele — que
+   * ninguem cria tres contas por hora de boa-fe — nao sobreviveu ao uso real.
+   * Um escritorio, uma faculdade ou uma casa inteira sai por um IP so, e a
+   * quarta pessoa a aceitar o mesmo convite batia em 429 sem ter o que fazer
+   * pela hora seguinte. O limite protegia contra um cadastro em massa que o
+   * convite obrigatorio ja impede, e cobrava o preco de quem estava fazendo a
+   * coisa certa.
+   *
+   * O que continua de pe: cadastro exige codigo de convite valido (secao 1 da
+   * spec 03), a previa de convite segue limitada a 20 por minuto por IP, e o
+   * teto geral da aplicacao vale aqui como em qualquer outra rota.
+   */
+  app.post('/api/auth/register', async (req, reply) => {
     const parsed = registerSchema.safeParse(req.body)
     if (!parsed.success) {
       throw new AppError('validation_failed', z.flattenError(parsed.error).fieldErrors)

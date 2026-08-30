@@ -36,6 +36,28 @@ export type Membro = {
   status: 'online' | 'offline'
 }
 
+/**
+ * Um arquivo preso a uma mensagem.
+ *
+ * `contentType` e `reproduzivel` vem DECIDIDOS do servidor, que foi quem leu
+ * os bytes. O cliente nao reavalia nem adivinha pelo nome: reimplementar a
+ * regra aqui seria implementa-la diferente, e a divergencia apareceria como um
+ * executavel renderizado onde deveria haver um botao de baixar.
+ */
+export type Anexo = {
+  id: string
+  channelId: string
+  messageId: string | null
+  filename: string
+  contentType: string
+  byteSize: number
+  width: number | null
+  height: number | null
+  temMiniatura: boolean
+  reproduzivel: boolean
+  createdAt: string
+}
+
 export type Mensagem = {
   id: string
   channelId: string
@@ -43,6 +65,7 @@ export type Mensagem = {
   content: string
   createdAt: string
   editedAt: string | null
+  attachments?: Anexo[]
   /** So existe no cliente: acompanha o eco otimista ate a confirmacao. */
   envio?: 'enviando' | 'falhou'
 }

@@ -97,13 +97,21 @@ desnecessária.
 | Rota | Limite |
 |---|---|
 | `POST /api/auth/login` | 5 por minuto por IP; 10 por hora por e-mail |
-| `POST /api/auth/register` | 3 por hora por IP |
+| `POST /api/auth/register` | sem teto proprio; so o geral |
 | `GET /api/invites/:code` | 20 por minuto por IP |
 | `POST /api/invites/:code/accept` | 5 por hora por IP |
 | `POST /api/channels/:id/messages` | 30 por minuto por usuário |
 | Demais rotas | 300 por minuto por usuário |
 
 Implementado com `@fastify/rate-limit`, contadores em memória na Fatia 1.
+
+O cadastro tinha teto de 3 por hora por IP e perdeu esse teto. A premissa —
+que ninguém cria três contas por hora de boa-fé — não sobreviveu ao uso real:
+um escritório, uma faculdade ou uma casa inteira sai por um IP só, e a quarta
+pessoa a aceitar o mesmo convite batia em 429 sem ter o que fazer pela hora
+seguinte. O vetor que o limite fechava — cadastro em massa — já está fechado
+pelo convite obrigatório da seção 1, e a varredura de códigos continua limitada
+na prévia pública (20 por minuto por IP).
 
 ## 7. CSRF
 

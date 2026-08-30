@@ -1,7 +1,7 @@
 # Chat rico — anexos, reações, respostas e menções
 
 **Data:** 2026-08-29
-**Estado:** desenho aprovado, aguardando plano de implementação
+**Estado:** fatia 3a (anexos) implementada e em produção; 3b e 3c pendentes
 **Fatia:** 3 (a Fatia 1 entregou texto e tempo real; a Fatia 2, voz)
 
 Este documento desenha a primeira das três frentes que aproximam o Altcast do

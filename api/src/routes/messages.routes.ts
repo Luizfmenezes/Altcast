@@ -10,6 +10,8 @@ import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
 import { emit } from '../realtime/emit.js'
 import { parse, uuidOu404 } from './groups.routes.js'
+import { anexosDe, prenderAnexos, serializeAttachment } from './attachments.routes.js'
+import { MAXIMO_POR_MENSAGEM } from '../media/armazenamento.js'
 
 type Message = typeof messages.$inferSelect
 
@@ -27,7 +29,13 @@ const conteudo = z.string().trim().min(1).max(4000)
  * `id` continue sendo ordenar por tempo. Um v4 aceito aqui embaralharia o
  * historico de um canal para sempre.
  */
-const enviarSchema = z.object({ id: z.uuidv7().optional(), content: conteudo })
+const enviarSchema = z.object({
+  id: z.uuidv7().optional(),
+  // Vazio quando a mensagem so tem arquivo: uma foto sem legenda e uma
+  // mensagem legitima, e exigir texto obrigaria a inventar um.
+  content: z.string().trim().max(4000),
+  attachmentIds: z.array(z.uuid()).max(MAXIMO_POR_MENSAGEM).optional(),
+})
 const editarSchema = z.object({ content: conteudo })
 
 const listarSchema = z.object({
@@ -36,10 +44,13 @@ const listarSchema = z.object({
   limit: z.coerce.number().int().min(1).max(1000).optional(),
 })
 
-function serializeMessage(m: Message): Record<string, unknown> {
+function serializeMessage(
+  m: Message, anexos: Record<string, unknown>[] = [],
+): Record<string, unknown> {
   return {
     id: m.id, channelId: m.channelId, authorId: m.authorId, content: m.content,
     createdAt: m.createdAt, editedAt: m.editedAt,
+    attachments: anexos,
   }
 }
 
@@ -109,7 +120,10 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
       .orderBy(desc(messages.id))
       .limit(Math.min(limit ?? PAGINA_PADRAO, PAGINA_MAXIMA))
 
-    return linhas.map(serializeMessage)
+    // Uma consulta para a pagina inteira, e nao uma por mensagem: cinquenta
+    // mensagens dariam cinquenta idas ao banco para montar uma tela so.
+    const anexos = await anexosDe(linhas.map(l => l.id))
+    return linhas.map(l => serializeMessage(l, (anexos.get(l.id) ?? []).map(serializeAttachment)))
   })
 
   app.post('/api/channels/:id/messages', {
@@ -127,12 +141,23 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
     })
 
     const campos = parse(enviarSchema, req.body)
+    const idsDeAnexo = campos.attachmentIds ?? []
+
+    // Texto vazio so passa com arquivo junto. Sem as duas coisas nao ha
+    // mensagem nenhuma — seria uma linha em branco no historico de todo mundo.
+    if (campos.content === '' && idsDeAnexo.length === 0) {
+      throw new AppError('validation_failed')
+    }
+    if (idsDeAnexo.length > MAXIMO_POR_MENSAGEM) throw new AppError('too_many_attachments')
 
     try {
       const [criada] = await db.insert(messages).values({
         id: campos.id ?? newId(), channelId, authorId: userId, content: campos.content,
       }).returning()
-      const dados = serializeMessage(criada!)
+      // Depois da mensagem existir: `message_id` e chave estrangeira, e prender
+      // antes deixaria o anexo apontando para uma linha que ainda nao ha.
+      const presos = await prenderAnexos(criada!.id, channelId, idsDeAnexo)
+      const dados = serializeMessage(criada!, presos.map(serializeAttachment))
       // O autor tambem esta na audiencia: e o que mantem as outras abas dele
       // em dia e permite reconciliar o eco otimista pelo mesmo ID.
       await emit.toChannel(channelId, { t: 'message.created', d: dados })

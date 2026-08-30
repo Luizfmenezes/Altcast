@@ -51,8 +51,19 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
       LIVEKIT_URL: ${LIVEKIT_URL:-}
+      # Anexos. Mesma logica das tres acima: sem elas a API sobe inteira, o
+      # texto funciona e so o anexo devolve 503. O endereco e o NOME DO
+      # SERVICO, alcancavel apenas de dentro da rede do compose.
+      STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:-minio}
+      STORAGE_PORT: ${STORAGE_PORT:-9000}
+      STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-}
+      STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-altcast}
+      STORAGE_USE_SSL: ${STORAGE_USE_SSL:-false}
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   web:
@@ -126,7 +137,35 @@ services:
       - '17881:17881'
       - '51000-51100:51000-51100/udp'
 
+  # Armazenamento dos anexos.
+  #
+  # NENHUMA porta publicada, e e o ponto principal do desenho: o navegador
+  # nunca fala com o storage. Todo byte de anexo entra e sai pela API, que e o
+  # unico lugar onde `can()` existe. Um anexo de canal privado servido por URL
+  # do proprio MinIO seria legivel por quem tivesse o link, membro ou nao — e
+  # a spec 03 gasta uma secao inteira impedindo exatamente isso para o texto.
+  #
+  # Consequencia pratica: nao ha console web acessivel de fora. Para
+  # inspecionar o bucket, use `docker compose exec minio mc` ou publique 9001
+  # temporariamente em 127.0.0.1.
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?defina MINIO_ROOT_USER no .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?defina MINIO_ROOT_PASSWORD no .env}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
 volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  minio_data:
