@@ -10,7 +10,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
     "seed:owner": "node src/cli/seed-owner.ts",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "email:teste": "node src/cli/enviar-teste.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

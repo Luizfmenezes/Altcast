@@ -30,6 +30,7 @@ const TAMANHO_MAXIMO_FRAME = 4 * 1024
 async function montarReady(userId: string): Promise<Record<string, unknown>> {
   const [eu] = await db.select({
     id: users.id, displayName: users.displayName, avatarUrl: users.avatarUrl,
+    emailVerifiedAt: users.emailVerifiedAt,
   }).from(users).where(eq(users.id, userId)).limit(1)
 
   const meusGrupos = await db.select({

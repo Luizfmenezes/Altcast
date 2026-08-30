@@ -53,6 +53,7 @@ function servidorFalso(sobrescritas: Record<string, unknown> = {}) {
   const respostas: Record<string, unknown> = {
     [`/api/groups/${GRUPO}/channels/manage`]: CANAIS_DE_GESTAO,
     [`/api/groups/${GRUPO}/invites`]: [],
+    [`/api/groups/${GRUPO}/members`]: [],
     '/api/auth/sessions': SESSOES,
     ...sobrescritas,
   }
@@ -157,7 +158,7 @@ describe('configuracoes', () => {
     const usuario = userEvent.setup()
     render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
 
-    await usuario.click(await screen.findByRole('button', { name: 'Gerar convite' }))
+    await usuario.click(await screen.findByRole('button', { name: 'Gerar link' }))
 
     const codigo = await screen.findByText('K7M2P9XQ')
     // Monoespacada porque este codigo vai ser ditado por telefone.
@@ -173,7 +174,7 @@ describe('configuracoes', () => {
     const usuario = userEvent.setup()
     render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
 
-    await usuario.click(await screen.findByRole('button', { name: 'Revogar K7M2P9XQ' }))
+    await usuario.click(await screen.findByRole('button', { name: 'Revogar o convite K7M2P9XQ' }))
 
     // Acao destrutiva nunca acontece no primeiro clique.
     const dialogo = await screen.findByRole('alertdialog')
@@ -191,7 +192,7 @@ describe('configuracoes', () => {
     const usuario = userEvent.setup()
     render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
 
-    const gatilho = await screen.findByRole('button', { name: 'Revogar K7M2P9XQ' })
+    const gatilho = await screen.findByRole('button', { name: 'Revogar o convite K7M2P9XQ' })
     await usuario.click(gatilho)
     await screen.findByRole('alertdialog')
 

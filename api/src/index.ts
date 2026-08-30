@@ -10,6 +10,7 @@ import { logger } from './shared/logger.js'
 import { AppError, ERROR_CATALOG } from './shared/errors.js'
 import { newId } from './shared/ids.js'
 import { authRoutes } from './routes/auth.routes.js'
+import type { Correio } from './email/tipos.js'
 import { groupsRoutes } from './routes/groups.routes.js'
 import { invitesRoutes } from './routes/invites.routes.js'
 import { channelsRoutes } from './routes/channels.routes.js'
@@ -31,7 +32,15 @@ const LIMITE_PADRAO_POR_MINUTO = 300
  * MinIO — o mesmo motivo da `SalaDeMidia` injetavel no cliente. Em producao
  * ninguem passa nada e vale `armazemPadrao()`, lido do ambiente.
  */
-export type OpcoesDoServidor = { armazem?: Armazem | null }
+export type OpcoesDoServidor = {
+  armazem?: Armazem | null
+  /**
+   * Injetado pelo mesmo motivo do armazem: um teste que precisasse de rede
+   * para verificar que o link de recuperacao esta certo seria um teste que
+   * ninguem roda. Sem isto, cai no correio escolhido pelo ambiente.
+   */
+  correio?: Correio
+}
 
 export async function buildServer(opcoes: OpcoesDoServidor = {}): Promise<FastifyInstance> {
   const app = Fastify({
@@ -120,7 +129,7 @@ export async function buildServer(opcoes: OpcoesDoServidor = {}): Promise<Fastif
 
   app.get('/api/health', async () => ({ status: 'ok' }))
 
-  await app.register(authRoutes)
+  await app.register(authRoutes, opcoes.correio === undefined ? {} : { correio: opcoes.correio })
   await app.register(groupsRoutes)
   await app.register(invitesRoutes)
   await app.register(channelsRoutes)

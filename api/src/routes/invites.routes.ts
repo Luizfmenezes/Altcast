@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { db, type Database } from '../db/client.js'
 import { groupMembers, groups, invites, users } from '../db/schema.js'
 import { requireAuth } from '../auth/middleware.js'
+import { assertEmailVerificado } from '../auth/verificacao.js'
 import { assertCan, loadGroupActor } from '../permissions/context.js'
 import { AppError } from '../shared/errors.js'
 import { generateInviteCode, normalizeInviteCode } from '../invites/code.js'
@@ -77,6 +78,9 @@ export async function invitesRoutes(app: FastifyInstance): Promise<void> {
     const groupId = uuidOu404((req.params as { id: string }).id)
     const actor = await loadGroupActor(req.user!.id, groupId)
     assertCan(actor, 'group.invite', { kind: 'group' })
+    // Depois da permissao, e nao antes: quem nem administra o grupo recebe 404
+    // sem que a conta dele entre na conversa.
+    await assertEmailVerificado(req.user!.id)
 
     const { expiresInHours, maxUses } = parse(gerarSchema, req.body ?? {})
     const expiresAt = expiresInHours

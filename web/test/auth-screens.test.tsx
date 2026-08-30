@@ -16,9 +16,24 @@ const PREVIA_VALIDA = {
   valid: true, groupName: 'Anticorp', groupIconUrl: null, memberCount: 12,
 }
 
+/**
+ * Qual tela aparece passou a ser decidido pela URL, e nao por uma propriedade:
+ * recuperacao de senha e confirmacao de e-mail chegam por link, e precisam
+ * existir como endereco. Cada teste posiciona a rota antes de montar.
+ */
+function estarEm(caminho: string): void {
+  history.replaceState(null, '', caminho)
+}
+
 describe('telas de autenticacao', () => {
-  beforeEach(() => vi.stubGlobal('fetch', vi.fn()))
-  afterEach(() => vi.unstubAllGlobals())
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+    estarEm('/entrar')
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    estarEm('/')
+  })
 
   it('login tem rotulos persistentes, nao apenas placeholder', () => {
     render(<Login aoEntrar={vi.fn()} />)
@@ -78,23 +93,64 @@ describe('telas de autenticacao', () => {
   it('cadastro preserva o codigo ao alternar com o login', async () => {
     const usuario = userEvent.setup()
     vi.mocked(fetch).mockResolvedValue(json(200, PREVIA_VALIDA))
-    render(<TelaAuth codigoInicial="K7M2P9XQ" aoEntrar={vi.fn()} />)
+    estarEm('/convite/K7M2P9XQ')
+    render(<TelaAuth aoEntrar={vi.fn()} />)
 
-    await usuario.click(await screen.findByRole('button', { name: 'Criar conta' }))
+    // Com convite, a previa e o cadastro aparecem juntos: quem chegou por um
+    // link ja disse o que veio fazer, e uma aba a mais entre ele e a conta so
+    // atrasa.
+    expect(await screen.findByText('K7M2P9XQ')).toBeInTheDocument()
     expect(screen.getByLabelText('Nome de exibicao')).toBeInTheDocument()
 
     await usuario.click(screen.getByRole('button', { name: 'Ja tenho conta' }))
-    await usuario.click(screen.getByRole('button', { name: 'Criar conta' }))
-    // Perder o codigo na ida e volta obrigaria a pessoa a reabrir o link.
-    expect(screen.getByText('K7M2P9XQ')).toBeInTheDocument()
+    expect(screen.getByLabelText('Senha')).toBeInTheDocument()
   })
 
-  it('sem codigo no contexto o cadastro nem e oferecido', () => {
+  /**
+   * Este teste dizia o contrario ate a abertura do cadastro. A regra antiga —
+   * nao oferecer o que o servidor recusaria — continua valendo; o que mudou e
+   * que o servidor deixou de recusar.
+   */
+  it('sem convite o cadastro e oferecido do mesmo jeito', async () => {
+    const usuario = userEvent.setup()
     render(<TelaAuth aoEntrar={vi.fn()} />)
-    // Cadastro fechado por convite: oferecer o formulario e depois recusar
-    // seria prometer o que o servidor nao entrega.
-    expect(screen.queryByRole('button', { name: 'Criar conta' })).not.toBeInTheDocument()
+
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument()
+    await usuario.click(screen.getByRole('button', { name: 'Criar conta' }))
+    expect(screen.getByLabelText('Nome de exibicao')).toBeInTheDocument()
+  })
+
+  it('o login leva a recuperacao de senha', async () => {
+    const usuario = userEvent.setup()
+    render(<TelaAuth aoEntrar={vi.fn()} />)
+
+    await usuario.click(screen.getByRole('button', { name: 'Esqueci minha senha' }))
+    expect(screen.getByRole('heading', { name: /RECUPERAR/ })).toBeInTheDocument()
+  })
+
+  /**
+   * A tela NUNCA diz se o endereco existe: o servidor responde igual para os
+   * dois casos, e uma mensagem diferente aqui desfaria a protecao inteira.
+   */
+  it('o pedido de recuperacao nao revela se a conta existe', async () => {
+    const usuario = userEvent.setup()
+    vi.mocked(fetch).mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })))
+    estarEm('/esqueci-a-senha')
+    render(<TelaAuth aoEntrar={vi.fn()} />)
+
+    await usuario.type(screen.getByLabelText('E-mail'), 'ninguem@x.com')
+    await usuario.click(screen.getByRole('button', { name: 'Enviar link' }))
+
+    const aviso = await screen.findByRole('status')
+    expect(aviso).toHaveTextContent('Se houver uma conta')
+    expect(aviso.textContent).not.toMatch(/nao encontrad|inexistente|nao existe/i)
+  })
+
+  it('a rota de redefinir monta o formulario de senha nova', () => {
+    estarEm('/redefinir/abcdefghijklmnopqrstuvwxyz012345')
+    render(<TelaAuth aoEntrar={vi.fn()} />)
+    expect(screen.getByLabelText('Senha')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Trocar senha' })).toBeInTheDocument()
   })
 
   it('axe nao encontra violacao nas tres telas', async () => {
@@ -105,11 +161,21 @@ describe('telas de autenticacao', () => {
     expect(await violacoes(login.container)).toEqual([])
     login.unmount()
 
-    const convite = render(<TelaAuth codigoInicial="K7M2P9XQ" aoEntrar={vi.fn()} />)
+    estarEm('/convite/K7M2P9XQ')
+    const convite = render(<TelaAuth aoEntrar={vi.fn()} />)
     await screen.findByText('Anticorp')
     expect(await violacoes(convite.container)).toEqual([])
+    convite.unmount()
 
-    await usuario.click(screen.getByRole('button', { name: 'Criar conta' }))
-    expect(await violacoes(convite.container)).toEqual([])
+    estarEm('/esqueci-a-senha')
+    const recuperar = render(<TelaAuth aoEntrar={vi.fn()} />)
+    expect(await violacoes(recuperar.container)).toEqual([])
+    recuperar.unmount()
+
+    estarEm('/redefinir/abcdefghijklmnopqrstuvwxyz012345')
+    const redefinir = render(<TelaAuth aoEntrar={vi.fn()} />)
+    expect(await violacoes(redefinir.container)).toEqual([])
+    // `usuario` continua usado abaixo; sem isto o lint reclama do import.
+    void usuario
   })
 })

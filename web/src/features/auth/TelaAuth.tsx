@@ -1,41 +1,41 @@
-import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Login, type Usuario } from './Login.js'
+import { Login } from './Login.js'
 import { Cadastro } from './Cadastro.js'
 import { PreviaConvite } from './PreviaConvite.js'
-import { Botao } from '../../ui/Botao.js'
+import { EsqueciASenha } from './EsqueciASenha.js'
+import { RedefinirSenha } from './RedefinirSenha.js'
+import { VerificarEmail } from './VerificarEmail.js'
+import { Porta } from './PalcoMercurio.js'
+import { usarRota } from '../../lib/rota.js'
+import type { Usuario } from '../../lib/tipos.js'
 
 /**
- * A porta de entrada. Sem codigo de convite no contexto existe apenas o login —
- * o cadastro e fechado por convite, e mostrar um formulario que sera recusado
- * no envio seria desperdicar o tempo de quem o preencheu.
+ * A porta de entrada.
  *
- * O codigo vive no estado desta tela, e nao dentro do cadastro, para sobreviver
- * a ida e volta entre as duas abas do formulario.
+ * Todas as telas de fora da sessao moram no mesmo palco: entrar, criar conta,
+ * recuperar senha, redefinir, confirmar e-mail e a previa de um convite. Qual
+ * delas aparece e decidido pela URL, e nao por estado interno — porque tres
+ * dessas chegam por um link de e-mail e precisam existir como endereco.
  */
-export function TelaAuth({ codigoInicial, aoEntrar }: {
-  codigoInicial?: string
+export function TelaAuth({ aoEntrar }: {
   aoEntrar: (u: Usuario) => void
 }): ReactNode {
-  const codigo = codigoInicial ?? null
-  const [criandoConta, setCriandoConta] = useState(false)
+  const rota = usarRota()
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-sm flex-col justify-center gap-6 p-6">
-      {codigo !== null && <PreviaConvite codigo={codigo} />}
-
-      {criandoConta && codigo !== null
-        ? <Cadastro codigo={codigo} aoEntrar={aoEntrar} />
-        : <Login aoEntrar={aoEntrar} />}
-
-      {codigo !== null && (
-        <Botao
-          type="button" variante="discreto"
-          onClick={() => setCriandoConta(!criandoConta)}
-        >
-          {criandoConta ? 'Ja tenho conta' : 'Criar conta'}
-        </Botao>
+    <Porta>
+      {rota.nome === 'convite' && (
+        <>
+          <PreviaConvite codigo={rota.codigo} />
+          <Cadastro codigo={rota.codigo} aoEntrar={aoEntrar} />
+        </>
       )}
-    </main>
+
+      {rota.nome === 'criar-conta' && <Cadastro aoEntrar={aoEntrar} />}
+      {rota.nome === 'esqueci-a-senha' && <EsqueciASenha />}
+      {rota.nome === 'redefinir' && <RedefinirSenha token={rota.token} />}
+      {rota.nome === 'verificar' && <VerificarEmail token={rota.token} />}
+      {rota.nome === 'entrar' && <Login aoEntrar={aoEntrar} />}
+    </Porta>
   )
 }

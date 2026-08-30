@@ -20,6 +20,12 @@ export const ERROR_CATALOG = {
   quota_exceeded:      { status: 413, message: 'O canal atingiu o limite de armazenamento.' },
   too_many_attachments:{ status: 422, message: 'No maximo 10 arquivos por mensagem.' },
   attachment_in_use:   { status: 409, message: 'Este anexo ja pertence a outra mensagem.' },
+  email_not_verified:  { status: 403, message: 'Confirme seu e-mail para fazer isso.' },
+  // Uma mensagem so para as duas causas — token errado e token vencido — de
+  // proposito: distingui-las diria a quem tentou adivinhar que chegou perto.
+  reset_token_invalid: { status: 400, message: 'Este link e invalido ou ja expirou. Peca outro.' },
+  verification_token_invalid: { status: 400, message: 'Este link e invalido ou ja expirou. Peca outro.' },
+  wrong_password:      { status: 401, message: 'Senha atual incorreta.' },
   internal_error:      { status: 500, message: 'Algo deu errado. Tente novamente.' },
 } as const
 

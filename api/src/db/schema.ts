@@ -26,6 +26,11 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   displayName: text('display_name').notNull(),
   avatarUrl: text('avatar_url'),
+  /**
+   * Nulo enquanto ninguem provou receber o endereco. Nao impede entrar — so
+   * fecha o que abusaria de conta descartavel: criar grupo e emitir convite.
+   */
+  emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -41,6 +46,41 @@ export const sessions = pgTable('sessions', {
 }, t => [
   index('sessions_user_idx').on(t.userId),
   index('sessions_expires_idx').on(t.expiresAt),
+])
+
+/**
+ * Recuperacao de senha e confirmacao de endereco.
+ *
+ * As duas guardam o SHA-256 do token, jamais o token. `invites.code` fica em
+ * claro porque um convite existe para circular; estes sao credenciais de uso
+ * unico, e um dump vazado entregaria toda conta com pedido em aberto.
+ */
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  index('password_reset_user_idx').on(t.userId),
+  index('password_reset_expires_idx').on(t.expiresAt),
+])
+
+export const emailVerificationTokens = pgTable('email_verification_tokens', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /**
+   * O endereco viaja com o token, e nao e lido de `users` no resgate: e o que
+   * permite confirmar uma TROCA. O endereco novo so entra em `users.email`
+   * depois que alguem provar que o recebe.
+   */
+  email: citext('email').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  index('email_verification_user_idx').on(t.userId),
+  index('email_verification_expires_idx').on(t.expiresAt),
 ])
 
 export const groups = pgTable('groups', {

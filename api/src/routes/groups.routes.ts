@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { db } from '../db/client.js'
 import { channelMembers, channels, groupMembers, groups, users } from '../db/schema.js'
 import { requireAuth } from '../auth/middleware.js'
+import { assertEmailVerificado } from '../auth/verificacao.js'
 import { assertCan, loadGroupActor } from '../permissions/context.js'
 import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
@@ -66,6 +67,10 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/groups', { preHandler: requireAuth }, async (req, reply) => {
     const { name, iconUrl: icone } = parse(criarSchema, req.body)
     const userId = req.user!.id
+    // Com cadastro aberto, criar grupo e a acao que uma conta descartavel
+    // usaria para virar spam. Ler e escrever continuam livres a quem acabou de
+    // chegar; so isto e emitir convite pedem endereco confirmado.
+    await assertEmailVerificado(userId)
     const groupId = newId()
 
     // Quatro insercoes ou nenhuma. Um grupo sem dono, ou sem canal, seria um

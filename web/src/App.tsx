@@ -7,13 +7,6 @@ import { conectarSocket, type Conexao } from './lib/socket.js'
 import { canaisComHistorico, useStore } from './lib/store.js'
 import type { Mensagem, Ready, Usuario } from './lib/tipos.js'
 
-/** O convite chega pela URL: /convite/K7M2P9XQ ou ?convite=K7M2P9XQ. */
-function codigoDaUrl(): string | undefined {
-  const doCaminho = /^\/convite\/([0-9A-Za-z-]+)/.exec(window.location.pathname)?.[1]
-  const daBusca = new URLSearchParams(window.location.search).get('convite')
-  return doCaminho ?? daBusca ?? undefined
-}
-
 type Sessao = 'verificando' | 'fora' | 'dentro'
 
 /**
@@ -118,13 +111,9 @@ export function App(): ReactNode {
   }
 
   if (sessao === 'fora') {
-    const codigo = codigoDaUrl()
-    return (
-      <TelaAuth
-        {...(codigo === undefined ? {} : { codigoInicial: codigo })}
-        aoEntrar={entrou}
-      />
-    )
+    // A rota agora vive em lib/rota.ts: alem do convite, ela precisa reconhecer
+    // os links de recuperacao e de confirmacao que chegam por e-mail.
+    return <TelaAuth aoEntrar={entrou} />
   }
 
   return <AppShell latenciaMs={latencia} />

@@ -8,6 +8,13 @@ export type Usuario = {
   displayName: string
   avatarUrl: string | null
   email?: string
+  /**
+   * Nulo enquanto ninguem provou receber o endereco; ausente quando a resposta
+   * veio de um servidor anterior ao cadastro aberto. Os dois casos sao
+   * diferentes de proposito: `null` autoriza pedir a confirmacao, `undefined`
+   * nao autoriza nem a pergunta.
+   */
+  emailVerifiedAt?: string | null
 }
 
 export type Grupo = {

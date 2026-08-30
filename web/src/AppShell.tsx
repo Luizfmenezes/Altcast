@@ -15,6 +15,8 @@ import { useAtalhosDaChamada } from './features/voice/atalhos.js'
 import { ProvedorDeDicas, Dica } from './ui/Tooltip.js'
 import { PanelLeftClose, PanelLeftOpen, Search, Users } from 'lucide-react'
 import { PaletaDeComandos } from './features/busca/PaletaDeComandos.js'
+import { FaixaDeVerificacao } from './features/auth/FaixaDeVerificacao.js'
+import { BoasVindas } from './features/groups/BoasVindas.js'
 import { Botao } from './ui/Botao.js'
 import { Kbd } from './ui/Kbd.js'
 import { Avatar } from './ui/Avatar.js'
@@ -111,6 +113,20 @@ export function AppShell({ aoDigitar, latenciaMs }: {
     return () => window.removeEventListener('keydown', aoTeclar)
   }, [membrosFixos])
 
+  // Conta sem grupo algum so passou a existir quando o cadastro abriu: antes,
+  // toda conta nascia dentro do grupo do convite que a criou. Montar as quatro
+  // colunas vazias seria entregar um esqueleto sem dizer o que fazer.
+  if (groups.length === 0) {
+    return (
+      <ProvedorDeDicas>
+        <div className="flex h-full flex-col">
+          <FaixaDeVerificacao />
+          <BoasVindas />
+        </div>
+      </ProvedorDeDicas>
+    )
+  }
+
   return (
     // O provedor tambem envolve a raiz em main.tsx; repeti-lo aqui e de
     // proposito. Aninhar dois nao custa nada, e sem este o AppShell so monta
@@ -120,6 +136,8 @@ export function AppShell({ aoDigitar, latenciaMs }: {
     <div className="flex h-full flex-col">
       {/* Primeiro elemento focavel da aplicacao. */}
       <a href="#conversa" className="pular-para-conversa">Pular para a conversa</a>
+
+      <FaixaDeVerificacao />
 
       {/* A barra do topo. Ela existe para dar um lugar fixo ao que antes eram
           dois botoes soltos por cima do conteudo, e para responder de relance

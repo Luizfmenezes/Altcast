@@ -6,7 +6,21 @@ import { newId } from '../../src/shared/ids.js'
 
 export async function criarUsuario(
   db: Database,
-  opts: { email: string; senha?: string; displayName?: string },
+  opts: {
+    email: string
+    senha?: string
+    displayName?: string
+    /**
+     * Confirmado por padrao, e nao o contrario.
+     *
+     * A conta destes cenarios representa quem ja usa o sistema, e a migracao
+     * 0008 marca exatamente essas como confirmadas — elas entraram por convite,
+     * que e prova mais forte que um clique em link. Nascer sem confirmar faria
+     * cada teste de grupo esbarrar no gate de e-mail e testar o gate em vez do
+     * que ele quer testar.
+     */
+    verificado?: boolean
+  },
 ): Promise<string> {
   const id = newId()
   await db.insert(users).values({
@@ -14,6 +28,7 @@ export async function criarUsuario(
     email: opts.email,
     passwordHash: opts.senha ? await hashPassword(opts.senha) : 'sem-senha',
     displayName: opts.displayName ?? opts.email.split('@')[0] ?? 'Alguem',
+    emailVerifiedAt: (opts.verificado ?? true) ? new Date() : null,
   })
   return id
 }

@@ -64,12 +64,25 @@ describe('convites', () => {
     })
   })
 
-  it('cadastro sem codigo e recusado', async () => {
+  /**
+   * Este teste dizia o contrario ate a abertura do cadastro, e mudou junto com
+   * o produto: o convite deixou de ser a porta e virou um atalho. Sem codigo a
+   * conta nasce sozinha; com codigo, ja nasce dentro do grupo.
+   *
+   * O que a lista de convidados garantia — que ninguem entra sem alguem
+   * responder por ele — passou a ser trabalho da confirmacao de e-mail, que e
+   * quem agora libera criar grupo e emitir convite.
+   */
+  it('cadastro sem codigo cria conta, mas sem grupo nenhum', async () => {
     await withTestDb(async () => {
       const app = await buildServer()
       const res = await app.inject({ method: 'POST', url: '/api/auth/register',
         payload: { email: 'novo@x.com', ...CONTA } })
-      expect(res.statusCode).toBe(422)
+      expect(res.statusCode).toBe(201)
+
+      const me = await app.inject({ method: 'GET', url: '/api/auth/me',
+        headers: { cookie: res.headers['set-cookie'] as string } })
+      expect(me.json().groups).toEqual([])
       await app.close()
     })
   })

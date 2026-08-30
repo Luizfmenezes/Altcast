@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../../lib/api.js'
 import { Botao } from '../../ui/Botao.js'
+import { TrocarSenha } from './TrocarSenha.js'
 import { ConfirmarAcao } from '../../ui/ConfirmarAcao.js'
 import { useDensity, useTheme } from '../../ui/ThemeProvider.js'
 
@@ -85,6 +86,8 @@ export function ConfiguracoesUsuario({ aoFechar }: { aoFechar: () => void }): Re
           </Botao>
         </div>
       </div>
+
+      <TrocarSenha />
 
       <div>
         <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">

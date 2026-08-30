@@ -4,6 +4,7 @@ import { Configuracoes } from '../settings/Configuracoes.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { Dica } from '../../ui/Tooltip.js'
 import { Separador } from '../../ui/Separador.js'
+import { CriarGrupo } from './CriarGrupo.js'
 import { cn } from '../../lib/utils.js'
 
 /**
@@ -88,6 +89,8 @@ export function BarraGrupos(): ReactNode {
 
       {/* Empurrado para o rodape da coluna: o que se usa o dia inteiro fica em
           cima, e o que se abre de vez em quando fica fora do caminho. */}
+      <CriarGrupo />
+
       <div className="mt-auto flex flex-col items-center gap-2">
         <Separador className="w-8" />
         <Configuracoes
