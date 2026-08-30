@@ -371,3 +371,42 @@ export function canaisComHistorico(): Record<string, string | null> {
     canal, lista.filter(m => m.envio === undefined).at(-1)?.id ?? null,
   ]))
 }
+
+/**
+ * Quantas mensagens de um canal chegaram depois do marco de leitura.
+ *
+ * Deriva de comparar IDs, que sao UUIDv7 e por isso ordenam por tempo — e a
+ * mesma razao pela qual `leituras` guarda um marco e nao um numero.
+ *
+ * Conta apenas o que esta em memoria, e isso e deliberado. O `ready` do
+ * servidor manda o marco de leitura, mas nao manda quantas mensagens vieram
+ * depois dele; um canal nunca aberto nesta sessao nao tem historico local, e a
+ * resposta honesta ali e zero, e nao um numero inventado. A regra da store vale
+ * aqui como em todo o resto: exibir o que se recebeu, nunca deduzir o que nao
+ * se recebeu.
+ *
+ * Mensagem propria nao conta: ninguem tem notificacao do que acabou de
+ * escrever. Eco ainda nao confirmado tambem nao, pelo mesmo motivo.
+ */
+export function naoLidasDoCanal(
+  estado: Pick<Estado, 'mensagens' | 'leituras' | 'user'>,
+  channelId: string,
+): number {
+  const historico = estado.mensagens[channelId]
+  if (!historico || historico.length === 0) return 0
+
+  const marco = estado.leituras[channelId] ?? ''
+  const eu = estado.user?.id ?? null
+
+  let total = 0
+  // De tras para frente: o historico esta em ordem, entao o primeiro item que
+  // nao passa do marco encerra a contagem sem varrer o resto.
+  for (let i = historico.length - 1; i >= 0; i--) {
+    const m = historico[i]
+    if (!m || m.id <= marco) break
+    // Apagada nao precisa de ramo: `message.deleted` a remove da lista.
+    if (m.envio !== undefined || m.authorId === eu) continue
+    total++
+  }
+  return total
+}

@@ -12,6 +12,12 @@ import { BarraConexao } from './features/presence/BarraConexao.js'
 import { BarraDeChamada } from './features/voice/BarraDeChamada.js'
 import { registrarSaidaDaAba } from './features/voice/chamadaAtiva.js'
 import { useAtalhosDaChamada } from './features/voice/atalhos.js'
+import { ProvedorDeDicas, Dica } from './ui/Tooltip.js'
+import { PanelLeftClose, PanelLeftOpen, Search, Users } from 'lucide-react'
+import { PaletaDeComandos } from './features/busca/PaletaDeComandos.js'
+import { Botao } from './ui/Botao.js'
+import { Kbd } from './ui/Kbd.js'
+import { Avatar } from './ui/Avatar.js'
 
 /**
  * Quatro colunas: 64px, 240px, flexivel, 240px. As larguras sao fixas onde
@@ -36,6 +42,9 @@ export function AppShell({ aoDigitar, latenciaMs }: {
 
   const [gavetaCanais, setGavetaCanais] = useState(false)
   const [membrosVisiveis, setMembrosVisiveis] = useState(false)
+  const [buscaAberta, setBuscaAberta] = useState(false)
+  const user = useStore(e => e.user)
+  const groups = useStore(e => e.groups)
   const campoEscrita = useRef<HTMLTextAreaElement>(null)
 
   const doGrupo = channels.filter(c => c.groupId === grupoAtivo)
@@ -60,6 +69,13 @@ export function AppShell({ aoDigitar, latenciaMs }: {
 
   useEffect(() => {
     const aoTeclar = (evento: KeyboardEvent): void => {
+      // Ctrl+K no Windows e no Linux, Cmd+K no mac. Vale de qualquer lugar,
+      // inclusive de dentro do campo de escrita.
+      if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === 'k') {
+        evento.preventDefault()
+        setBuscaAberta(a => !a)
+        return
+      }
       if (!evento.altKey) return
       if (evento.key === 'ArrowDown') { evento.preventDefault(); navegar(1) }
       if (evento.key === 'ArrowUp') { evento.preventDefault(); navegar(-1) }
@@ -87,6 +103,7 @@ export function AppShell({ aoDigitar, latenciaMs }: {
   useEffect(() => {
     const aoTeclar = (evento: KeyboardEvent): void => {
       if (evento.key !== 'Escape') return
+      setBuscaAberta(false)
       setGavetaCanais(false)
       if (!membrosFixos) setMembrosVisiveis(false)
     }
@@ -95,9 +112,98 @@ export function AppShell({ aoDigitar, latenciaMs }: {
   }, [membrosFixos])
 
   return (
+    // O provedor tambem envolve a raiz em main.tsx; repeti-lo aqui e de
+    // proposito. Aninhar dois nao custa nada, e sem este o AppShell so monta
+    // dentro da aplicacao inteira — um componente que nao se sustenta sozinho
+    // e um componente que nao da para testar isolado.
+    <ProvedorDeDicas>
     <div className="flex h-full flex-col">
       {/* Primeiro elemento focavel da aplicacao. */}
       <a href="#conversa" className="pular-para-conversa">Pular para a conversa</a>
+
+      {/* A barra do topo. Ela existe para dar um lugar fixo ao que antes eram
+          dois botoes soltos por cima do conteudo, e para responder de relance
+          "onde eu estou": grupo, barra, canal. Trunca em vez de empurrar —
+          o teste de refluxo em 320px proibe qualquer largura que estoure. */}
+      <header
+        className="flex h-14 shrink-0 items-center gap-2 border-b border-border-subtle
+                   bg-bg-raised px-2 sm:px-3"
+      >
+        {!canaisFixos && (
+          <Dica texto={gavetaCanais ? 'Fechar canais' : 'Abrir canais'} lado="bottom">
+            <Botao
+              variante="fantasma"
+              tamanho="icone"
+              onClick={() => setGavetaCanais(a => !a)}
+              aria-expanded={gavetaCanais}
+            >
+              {gavetaCanais
+                ? <PanelLeftClose aria-hidden="true" strokeWidth={1.75} />
+                : <PanelLeftOpen aria-hidden="true" strokeWidth={1.75} />}
+              <span className="sr-only">{gavetaCanais ? 'Fechar canais' : 'Abrir canais'}</span>
+            </Botao>
+          </Dica>
+        )}
+
+        <nav aria-label="Onde voce esta" className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className="truncate text-[13px] text-fg-muted">
+            {groups.find(g => g.id === grupoAtivo)?.name ?? 'Altcast'}
+          </span>
+          <span aria-hidden="true" className="text-fg-muted/50">/</span>
+          <span className="truncate text-[13px] font-medium text-fg">
+            {doGrupo.find(c => c.id === canalAtivo)?.name ?? 'Nenhum canal'}
+          </span>
+        </nav>
+
+        <button
+          type="button"
+          onClick={() => setBuscaAberta(true)}
+          className="hidden h-8 w-56 shrink-0 items-center gap-2 rounded-md border
+                     border-border-subtle bg-bg px-2.5 text-[13px] text-fg-muted
+                     transition-colors hover:border-border hover:text-fg md:flex"
+        >
+          <Search aria-hidden="true" strokeWidth={1.75} className="size-4 shrink-0" />
+          <span className="flex-1 text-left">Buscar</span>
+          <Kbd>Ctrl K</Kbd>
+        </button>
+
+        {/* Abaixo de md a caixa de busca vira so o icone: a barra inteira nao
+            cabe em 320px sem empurrar o resto para fora da tela. */}
+        <Dica texto="Buscar" atalho="Ctrl K" lado="bottom">
+          <Botao
+            variante="fantasma"
+            tamanho="icone"
+            onClick={() => setBuscaAberta(true)}
+            className="md:hidden"
+          >
+            <Search aria-hidden="true" strokeWidth={1.75} />
+            <span className="sr-only">Buscar</span>
+          </Botao>
+        </Dica>
+
+        {!membrosFixos && (
+          <Dica texto={membrosVisiveis ? 'Ocultar membros' : 'Mostrar membros'} lado="bottom">
+            <Botao
+              variante="fantasma"
+              tamanho="icone"
+              onClick={() => setMembrosVisiveis(a => !a)}
+              aria-expanded={membrosVisiveis}
+            >
+              <Users aria-hidden="true" strokeWidth={1.75} />
+              <span className="sr-only">
+                {membrosVisiveis ? 'Ocultar membros' : 'Mostrar membros'}
+              </span>
+            </Botao>
+          </Dica>
+        )}
+
+        {user && (
+          <span className="flex shrink-0 items-center">
+            <Avatar nome={user.displayName} url={user.avatarUrl} tamanho="md" />
+            <span className="sr-only">Voce esta como {user.displayName}</span>
+          </span>
+        )}
+      </header>
 
       <div className="flex min-h-0 flex-1">
         <BarraGrupos />
@@ -111,46 +217,34 @@ export function AppShell({ aoDigitar, latenciaMs }: {
             <ListaCanais />
           </nav>
         ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => setGavetaCanais(true)}
-              className="absolute left-16 top-2 z-10 rounded border border-border bg-bg-raised
-                         px-2 py-1 text-xs text-fg"
+          // O botao que abre a gaveta mora na barra do topo; aqui fica so a
+          // gaveta. Ela some da arvore ao fechar, e nao apenas dos olhos:
+          // manter uma navegacao invisivel navegavel por teclado seria
+          // esconder de quem enxerga e nao de quem tabula.
+          gavetaCanais && (
+            <nav
+              aria-label="Canais do grupo"
+              className="absolute inset-y-14 left-16 z-20 overflow-y-auto border-r
+                         border-border bg-bg-raised
+                         shadow-[8px_0_16px_-8px_rgb(0_0_0/0.30)]"
+              style={{ width: 'var(--w-channels)' }}
             >
-              Abrir canais
-            </button>
-            {gavetaCanais && (
-              <nav
-                aria-label="Canais do grupo"
-                className="absolute inset-y-0 left-16 z-20 overflow-y-auto border-r
-                           border-border bg-bg-raised shadow-lg"
-                style={{ width: 'var(--w-channels)' }}
-              >
-                <ListaCanais aoEscolher={() => setGavetaCanais(false)} />
-              </nav>
-            )}
-          </>
+              <ListaCanais aoEscolher={() => setGavetaCanais(false)} />
+            </nav>
+          )
         )}
 
         <Conversa campoEscrita={campoEscrita} {...(aoDigitar === undefined ? {} : { aoDigitar })} />
 
-        {membrosFixos || membrosVisiveis ? (
-          <PainelMembros />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setMembrosVisiveis(true)}
-            className="absolute right-2 top-2 z-10 rounded border border-border bg-bg-raised
-                       px-2 py-1 text-xs text-fg"
-          >
-            Mostrar membros
-          </button>
-        )}
+        {/* Idem: quem mostra os membros e a barra do topo. */}
+        {(membrosFixos || membrosVisiveis) && <PainelMembros />}
       </div>
 
       <BarraDeChamada />
       <BarraConexao latenciaMs={latenciaMs ?? null} />
+
+      <PaletaDeComandos aberta={buscaAberta} aoFechar={() => setBuscaAberta(false)} />
     </div>
+    </ProvedorDeDicas>
   )
 }

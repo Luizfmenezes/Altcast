@@ -53,6 +53,18 @@ function larguraDe(px: number): void {
   })
 }
 
+/** Os botoes de canal, na ordem em que aparecem na barra lateral. */
+function dentroDaListaDeCanais(): HTMLElement[] {
+  const nav = screen.getAllByRole('navigation', { name: 'Canais do grupo' })[0]!
+  return [...nav.querySelectorAll('li > button')] as HTMLElement[]
+}
+
+function canal(nome: string): HTMLElement {
+  const alvo = dentroDaListaDeCanais().find(b => b.textContent === nome)
+  if (!alvo) throw new Error(`canal ${nome} nao esta na lista`)
+  return alvo
+}
+
 describe('estrutura da aplicacao', () => {
   beforeEach(() => {
     useStore.getState().limpar()
@@ -77,15 +89,27 @@ describe('estrutura da aplicacao', () => {
 
   it('lista os canais visiveis na ordem de posicao', () => {
     render(<AppShell />)
-    const nomes = screen.getAllByRole('tab').map(b => b.textContent)
-    expect(nomes).toEqual(['# geral', '# planejamento'])
+    // A lista de canais e navegacao, e nao um `tablist`: `tab` prometeria um
+    // `tabpanel` que a conversa nunca foi, e o cabecalho colapsavel de cada
+    // secao nao pode viver dentro de um tablist sem reprovar em
+    // aria-required-children. O canal aberto se anuncia com aria-current.
+    const nomes = dentroDaListaDeCanais().map(b => b.textContent)
+    expect(nomes).toEqual(['geral', 'planejamento'])
+  })
+
+  it('o canal aberto e o unico marcado como atual', async () => {
+    const usuario = userEvent.setup()
+    render(<AppShell />)
+    await usuario.click(canal('planejamento'))
+    const atuais = dentroDaListaDeCanais().filter(b => b.getAttribute('aria-current') === 'true')
+    expect(atuais.map(b => b.textContent)).toEqual(['planejamento'])
   })
 
   it('trocar de canal move o foco para o campo de escrita', async () => {
     const usuario = userEvent.setup()
     render(<AppShell />)
 
-    await usuario.click(screen.getByRole('tab', { name: '# planejamento' }))
+    await usuario.click(canal('planejamento'))
     // Sem isto, quem navega por teclado se perde a cada troca de canal.
     expect(screen.getByLabelText('Escrever mensagem')).toHaveFocus()
   })
@@ -94,7 +118,7 @@ describe('estrutura da aplicacao', () => {
     const usuario = userEvent.setup()
     render(<AppShell />)
 
-    await usuario.click(screen.getByRole('tab', { name: '# planejamento' }))
+    await usuario.click(canal('planejamento'))
     expect(screen.getByRole('status', { name: 'Canal atual' }))
       .toHaveTextContent('planejamento')
   })
@@ -129,13 +153,13 @@ describe('estrutura da aplicacao', () => {
     render(<AppShell />)
 
     // Fora da gaveta, os canais nao ocupam espaco permanente na tela estreita.
-    expect(screen.queryByRole('tab', { name: '# geral' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'geral' })).not.toBeInTheDocument()
 
     await usuario.click(screen.getByRole('button', { name: 'Abrir canais' }))
-    expect(screen.getByRole('tab', { name: '# geral' })).toBeInTheDocument()
+    expect(canal('geral')).toBeInTheDocument()
 
     await usuario.keyboard('{Escape}')
-    expect(screen.queryByRole('tab', { name: '# geral' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'geral' })).not.toBeInTheDocument()
   })
 
   it('em 1000px o painel de membros colapsa e volta por botao', async () => {

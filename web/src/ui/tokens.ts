@@ -8,9 +8,13 @@
  * documento em tempo de execucao: o que e testado e exatamente o que e servido.
  *
  * Paleta multidimensional, jamais dominada por um matiz (spec 05 secao 4):
- * neutro frio como estrutura, ambar como unico acento de acao, verde apenas
+ * neutro frio como estrutura, azul como unico acento de acao, verde apenas
  * para presenca, vermelho apenas para erro e destruicao. Quando o vermelho
  * aparece, ele significa alguma coisa.
+ *
+ * Os neutros sao levemente azulados (familia slate, e nao zinc) porque o
+ * acento e azul: um cinza morto ao lado de um azul saturado le como sujeira,
+ * e um cinza que compartilha o matiz do acento le como a mesma familia.
  */
 export type Palette = {
   /** Fundo da aplicacao. */
@@ -42,23 +46,23 @@ export type Palette = {
 }
 
 /**
- * O ambar do tema claro e bem mais escuro que o do escuro, e nao por gosto: ele
+ * O azul do tema claro e bem mais escuro que o do escuro, e nao por gosto: ele
  * precisa alcancar 4.5:1 duas vezes - com texto branco por cima, quando e fundo
- * de botao, e sobre `bgHover`, quando e o nome do canal ativo. O tom mais claro
- * passava no primeiro caso e reprovava no segundo. A conformidade decide o tom,
- * e nao o inverso.
+ * de botao, e sobre `bgHover`, quando e o nome do canal ativo. Um azul vibrante
+ * como #3b82f6 passa no primeiro caso e da 3.1:1 no segundo, reprovando. A
+ * conformidade decide o tom, e nao o inverso.
  */
 export const LIGHT: Palette = {
   bg: '#ffffff',
-  bgRaised: '#f4f4f5',
-  bgHover: '#e4e4e7',
-  fg: '#18181b',
-  fgMuted: '#52525b',
-  border: '#71717a',
-  borderSubtle: '#d4d4d8',
-  accent: '#92400e',
+  bgRaised: '#f1f5f9',
+  bgHover: '#e2e8f0',
+  fg: '#0f172a',
+  fgMuted: '#475569',
+  border: '#64748b',
+  borderSubtle: '#cbd5e1',
+  accent: '#1d4ed8',
   accentFg: '#ffffff',
-  focusRing: '#92400e',
+  focusRing: '#1d4ed8',
   danger: '#b91c1c',
   dangerFg: '#ffffff',
   presenceOnline: '#047857',
@@ -66,18 +70,18 @@ export const LIGHT: Palette = {
 
 /** Escuro e o padrao: e o habito da categoria e reduz fadiga em uso prolongado. */
 export const DARK: Palette = {
-  bg: '#09090b',
-  bgRaised: '#18181b',
-  bgHover: '#27272a',
-  fg: '#fafafa',
-  fgMuted: '#a1a1aa',
-  border: '#71717a',
-  borderSubtle: '#3f3f46',
-  accent: '#f59e0b',
-  accentFg: '#18120a',
-  focusRing: '#f59e0b',
+  bg: '#06070a',
+  bgRaised: '#101319',
+  bgHover: '#1e2530',
+  fg: '#f8fafc',
+  fgMuted: '#94a3b8',
+  border: '#64748b',
+  borderSubtle: '#2a313d',
+  accent: '#60a5fa',
+  accentFg: '#0a1020',
+  focusRing: '#60a5fa',
   danger: '#f87171',
-  dangerFg: '#18181b',
+  dangerFg: '#0f172a',
   presenceOnline: '#34d399',
 }
 

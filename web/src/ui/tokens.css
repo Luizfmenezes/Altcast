@@ -1,4 +1,14 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import './fontes.css';
+
+/**
+ * O tema e um data-attribute no elemento raiz, escrito pelo ThemeProvider, e
+ * nao a classe `.dark` que o Tailwind assume por padrao. Sem esta declaracao,
+ * toda utility `dark:` do projeto seria silenciosamente morta — compilaria,
+ * nao aplicaria, e ninguem descobriria ate ver a tela errada.
+ */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 /**
  * As cores NAO sao declaradas aqui: o ThemeProvider as escreve no elemento raiz
@@ -21,10 +31,37 @@
   --color-danger-fg: var(--color-danger-fg);
   --color-presence-online: var(--color-presence-online);
 
+  /**
+   * Apelidos no vocabulario shadcn, apontando para as MESMAS variaveis acima.
+   * Sao alias, nao cores novas: nada aqui e uma segunda verdade que possa
+   * divergir da paleta, e a paridade de chaves entre LIGHT e DARK que o
+   * tokens.test.ts exige continua valendo sobre os treze tokens originais.
+   */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-fg);
+  --color-card: var(--color-bg-raised);
+  --color-card-foreground: var(--color-fg);
+  --color-popover: var(--color-bg-raised);
+  --color-popover-foreground: var(--color-fg);
+  --color-muted: var(--color-bg-hover);
+  --color-muted-foreground: var(--color-fg-muted);
+  --color-accent-hover: var(--color-bg-hover);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-accent-fg);
+  --color-secondary: var(--color-bg-hover);
+  --color-secondary-foreground: var(--color-fg);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: var(--color-danger-fg);
+  --color-input: var(--color-border);
+  --color-ring: var(--color-focus-ring);
+
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   /* Monoespacada nos codigos de convite nao e estetica: 'K7M2P9XQ' assim e
      ditavel por telefone sem erro, e e literalmente como esse codigo circula. */
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+  /* Reservada aos rotulos maiusculos e espacados da porta de entrada. Separada
+     de --font-mono porque ali a monoespacada e legibilidade, e aqui e voz. */
+  --font-tecnica: 'Space Mono', 'JetBrains Mono', ui-monospace, monospace;
 }
 
 :root {
@@ -54,6 +91,46 @@ body {
   line-height: var(--leading-body);
   -webkit-font-smoothing: antialiased;
 }
+
+/**
+ * As superficies que o navegador desenha por nos.
+ *
+ * Selecao, cursor, barra de rolagem e sublinhado nascem com cores que nao
+ * pertencem a paleta nenhuma. Deixa-las no padrao e o que faz uma tela parecer
+ * montada em vez de construida — e e sempre a primeira coisa que sobra quando
+ * alguem so pinta os componentes.
+ */
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-fg);
+}
+
+:root {
+  caret-color: var(--color-accent);
+  accent-color: var(--color-accent);
+  scrollbar-color: var(--color-border-subtle) transparent;
+  scrollbar-width: thin;
+}
+
+/* WebKit ignora `scrollbar-color`; sem este bloco o Chrome fica com a barra
+   cinza clara do sistema em cima do tema escuro. */
+::-webkit-scrollbar { inline-size: 10px; block-size: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-subtle);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background-color: var(--color-border); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Sublinhado que nao corta as descidas das letras. */
+a { text-underline-offset: 0.2em; text-decoration-thickness: from-font; }
+
+/* Numero em coluna so alinha se as figuras tiverem a mesma largura: horarios,
+   contadores e tamanhos de arquivo dancam sem isto. */
+.numerico { font-variant-numeric: tabular-nums; }
 
 /**
  * Foco sempre visivel: anel de 2px com deslocamento, contraste 3:1 garantido
