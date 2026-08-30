@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { api } from '../../lib/api.js'
 import { useStore } from '../../lib/store.js'
 import { Anexos } from './Anexos.js'
+import { Reacoes } from './Reacoes.js'
 import { enviarMensagem } from './envio.js'
 import type { Mensagem } from '../../lib/tipos.js'
 
@@ -33,14 +35,35 @@ function mesmoDia(a: string, b: string): boolean {
  * E quando o campo de escrita tem foco, o anuncio para por completo - quem esta
  * digitando nao pode ser interrompido pela propria conversa.
  */
-export function MessageList({ escrevendo, digitando, carregarAnteriores }: {
+export function MessageList({ escrevendo, digitando, carregarAnteriores, aoResponder }: {
   escrevendo: boolean
   digitando?: string[]
   carregarAnteriores?: (antesDe: string) => void
+  /** Preenche o composer com a citacao. Ausente onde nao ha composer. */
+  aoResponder?: (mensagem: Mensagem) => void
 }): ReactNode {
   const canalAtivo = useStore(e => e.canalAtivo)
   const porCanal = useStore(e => e.mensagens)
   const members = useStore(e => e.members)
+  const eu = useStore(e => e.user?.id ?? null)
+  const marcarLido = useStore(e => e.marcarLido)
+
+  /**
+   * O marco de leitura CONGELADO na abertura do canal.
+   *
+   * Ele nao pode acompanhar a leitura em tempo real: se acompanhasse, o
+   * separador "novas mensagens" saltaria para baixo a cada mensagem que
+   * chegasse e a pessoa nunca conseguiria ver onde tinha parado. Ele so se
+   * move quando o canal e trocado — que e quando a pergunta "onde eu parei?"
+   * volta a ser feita.
+   */
+  const leituras = useStore(e => e.leituras)
+  const marcoDeAbertura = useRef<string | null>(null)
+  const canalDoMarco = useRef<string | null>(null)
+  if (canalDoMarco.current !== canalAtivo) {
+    canalDoMarco.current = canalAtivo
+    marcoDeAbertura.current = canalAtivo === null ? null : leituras[canalAtivo] ?? null
+  }
 
   const mensagens = canalAtivo === null ? VAZIO : porCanal[canalAtivo] ?? VAZIO
 
@@ -53,6 +76,28 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores }: {
     autorId === null
       ? 'usuario removido'
       : members.find(m => m.userId === autorId)?.displayName ?? 'usuario removido'
+
+  /**
+   * Marcar como lido enquanto a pessoa esta olhando o fim da conversa.
+   *
+   * A condicao `noFim` e o ponto: marcar sempre que uma mensagem chega faria o
+   * contador zerar para quem esta lendo o historico no meio do canal — ou seja,
+   * exatamente para quem MAIS depende dele.
+   */
+  useEffect(() => {
+    const ultima = mensagens.at(-1)
+    if (canalAtivo === null || ultima === undefined || !noFim) return
+    if (ultima.envio !== undefined) return
+    if (leituras[canalAtivo] === ultima.id) return
+    marcarLido(canalAtivo, ultima.id)
+    // Engolir a falha aqui e deliberado, e nao descuido: o marco de leitura e
+    // idempotente e monotonico, entao a proxima mensagem que chegar com a
+    // conversa no fim reenvia o marco mais novo e cura sozinha o que se perdeu.
+    // O `catch` precisa existir mesmo assim — um `void` sobre promessa que
+    // rejeita vira rejeicao nao tratada no console de quem usa.
+    api.put(`/channels/${canalAtivo}/read`, { lastReadMessageId: ultima.id })
+      .catch(() => undefined)
+  }, [canalAtivo, mensagens, noFim, leituras, marcarLido])
 
   function medirRolagem(): void {
     const el = caixa.current
@@ -127,8 +172,28 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores }: {
             && new Date(mensagem.createdAt).getTime()
               - new Date(anterior.createdAt).getTime() < JANELA_DE_AGRUPAMENTO_MS
 
+          const citada = mensagem.replyToId === null || mensagem.replyToId === undefined
+            ? undefined
+            : mensagens.find(m => m.id === mensagem.replyToId)
+          // A primeira mensagem depois do marco de abertura. `>` e nao `>=`
+          // porque o marco E a ultima lida: ela fica ACIMA do separador.
+          const primeiraNova = marcoDeAbertura.current !== null
+            && mensagem.id > marcoDeAbertura.current
+            && (anterior === undefined || anterior.id <= marcoDeAbertura.current)
+
           return (
             <div key={mensagem.id} className="flex flex-col">
+              {primeiraNova && (
+                <div
+                  role="separator"
+                  aria-label="Novas mensagens"
+                  className="my-2 flex items-center gap-2 text-[11px] font-semibold text-accent"
+                >
+                  <span className="h-px flex-1 bg-accent" />
+                  Novas mensagens
+                  <span className="h-px flex-1 bg-accent" />
+                </div>
+              )}
               {trocouDeDia && (
                 <div
                   role="separator"
@@ -144,6 +209,22 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores }: {
                 aria-busy={mensagem.envio === 'enviando' ? 'true' : undefined}
                 className={mensagem.envio === 'enviando' ? 'opacity-60' : undefined}
               >
+                {/*
+                  A citacao vem ANTES do cabecalho porque e ela que da o
+                  contexto: ler o nome de quem falou antes de saber a que se
+                  responde inverte a ordem em que a frase faz sentido.
+
+                  `replyToId` presente com a citada ausente e o caso normal de
+                  mensagem apagada — o `SET NULL` do banco preserva a resposta
+                  de proposito, e a linha diz isso em vez de sumir.
+                */}
+                {(mensagem.replyToId !== null && mensagem.replyToId !== undefined) && (
+                  <p className="truncate border-l-2 border-border pl-2 text-[11px] text-fg-muted">
+                    {citada === undefined
+                      ? 'Em resposta a uma mensagem apagada'
+                      : `Em resposta a ${nomeDe(citada.authorId)}: ${citada.content.slice(0, 80)}`}
+                  </p>
+                )}
                 {!agrupada && (
                   <p className="flex items-baseline gap-2">
                     <span className="text-[13px] font-semibold text-fg">
@@ -171,6 +252,31 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores }: {
                   </p>
                 )}
                 <Anexos anexos={mensagem.attachments ?? []} />
+
+                {/*
+                  Reagir e responder so existem para mensagem JA CONFIRMADA:
+                  um eco otimista ainda nao tem id no servidor, e reagir a ele
+                  bateria num 404.
+                */}
+                {mensagem.envio === undefined && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Reacoes
+                      messageId={mensagem.id}
+                      reacoes={mensagem.reactions ?? []}
+                      eu={eu}
+                    />
+                    {aoResponder !== undefined && (
+                      <button
+                        type="button"
+                        onClick={() => { aoResponder(mensagem) }}
+                        className="text-[11px] text-fg-muted underline underline-offset-2
+                                   hover:text-fg"
+                      >
+                        Responder
+                      </button>
+                    )}
+                  </div>
+                )}
                 {mensagem.envio === 'falhou' && (
                   <p className="flex items-center gap-2 text-xs text-danger">
                     Nao foi enviada.

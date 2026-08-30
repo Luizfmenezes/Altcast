@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { criarChamada, ESTADO_INICIAL } from '../../lib/midia.js'
+import { ESTADO_INICIAL } from '../../lib/midia.js'
 import type {
-  Chamada, EstadoDaChamada, PapelSonoro, QualidadeDaTela, TipoDeDispositivo,
+  EstadoDaChamada, PapelSonoro, QualidadeDaTela, QualidadeDeRecepcao, TipoDeDispositivo,
 } from '../../lib/midia.js'
-import { useStore } from '../../lib/store.js'
+import { useChamadaAtiva } from './chamadaAtiva.js'
 
 export type ControleDaChamada = {
   estado: EstadoDaChamada
@@ -15,69 +14,43 @@ export type ControleDaChamada = {
   trocarDispositivo: (tipo: TipoDeDispositivo, deviceId: string) => void
   destravarAudio: () => void
   definirVolume: (userId: string, papel: PapelSonoro, volume: number) => void
+  restaurarVolumes: () => void
   definirQualidade: (qualidade: QualidadeDaTela) => void
+  definirQualidadeDeRecepcao: (sid: string, nivel: QualidadeDeRecepcao) => void
+  alternarSurdo: () => void
 }
 
 /**
- * A chamada do canal aberto, como estado de React.
+ * A chamada DESTE canal, se for nele que a chamada esta.
  *
- * Uma chamada por canal, e nao uma global: trocar de canal de voz precisa
- * derrubar a anterior. Duas salas abertas ao mesmo tempo mandariam o audio da
- * pessoa para um canal que ela acha que deixou.
+ * O hook perdeu o ciclo de vida e virou uma vista: quem cria e destroi a
+ * chamada e `chamadaAtiva`, acima da arvore. A mudanca que isso produz na tela
+ * e a que motivou a fase inteira — trocar de canal deixou de derrubar a
+ * chamada, e ler outro canal deixou de custar a conversa.
+ *
+ * O `channelId` continua entrando porque a resposta depende dele: o painel de
+ * um canal onde a chamada NAO esta precisa mostrar "Entrar na chamada", e nao
+ * os controles de uma sala que acontece em outro lugar. Sem esta comparacao,
+ * abrir um canal de voz vazio mostraria os botoes da chamada do vizinho.
  */
 export function useChamada(channelId: string | null): ControleDaChamada {
-  const [estado, setEstado] = useState<EstadoDaChamada>(ESTADO_INICIAL)
-  const chamada = useRef<Chamada | null>(null)
-
-  useEffect(() => {
-    if (channelId === null) return
-
-    const atual = criarChamada({
-      channelId,
-      // Lido da store a cada quadro, e nao capturado uma vez: o socket cai e
-      // volta, e uma funcao capturada no primeiro render enviaria para sempre
-      // pela conexao morta.
-      enviar: quadro => useStore.getState().enviarQuadro(quadro),
-      aoMudar: setEstado,
-    })
-    chamada.current = atual
-
-    return () => {
-      // Sair no desmonte cobre os dois casos que mais deixam microfone aberto:
-      // trocar de canal e fechar a aba.
-      void atual.sair()
-      chamada.current = null
-      setEstado(ESTADO_INICIAL)
-    }
-  }, [channelId])
-
-  const alternar = useCallback((
-    qual: 'microfone' | 'camera' | 'tela', ligado: boolean,
-  ): void => {
-    const c = chamada.current
-    if (c === null) return
-    const acao = qual === 'microfone'
-      ? c.definirMicrofone
-      : qual === 'camera' ? c.definirCamera : c.definirTela
-    void acao(ligado)
-  }, [])
+  const aqui = useChamadaAtiva(e => e.canal !== null && e.canal === channelId)
+  const chamada = useChamadaAtiva(e => e.chamada)
+  const acoes = useChamadaAtiva(e => e)
 
   return {
-    estado,
-    entrar: useCallback(() => void chamada.current?.entrar(), []),
-    sair: useCallback(() => void chamada.current?.sair(), []),
-    destravarAudio: useCallback(() => void chamada.current?.destravarAudio(), []),
-    trocarDispositivo: (tipo, deviceId) => {
-      void chamada.current?.trocarDispositivo(tipo, deviceId)
-    },
-    definirVolume: useCallback((userId: string, papel: PapelSonoro, volume: number): void => {
-      chamada.current?.definirVolume(userId, papel, volume)
-    }, []),
-    definirQualidade: useCallback((qualidade: QualidadeDaTela): void => {
-      chamada.current?.definirQualidade(qualidade)
-    }, []),
-    alternarMicrofone: () => alternar('microfone', !estado.microfone),
-    alternarCamera: () => alternar('camera', !estado.camera),
-    alternarTela: () => alternar('tela', !estado.tela),
+    estado: aqui ? chamada : ESTADO_INICIAL,
+    entrar: () => { if (channelId !== null) void acoes.entrar(channelId) },
+    sair: () => { void acoes.sair() },
+    alternarMicrofone: acoes.alternarMicrofone,
+    alternarCamera: acoes.alternarCamera,
+    alternarTela: acoes.alternarTela,
+    trocarDispositivo: acoes.trocarDispositivo,
+    destravarAudio: acoes.destravarAudio,
+    definirVolume: acoes.definirVolume,
+    restaurarVolumes: acoes.restaurarVolumes,
+    definirQualidade: acoes.definirQualidade,
+    definirQualidadeDeRecepcao: acoes.definirQualidadeDeRecepcao,
+    alternarSurdo: acoes.alternarSurdo,
   }
 }

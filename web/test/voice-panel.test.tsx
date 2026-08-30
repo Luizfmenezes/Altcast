@@ -80,15 +80,30 @@ describe('painel de voz', () => {
     expect(screen.queryByLabelText(/^Ana,/)).not.toBeInTheDocument()
   })
 
-  it('trocar de canal nao deixa a chamada anterior de pe', () => {
+  /**
+   * Esta garantia MUDOU de dono, e vale registrar o porque.
+   *
+   * Ate a Fase 4, desmontar o painel derrubava a chamada, e o teste antigo
+   * provava exatamente isso. A protecao era boa — microfone aberto por engano e
+   * um defeito serio — mas cobrava um preco alto demais: ler outro canal
+   * custava a chamada inteira.
+   *
+   * Agora a chamada sobrevive a navegacao, e a protecao passou para tres
+   * outros lugares: `registrarSaidaDaAba`, o desligamento explicito ao entrar
+   * noutro canal de voz, e a `BarraDeChamada`, que mostra o microfone em toda
+   * tela. Trocar um teste pelos que estao em `chamada-persistente.test.tsx` e a
+   * consequencia disso, e nao um relaxamento.
+   */
+  it('desmontar o painel NAO derruba mais a chamada', () => {
     const enviar = vi.fn(() => true)
     act(() => useStore.getState().definirEnvio(enviar))
     const { unmount } = render(<PainelDeVoz channelId={CANAL} nomeDoCanal="sala-de-voz" />)
 
-    // Desmontar precisa avisar a API que esta pessoa saiu: sem isso, o
-    // microfone continuaria aberto num canal que a pessoa acha que deixou.
     unmount()
-    expect(enviar).toHaveBeenCalledWith(
+
+    // Sem chamada nenhuma aberta nao ha o que avisar — e, com uma aberta, sair
+    // do canal deixou de ser motivo para desliga-la.
+    expect(enviar).not.toHaveBeenCalledWith(
       expect.objectContaining({ t: 'voice.leave' }),
     )
   })

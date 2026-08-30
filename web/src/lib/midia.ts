@@ -20,6 +20,33 @@ function carregarLiveKit(): Promise<ModuloLiveKit> {
 }
 
 /**
+ * O rastro da midia, desligado por padrao.
+ *
+ * Existe por causa da classe de defeito que esta camada produz: quando o som
+ * falha, ele falha CALADO. A faixa chega, o elemento existe, o SFU entrega os
+ * pacotes, e nao ha erro em lugar nenhum para procurar. Sem rastro, cada
+ * queixa de "nao estou ouvindo" recomeca a investigacao do zero.
+ *
+ * Fica atras de uma chave do `localStorage` — e nao de uma variavel de
+ * compilacao — para que possa ser ligado na maquina de quem esta com o
+ * problema, que quase nunca e a de quem vai depurar:
+ *
+ *     localStorage.setItem('altcast:debug-midia', '1')
+ */
+const CHAVE_DE_DEPURACAO = 'altcast:debug-midia'
+
+function rastro(evento: string, dados?: unknown): void {
+  try {
+    if (localStorage.getItem(CHAVE_DE_DEPURACAO) === null) return
+  } catch {
+    // Armazenamento bloqueado: sem rastro, e sem quebrar a chamada por causa
+    // do instrumento que existe para diagnostica-la.
+    return
+  }
+  console.debug(`[altcast:midia] ${evento}`, dados)
+}
+
+/**
  * A camada de midia do cliente.
  *
  * Este e o unico arquivo do frontend que conhece o LiveKit — spec 01: "trocar
@@ -222,6 +249,70 @@ export function guardarQualidade(qualidade: QualidadeDaTela): void {
   }
 }
 
+/**
+ * A qualidade que EU peco para receber de uma transmissao alheia.
+ *
+ * Nao confundir com `QualidadeDaTela`, que e o que eu PUBLICO. Sao duas
+ * decisoes de donos diferentes, e ate agora so uma delas existia: a queixa
+ * "travou pra mim" nao tinha saida nenhuma alem de pedir a quem transmite que
+ * baixasse a qualidade para a sala inteira.
+ *
+ * `automatica` e o comportamento de hoje, decidido pelo `adaptiveStream` — que
+ * escolhe pela AREA do video na tela, e nao pela banda de quem recebe. Sao
+ * criterios diferentes, e por isso um nao substitui o outro.
+ */
+export type QualidadeDeRecepcao = 'automatica' | 'alta' | 'media' | 'baixa'
+
+/**
+ * A forca do sinal de cada pessoa, do jeito que o SFU a enxerga.
+ *
+ * Vale por metade das perguntas de suporte que uma transmissao gera: sem isso,
+ * "o video de fulano esta ruim" nao tem como distinguir a camera dele da rede
+ * dele — e as duas pedem providencias opostas.
+ */
+export type Sinal = 'excelente' | 'bom' | 'ruim' | 'perdido'
+
+/**
+ * O tratamento que o NAVEGADOR aplica ao microfone antes de o som subir.
+ *
+ * Os tres ja existiam no `getUserMedia` e sempre estiveram ligados por padrao;
+ * o sistema simplesmente nunca os ofereceu. Eles precisam poder ser
+ * DESLIGADOS, e nao so ligados: a supressao de ruido destroi musica e
+ * instrumento, e o ganho automatico bombeia o volume no silencio — quem
+ * transmite som de verdade precisa dos tres fora do caminho.
+ */
+export type Processamento = {
+  /** Corta ruido de fundo. Otimo para voz, destrutivo para musica. */
+  ruido: boolean
+  /** Cancela o eco do proprio alto-falante. Indispensavel sem fone. */
+  eco: boolean
+  /** Nivela o volume sozinho. Bombeia o chiado quando ninguem fala. */
+  ganho: boolean
+}
+
+const CHAVE_DE_PROCESSAMENTO = 'altcast:processamento'
+
+export const PROCESSAMENTO_PADRAO: Processamento = { ruido: true, eco: true, ganho: true }
+
+/** Preferencia de MAQUINA, como o dispositivo: depende do fone e da sala. */
+export function lerProcessamento(): Processamento {
+  try {
+    const bruto = localStorage.getItem(CHAVE_DE_PROCESSAMENTO)
+    if (bruto === null) return PROCESSAMENTO_PADRAO
+    return { ...PROCESSAMENTO_PADRAO, ...JSON.parse(bruto) as Partial<Processamento> }
+  } catch {
+    return PROCESSAMENTO_PADRAO
+  }
+}
+
+export function guardarProcessamento(p: Processamento): void {
+  try {
+    localStorage.setItem(CHAVE_DE_PROCESSAMENTO, JSON.stringify(p))
+  } catch {
+    // Nao poder lembrar a escolha nao pode impedir de faze-la agora.
+  }
+}
+
 export type PapelDaFaixa = 'camera' | 'tela' | 'audio' | 'audio-tela'
 
 export type Faixa = {
@@ -274,6 +365,28 @@ export type EstadoDaChamada = {
   volumes: Record<string, number>
   /** A qualidade escolhida para a propria tela. Vale na proxima partilha. */
   qualidade: QualidadeDaTela
+  /**
+   * A qualidade pedida para cada faixa remota, indexada pelo `sid`.
+   *
+   * NAO fica no `localStorage` junto dos volumes, e a distincao e o ponto: o
+   * volume e uma preferencia sobre uma PESSOA — quem fala alto demais continua
+   * falando alto demais amanha. A qualidade e uma preferencia sobre uma REDE, e
+   * a rede de ontem nao e a de hoje. Guardar as duas no mesmo lugar imporia a
+   * um cafe com wi-fi ruim a escolha feita no escritorio com fibra.
+   */
+  recepcao: Record<string, QualidadeDeRecepcao>
+  /** A forca do sinal de cada pessoa, indexada por `userId`. */
+  sinais: Record<string, Sinal>
+  /**
+   * Ensurdecido: nao ouco ninguem, e ninguem me ouve.
+   *
+   * E um interruptor POR CIMA dos volumes, e nao um `definirVolume(0)` em cada
+   * faixa — se fosse isso, desfazer devolveria todo mundo ao volume cheio e
+   * apagaria os ajustes que a pessoa levou meses fazendo. O microfone cai
+   * junto porque e o que a palavra significa em toda ferramenta que a usa:
+   * "sai um pouco".
+   */
+  surdo: boolean
   erro: string | null
 }
 
@@ -289,6 +402,9 @@ export const ESTADO_INICIAL: EstadoDaChamada = {
   audioBloqueado: false,
   volumes: {},
   qualidade: QUALIDADE_PADRAO,
+  recepcao: {},
+  sinais: {},
+  surdo: false,
   erro: null,
 }
 
@@ -341,6 +457,13 @@ export type OpcoesDaChamada = {
   /** Injetavel para teste; em producao e uma Room de verdade. */
   criarSala?: () => SalaDeMidia
   obterCredencial?: (channelId: string) => Promise<Credencial>
+  /**
+   * As saidas de som que existem AGORA. Injetavel pela mesma razao que a sala:
+   * conferir a preferencia guardada contra a realidade e o que separa "o fone
+   * escolhido" de "o fone que ainda esta ligado", e isso precisa ser
+   * verificavel sem um navegador de verdade no meio.
+   */
+  listarSaidas?: () => Promise<Dispositivo[]>
 }
 
 /**
@@ -353,6 +476,7 @@ export type OpcoesDaChamada = {
  */
 function salaPadrao(lk: ModuloLiveKit): SalaDeMidia {
   const preferidos = lerPreferencias()
+  const processamento = lerProcessamento()
   return new lk.Room({
     // `pixelDensity: 'screen'` e a diferenca entre o quadrado do video pedir a
     // camada pelo tamanho em pixels CSS ou em pixels REAIS. Numa tela de alta
@@ -382,9 +506,16 @@ function salaPadrao(lk: ModuloLiveKit): SalaDeMidia {
     },
     // A escolha guardada vale desde a PRIMEIRA captura. Aplicar depois, por
     // troca, faria o primeiro segundo de audio sair pelo microfone errado.
-    ...(preferidos.audioinput === undefined
-      ? {}
-      : { audioCaptureDefaults: { deviceId: preferidos.audioinput } }),
+    // O tratamento do microfone entra na CONSTRUCAO, junto do dispositivo,
+    // pela mesma razao: aplicado depois, a primeira frase da chamada sairia
+    // com o processamento errado — que e justamente a frase que faz a pessoa
+    // concluir que o ajuste nao funciona.
+    audioCaptureDefaults: {
+      ...(preferidos.audioinput === undefined ? {} : { deviceId: preferidos.audioinput }),
+      noiseSuppression: processamento.ruido,
+      echoCancellation: processamento.eco,
+      autoGainControl: processamento.ganho,
+    },
     ...(preferidos.videoinput === undefined
       ? {}
       : { videoCaptureDefaults: { deviceId: preferidos.videoinput } }),
@@ -448,17 +579,37 @@ export type Chamada = {
    */
   definirVolume: (userId: string, papel: PapelSonoro, volume: number) => void
   /**
+   * Devolve todas as fontes de som ao volume cheio e esquece os ajustes.
+   *
+   * E a saida de emergencia de um defeito com uma forma muito particular: um
+   * `0` guardado numa chamada antiga silencia alguem para sempre, viaja com o
+   * NAVEGADOR e nao com o codigo, e por isso sobrevive a qualquer correcao do
+   * sistema. Sem um botao, o unico conserto e editar o `localStorage` a mao.
+   */
+  restaurarVolumes: () => void
+  /**
    * Escolhe a qualidade da PROPRIA tela. Vale na proxima vez que ela for
    * compartilhada — trocar durante a partilha exigiria recapturar, e o
    * navegador perguntaria de novo qual janela mostrar.
    */
   definirQualidade: (qualidade: QualidadeDaTela) => void
+  /**
+   * A qualidade que EU recebo de UMA faixa remota, pelo `sid` dela. Vale so
+   * para quem escolhe: nao muda nada do que a outra pessoa publica.
+   */
+  definirQualidadeDeRecepcao: (sid: string, nivel: QualidadeDeRecepcao) => void
+  /**
+   * Ensurdecer ou desfazer. Um interruptor POR CIMA dos volumes: desfazer
+   * devolve cada fonte ao valor que a pessoa escolheu, e nao ao volume cheio.
+   */
+  definirSurdo: (surdo: boolean) => Promise<void>
   estado: () => EstadoDaChamada
 }
 
 export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
   const criarSala = opcoes.criarSala
   const obterCredencial = opcoes.obterCredencial ?? obterCredencialPadrao
+  const listarSaidas = opcoes.listarSaidas ?? (() => listarDispositivos('audiooutput'))
 
   let estado: EstadoDaChamada = {
     ...ESTADO_INICIAL, volumes: lerVolumes(), qualidade: lerQualidade(),
@@ -468,6 +619,16 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
   let identidade = ''
   /** Desliga o medidor de nivel. Existe enquanto o microfone estiver ligado. */
   let pararDeMedir: (() => void) | null = null
+  /**
+   * As publicacoes remotas vivas, por `sid`.
+   *
+   * Ficam aqui, e nao dentro de `Faixa`, para nao vazar um tipo do LiveKit
+   * atraves do estado que a interface le — spec 01: trocar de SFU pode afetar
+   * este arquivo e nenhum outro. `setVideoQuality` mora na PUBLICACAO, e nao
+   * na faixa, entao guardar so a faixa deixaria a escolha de qualidade sem
+   * onde ser aplicada.
+   */
+  const publicacoes = new Map<string, RemoteTrackPublication>()
 
   function aplicar(mudanca: Partial<EstadoDaChamada>): void {
     estado = { ...estado, ...mudanca }
@@ -533,13 +694,39 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
       participante: RemoteParticipant,
     ) => {
       const papel = papelDe(publicacao, lk)
-      if (papel === null) return
+      if (papel === null) {
+        // Um `return` calado aqui e o formato classico da falha silenciosa: a
+        // faixa chegou, foi descartada, e nada em lugar nenhum registra que
+        // ela existiu.
+        rastro('faixa descartada: fonte desconhecida', {
+          kind: publicacao.kind, source: publicacao.source, de: participante.identity,
+        })
+        return
+      }
       // O ajuste guardado vale desde o PRIMEIRO pacote. Aplica-lo depois, por
       // efeito na interface, deixaria escapar um segundo do volume anterior —
       // que e exatamente o susto que a pessoa abaixou o volume para evitar.
+      let volumeAplicado: number | undefined
       if (papel === 'audio' || papel === 'audio-tela') {
-        const guardado = estado.volumes[chaveDeVolume(participante.identity, papel)]
-        if (guardado !== undefined) aplicarVolume(track, guardado)
+        // Ensurdecido vence o ajuste guardado, e precisa valer ate para quem
+        // entra na sala DEPOIS: sem isto, ficar surdo silenciaria so quem ja
+        // estava, e cada pessoa que chegasse voltaria a ser ouvida.
+        const guardado = estado.surdo
+          ? 0
+          : estado.volumes[chaveDeVolume(participante.identity, papel)]
+        if (guardado !== undefined) {
+          aplicarVolume(track, guardado)
+          volumeAplicado = guardado
+        }
+      }
+      rastro('faixa inscrita', {
+        de: participante.identity, papel, sid: publicacao.trackSid, volumeAplicado,
+      })
+      // So video: o seletor de qualidade nao existe para audio, e uma
+      // publicacao de audio guardada aqui seria estado morto.
+      if (papel === 'camera' || papel === 'tela') {
+        const id = track.sid
+        if (id !== undefined) publicacoes.set(id, publicacao)
       }
       aplicar({
         faixas: [...estado.faixas, { userId: participante.identity, papel, track, local: false }],
@@ -580,7 +767,31 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     }) as (...args: never[]) => void)
 
     ouvir(RoomEvent.TrackUnsubscribed, ((track: RemoteTrack) => {
-      aplicar({ faixas: estado.faixas.filter(f => f.track !== track) })
+      // A escolha de qualidade sai junto com a faixa. Guardar por `sid` uma
+      // preferencia sobre algo que nao existe mais so acumularia lixo: o
+      // proximo `sid` do SFU nunca sera este.
+      const id = track.sid
+      const { [id ?? '']: _saiu, ...recepcao } = estado.recepcao
+      if (id !== undefined) publicacoes.delete(id)
+      aplicar({ faixas: estado.faixas.filter(f => f.track !== track), recepcao })
+    }) as (...args: never[]) => void)
+
+    /**
+     * A forca do sinal, direto do SFU.
+     *
+     * Existe porque "o video de fulano esta ruim" e ambiguo entre a camera
+     * dele e a rede dele, e as duas pedem providencias opostas. O SFU ja sabe a
+     * resposta; ate agora ele so nao estava sendo perguntado.
+     */
+    ouvir(RoomEvent.ConnectionQualityChanged, ((
+      qualidade: string, participante: { identity: string },
+    ) => {
+      const traducao: Record<string, Sinal> = {
+        excellent: 'excelente', good: 'bom', poor: 'ruim', lost: 'perdido',
+      }
+      const sinal = traducao[qualidade]
+      if (sinal === undefined) return
+      aplicar({ sinais: { ...estado.sinais, [participante.identity]: sinal } })
     }) as (...args: never[]) => void)
 
     ouvir(RoomEvent.ParticipantDisconnected, ((participante: RemoteParticipant) => {
@@ -604,8 +815,50 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
       sala = null
       // Os volumes sobrevivem a saida: sao preferencia da pessoa, nao estado
       // da sala. Zera-los faria cada reconexao devolver o som no talo.
+      // `recepcao` e `sinais` NAO sobrevivem, ao contrario dos volumes: a
+      // qualidade e uma escolha sobre a rede de agora, e o sinal e um fato
+      // sobre uma conexao que acabou de deixar de existir.
+      publicacoes.clear()
       aplicar({ ...ESTADO_INICIAL, volumes: estado.volumes, qualidade: estado.qualidade })
     }) as (...args: never[]) => void)
+  }
+
+  /**
+   * A saida de som escolhida vale desde a ENTRADA. As outras duas ja valem:
+   * microfone e camera entram por `audioCaptureDefaults`/`videoCaptureDefaults`
+   * na construcao da sala. O alto-falante nao tem equivalente na construcao,
+   * entao sem esta troca a primeira frase da chamada sai pelo dispositivo
+   * errado.
+   *
+   * A conferencia contra a lista de dispositivos cobre o caso que o `catch`
+   * NAO cobre, e que e o mais traicoeiro dos dois: a troca que funciona
+   * apontando para o lugar errado. Um fone desligado que o sistema ainda
+   * enumera, ou um `deviceId` sobrevivente de outra sessao, aceita o `setSinkId`
+   * sem reclamar — e o som passa a sair por um dispositivo que ninguem esta
+   * escutando, com todos os indicadores da tela dizendo que esta tudo bem.
+   */
+  async function aplicarSaidaDeSom(s: SalaDeMidia): Promise<void> {
+    const escolhida = lerPreferencias().audiooutput
+    if (escolhida === undefined) return
+
+    // Lista vazia nao e prova de que o dispositivo sumiu: e o que o navegador
+    // devolve antes de conceder a permissao. Descartar a preferencia aqui
+    // trocaria um defeito raro por um constante.
+    const disponiveis = await listarSaidas()
+    if (disponiveis.length > 0 && !disponiveis.some(d => d.deviceId === escolhida)) {
+      rastro('saida guardada nao existe mais, usando o padrao do sistema', {
+        escolhida, disponiveis: disponiveis.map(d => d.deviceId),
+      })
+      return
+    }
+
+    try {
+      await s.switchActiveDevice('audiooutput', escolhida)
+    } catch {
+      // O fone guardado pode ter sido desconectado desde a ultima chamada.
+      // Cair no padrao do sistema e melhor do que recusar a entrada.
+      rastro('a saida guardada foi recusada pelo navegador', { escolhida })
+    }
   }
 
   async function entrar(): Promise<void> {
@@ -642,22 +895,34 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     sala = s
     identidade = credencial.identity
 
-    // A saida de som escolhida vale desde a ENTRADA. As outras duas ja valem:
-    // microfone e camera entram por `audioCaptureDefaults`/`videoCaptureDefaults`
-    // na construcao da sala. O alto-falante nao tem equivalente na construcao,
-    // entao sem esta troca a primeira frase da chamada sai pelo dispositivo
-    // errado — as vezes por um que nem esta ligado.
-    const saida = lerPreferencias().audiooutput
-    if (saida !== undefined) {
-      try {
-        await s.switchActiveDevice('audiooutput', saida)
-      } catch {
-        // O fone guardado pode ter sido desconectado desde a ultima chamada.
-        // Cair no padrao do sistema e melhor do que recusar a entrada.
-      }
+    await aplicarSaidaDeSom(s)
+
+    // O audio remoto so toca dentro de uma ativacao da pessoa, e `entrar()`
+    // nasce de um clique — este e o unico instante da chamada em que da para
+    // destravar sem pedir um segundo clique a quem ja clicou uma vez.
+    //
+    // A assimetria que isto conserta e de uma palavra so: o elemento de video
+    // e `muted`, e video mudo nunca e barrado pela politica de autoplay; o de
+    // audio nao pode ser mudo, e por isso e barrado. O sintoma resultante — o
+    // video dos outros chega e o som nao — nao se parece nem um pouco com um
+    // problema de permissao, que e o que ele e.
+    try {
+      await s.startAudio()
+    } catch {
+      // O gesto nao valeu. Nao e falha de entrada: a leitura abaixo transforma
+      // isso no botao que a pessoa pode clicar.
     }
 
-    aplicar({ fase: 'dentro', podePublicar: credencial.podePublicar })
+    // Ler o estado, e nao so reagir ao evento. `AudioPlaybackStatusChanged`
+    // avisa das MUDANCAS; uma sala que ja conecta bloqueada nunca muda de
+    // nada, e sem esta leitura o botao "Ativar o som" jamais seria renderizado
+    // — o audio morreria calado, sem erro e sem aviso.
+    const bloqueado = s.canPlaybackAudio === false
+    rastro('entrou', { canPlaybackAudio: s.canPlaybackAudio, bloqueado })
+
+    aplicar({
+      fase: 'dentro', podePublicar: credencial.podePublicar, audioBloqueado: bloqueado,
+    })
     // A ordem importa: `voice.join` depois da conexao de midia de pe. Anunciar
     // antes faria a sala mostrar alguem que ainda pode falhar ao conectar.
     opcoes.enviar({ t: 'voice.join', d: { channelId: opcoes.channelId } })
@@ -765,9 +1030,89 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     aplicar({ volumes })
   }
 
+  /**
+   * Esquece todos os ajustes de volume e devolve as faixas vivas ao som cheio.
+   *
+   * Reaplicar nas faixas — em vez de so limpar a chave — e o que faz o botao
+   * ter efeito AGORA. Limpar sozinho consertaria a proxima chamada e deixaria
+   * a atual muda, que e justamente a chamada em que a pessoa esta enquanto
+   * procura o botao.
+   */
+  function restaurarVolumes(): void {
+    try {
+      localStorage.removeItem(CHAVE_DE_VOLUMES)
+    } catch {
+      // Nao poder esquecer no disco nao pode impedir de esquecer na memoria: o
+      // efeito nesta chamada vale de qualquer forma.
+    }
+    for (const faixa of estado.faixas) {
+      if (faixa.papel === 'audio' || faixa.papel === 'audio-tela') aplicarVolume(faixa.track, 1)
+    }
+    rastro('volumes restaurados')
+    aplicar({ volumes: {} })
+  }
+
+  /**
+   * Ensurdecer: parar de ouvir, e parar de ser ouvido.
+   *
+   * O ponto todo esta em NAO ser um `definirVolume(0)` em cada faixa. Se
+   * fosse, desfazer devolveria a sala inteira ao volume cheio e apagaria os
+   * ajustes que a pessoa levou meses acertando — o interruptor destruiria
+   * justamente a preferencia que ele deveria suspender. Por isso ele passa por
+   * cima: as faixas vao a zero, `estado.volumes` fica intacto, e desfazer
+   * recoloca cada uma no valor que sempre foi dela.
+   *
+   * O microfone cai junto porque e o que a palavra significa em toda
+   * ferramenta que a usa: "sai um pouco". Ficar mudo para a sala e continuar
+   * falando seria o pior dos dois mundos.
+   */
+  async function definirSurdo(surdo: boolean): Promise<void> {
+    for (const faixa of estado.faixas) {
+      if (faixa.papel !== 'audio' && faixa.papel !== 'audio-tela') continue
+      const proprio = estado.volumes[chaveDeVolume(faixa.userId, faixa.papel)] ?? 1
+      aplicarVolume(faixa.track, surdo ? 0 : proprio)
+    }
+    aplicar({ surdo })
+    if (surdo && estado.microfone) await definir('microfone', false)
+  }
+
   function definirQualidade(qualidade: QualidadeDaTela): void {
     guardarQualidade(qualidade)
     aplicar({ qualidade })
+  }
+
+  /**
+   * A qualidade que EU quero receber de UMA transmissao.
+   *
+   * `setVideoQuality` mora na publicacao remota e vale so para ela: baixar a
+   * tela de alguem nao mexe na camera de mais ninguem, e — principalmente —
+   * nao mexe no que a pessoa PUBLICA. Ate aqui, a unica saida para "travou pra
+   * mim" era pedir a quem transmite que piorasse a transmissao para a sala
+   * inteira.
+   *
+   * Limite honesto, e por isso escrito: escolher um nivel fixo desliga o
+   * `adaptiveStream` daquela faixa. Voltar para `automatica` pede a camada
+   * alta, que e o mais proximo que o SDK oferece — o adaptativo de verdade so
+   * volta na proxima inscricao da faixa.
+   */
+  function definirQualidadeDeRecepcao(sid: string, nivel: QualidadeDeRecepcao): void {
+    const publicacao = publicacoes.get(sid)
+    if (publicacao === undefined) return
+
+    const alvo = publicacao as unknown as {
+      setVideoQuality?: (q: number) => void
+    }
+    if (typeof alvo.setVideoQuality !== 'function') return
+
+    // Os numeros sao o enum `VideoQuality` do LiveKit: LOW 0, MEDIUM 1,
+    // HIGH 2. Ficam aqui em vez de importados porque este arquivo e a
+    // fronteira: o que sai dele fala de "alta" e "baixa", nunca de enums.
+    const CAMADAS: Record<QualidadeDeRecepcao, number> = {
+      automatica: 2, alta: 2, media: 1, baixa: 0,
+    }
+    alvo.setVideoQuality(CAMADAS[nivel])
+    rastro('qualidade de recepcao escolhida', { sid, nivel })
+    aplicar({ recepcao: { ...estado.recepcao, [sid]: nivel } })
   }
 
   return {
@@ -776,7 +1121,10 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     trocarDispositivo,
     destravarAudio,
     definirVolume,
+    restaurarVolumes,
     definirQualidade,
+    definirQualidadeDeRecepcao,
+    definirSurdo,
     definirMicrofone: ligado => definir('microfone', ligado),
     definirCamera: ligado => definir('camera', ligado),
     definirTela: ligado => definir('tela', ligado),

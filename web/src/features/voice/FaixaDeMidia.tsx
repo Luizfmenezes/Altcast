@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Maximize2, Minimize2, PictureInPicture2, Volume1, Volume2, VolumeX } from 'lucide-react'
-import type { Faixa } from '../../lib/midia.js'
+import type { Faixa, QualidadeDeRecepcao } from '../../lib/midia.js'
 
 /**
  * Uma faixa remota ligada a um elemento de midia.
@@ -11,7 +11,19 @@ import type { Faixa } from '../../lib/midia.js'
  * precisa solta-la no desmonte. Sem o `detach`, trocar de canal deixaria o
  * audio da sala anterior tocando sem nenhum quadrado na tela para explica-lo.
  */
-export function FaixaDeMidia({ faixa, rotulo, volume, aoMudarVolume }: {
+/**
+ * O tamanho de uma faixa na tela, e o que ele muda alem de pixels.
+ *
+ * `miniatura` NAO e "a mesma coisa, menor": ela nao mostra controle nenhum.
+ * Num quadro de 160px, o cursor de volume e os botoes de canto ficariam abaixo
+ * do alvo minimo de toque — e, pior, empilhariam controles clicaveis dentro de
+ * um item que ja e clicavel por inteiro para escolher o palco.
+ */
+export type TamanhoDaFaixa = 'palco' | 'miniatura'
+
+export function FaixaDeMidia({
+  faixa, rotulo, volume, aoMudarVolume, tamanho = 'palco', qualidade, aoMudarQualidade,
+}: {
   faixa: Faixa
   rotulo: string
   /**
@@ -23,6 +35,13 @@ export function FaixaDeMidia({ faixa, rotulo, volume, aoMudarVolume }: {
    */
   volume?: number
   aoMudarVolume?: (v: number) => void
+  tamanho?: TamanhoDaFaixa
+  /**
+   * A qualidade que EU recebo desta transmissao. `undefined` na propria faixa:
+   * nao ha o que negociar com o proprio navegador.
+   */
+  qualidade?: QualidadeDeRecepcao
+  aoMudarQualidade?: (nivel: QualidadeDeRecepcao) => void
 }): ReactNode {
   const elemento = useRef<HTMLVideoElement & HTMLAudioElement>(null)
   const moldura = useRef<HTMLElement>(null)
@@ -95,13 +114,14 @@ export function FaixaDeMidia({ faixa, rotulo, volume, aoMudarVolume }: {
 
   const ehTela = faixa.papel === 'tela'
   const legenda = ehTela ? `${rotulo} — tela` : rotulo
+  const pequena = tamanho === 'miniatura'
   // Consultado no render, e nao no modulo, porque o suporte depende do
   // navegador E do contexto: um iframe sem `allow="fullscreen"` desliga a tela
   // cheia numa pagina que a suporta.
-  const temCheia = document.fullscreenEnabled === true
+  const temCheia = document.fullscreenEnabled === true && !pequena
   // A propria transmissao nao vai para o mini player: quem compartilha ja ve a
   // propria tela em tamanho natural, atras da aba.
-  const temPip = document.pictureInPictureEnabled === true && !faixa.local
+  const temPip = document.pictureInPictureEnabled === true && !faixa.local && !pequena
 
   return (
     <figure
@@ -128,6 +148,13 @@ export function FaixaDeMidia({ faixa, rotulo, volume, aoMudarVolume }: {
       />
 
       {/*
+        Numa miniatura nao ha controle nenhum: o quadro inteiro pertence ao
+        botao que escolhe o palco, e um botao dentro de outro alvo clicavel e
+        uma armadilha tanto para o ponteiro quanto para o teclado.
+      */}
+      {pequena ? null : (
+      <>
+      {/*
         Os controles ficam por cima do video e so aparecem no foco ou no
         ponteiro. Sempre visiveis, tapariam o canto da tela compartilhada — que
         e onde o menu do sistema de quem transmite costuma estar.
@@ -144,6 +171,14 @@ export function FaixaDeMidia({ faixa, rotulo, volume, aoMudarVolume }: {
       >
         {volume !== undefined && aoMudarVolume !== undefined && (
           <ControleDeVolume rotulo={legenda} volume={volume} aoMudar={aoMudarVolume} />
+        )}
+
+        {qualidade !== undefined && aoMudarQualidade !== undefined && (
+          <EscolhaDeRecepcao
+            rotulo={legenda}
+            valor={qualidade}
+            aoMudar={aoMudarQualidade}
+          />
         )}
 
         {temPip && (
@@ -168,9 +203,11 @@ export function FaixaDeMidia({ faixa, rotulo, volume, aoMudarVolume }: {
           </BotaoDaFaixa>
         )}
       </div>
+      </>
+      )}
 
       <figcaption
-        className={`truncate px-2 py-1 text-xs ${
+        className={`truncate px-2 py-1 ${pequena ? 'text-[11px]' : 'text-xs'} ${
           cheia ? 'absolute bottom-0 left-0 bg-black/70 text-white' : 'text-fg-muted'}`}
       >
         {legenda}
@@ -212,6 +249,45 @@ function BotaoDaFaixa({ rotulo, aoClicar, pressionado, tom = 'video', children }
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * A qualidade que quem ASSISTE escolhe, faixa a faixa.
+ *
+ * O que ela conserta e uma assimetria: ate agora so quem publicava tinha
+ * escolha, e a unica saida para "travou pra mim" era pedir a quem transmite
+ * que piorasse a transmissao para a sala inteira. O YouTube resolveu isso ha
+ * quinze anos com um menu, e e um menu que resolve aqui tambem.
+ *
+ * Um `select` de verdade, e nao botoes: sao quatro opcoes mutuamente
+ * exclusivas com um padrao obvio, que e exatamente o caso em que o controle
+ * nativo ja e acessivel por teclado, por toque e por leitor de tela sem
+ * precisarmos reimplementar nada.
+ */
+const NIVEIS: Record<QualidadeDeRecepcao, string> = {
+  automatica: 'Automatica',
+  alta: 'Alta',
+  media: 'Media',
+  baixa: 'Baixa',
+}
+
+function EscolhaDeRecepcao({ rotulo, valor, aoMudar }: {
+  rotulo: string
+  valor: QualidadeDeRecepcao
+  aoMudar: (nivel: QualidadeDeRecepcao) => void
+}): ReactNode {
+  return (
+    <select
+      value={valor}
+      aria-label={`Qualidade recebida de ${rotulo}`}
+      onChange={e => { aoMudar(e.target.value as QualidadeDeRecepcao) }}
+      className="h-8 rounded bg-black/40 px-1 text-xs text-white"
+    >
+      {(Object.keys(NIVEIS) as QualidadeDeRecepcao[]).map(nivel => (
+        <option key={nivel} value={nivel} className="text-fg">{NIVEIS[nivel]}</option>
+      ))}
+    </select>
   )
 }
 

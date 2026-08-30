@@ -37,7 +37,7 @@ export const SESSAO_EXPIROU = 'altcast:sessao-expirou'
 const TENTATIVAS = 3
 const ESPERA_BASE_MS = 300
 
-type Metodo = 'GET' | 'POST' | 'PATCH' | 'DELETE'
+type Metodo = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
 let jaAvisouSessao = false
 
@@ -133,5 +133,8 @@ export const api = {
     requisitar<T>('POST', caminho, corpo ?? {}),
   patch: <T>(caminho: string, corpo: unknown): Promise<T> =>
     requisitar<T>('PATCH', caminho, corpo),
+  /** Substitui o recurso inteiro. `PATCH` altera partes; `PUT` define o valor. */
+  put: <T>(caminho: string, corpo: unknown): Promise<T> =>
+    requisitar<T>('PUT', caminho, corpo),
   delete: <T>(caminho: string): Promise<T> => requisitar<T>('DELETE', caminho),
 }

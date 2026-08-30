@@ -14,6 +14,7 @@ import { groupsRoutes } from './routes/groups.routes.js'
 import { invitesRoutes } from './routes/invites.routes.js'
 import { channelsRoutes } from './routes/channels.routes.js'
 import { messagesRoutes } from './routes/messages.routes.js'
+import { chatRicoRoutes } from './routes/chatRico.routes.js'
 import { attachmentsRoutes } from './routes/attachments.routes.js'
 import { armazemPadrao, LIMITE_POR_ARQUIVO, type Armazem } from './media/armazenamento.js'
 import { gatewayRoutes } from './realtime/gateway.js'
@@ -124,6 +125,7 @@ export async function buildServer(opcoes: OpcoesDoServidor = {}): Promise<Fastif
   await app.register(invitesRoutes)
   await app.register(channelsRoutes)
   await app.register(messagesRoutes)
+  await app.register(chatRicoRoutes)
   // `armazemPadrao()` devolve null quando o operador nao configurou storage.
   // A API sobe inteira assim mesmo e so a rota de anexo responde 503 — texto
   // que funciona vale mais que um processo que se recusa a arrancar.

@@ -26,6 +26,13 @@ type Estado = {
    * o proximo `voice.participant_joined` reconstroi a lista.
    */
   chamadas: Record<string, ParticipanteDeVoz[]>
+  /**
+   * Ate onde EU li cada canal. Um marco, e nao uma contagem: o numero de
+   * nao-lidos e derivado comparando ids, que sao UUIDv7 e ordenam por tempo.
+   * Guardar o numero exigiria recalcula-lo a cada mensagem que chegasse.
+   */
+  leituras: Record<string, string | null>
+  marcarLido: (channelId: string, ateMensagem: string) => void
 
   /**
    * Manda um quadro pelo socket. O padrao devolve `false` porque antes de a
@@ -70,6 +77,26 @@ function fundirParticipante(
   return copia
 }
 
+/**
+ * Aplica uma mudanca a UMA mensagem, deixando o resto do mapa intacto.
+ *
+ * Existe para que os dois eventos de reacao nao repitam a mesma escalada de
+ * `{...estado.mensagens, [canal]: lista.map(...)}` — que e onde e facil trocar
+ * um canal por outro sem o compilador reclamar.
+ */
+function mexerNaReacao(
+  mapa: Record<string, Mensagem[]>,
+  channelId: string,
+  messageId: string,
+  mexer: (m: Mensagem) => Mensagem,
+): Record<string, Mensagem[]> {
+  const lista = mapa[channelId]
+  // Reacao a uma mensagem que este cliente nunca carregou. Ignorar e certo: a
+  // contagem chega correta quando a pagina for buscada.
+  if (lista === undefined) return mapa
+  return { ...mapa, [channelId]: lista.map(m => m.id === messageId ? mexer(m) : m) }
+}
+
 /** Ordem estavel: posicao e, no empate, o ID - que e UUIDv7, portanto criacao. */
 const porPosicao = (a: Canal, b: Canal): number =>
   a.position - b.position || a.id.localeCompare(b.id)
@@ -103,6 +130,7 @@ export const useStore = create<Estado>(set => ({
   canalAtivo: null,
   conexao: 'reconectando',
   chamadas: {},
+  leituras: {},
   enviarQuadro: () => false,
 
   aplicarReady: ready => set(estado => {
@@ -120,6 +148,7 @@ export const useStore = create<Estado>(set => ({
     return {
       user: ready.user,
       groups: ready.groups,
+      leituras: ready.reads ?? {},
       channels: [...ready.channels].sort(porPosicao),
       members: ready.members,
       grupoAtivo,
@@ -223,6 +252,45 @@ export const useStore = create<Estado>(set => ({
           },
         }))
       }
+      case 'reaction.added': {
+        const { messageId, channelId, userId, emoji } = d as {
+          messageId: string; channelId: string; userId: string; emoji: string
+        }
+        return set(estado => ({
+          mensagens: mexerNaReacao(estado.mensagens, channelId, messageId, m => {
+            const atuais = m.reactions ?? []
+            const existente = atuais.find(r => r.emoji === emoji)
+            // O mesmo evento pode chegar duas vezes numa reconexao. Somar de
+            // novo inflaria a contagem sem que ninguem tivesse reagido.
+            if (existente?.userIds.includes(userId) === true) return m
+            return {
+              ...m,
+              reactions: existente === undefined
+                ? [...atuais, { emoji, userIds: [userId] }]
+                : atuais.map(r => r.emoji === emoji
+                  ? { ...r, userIds: [...r.userIds, userId] }
+                  : r),
+            }
+          }),
+        }))
+      }
+      case 'reaction.removed': {
+        const { messageId, channelId, userId, emoji } = d as {
+          messageId: string; channelId: string; userId: string; emoji: string
+        }
+        return set(estado => ({
+          mensagens: mexerNaReacao(estado.mensagens, channelId, messageId, m => ({
+            ...m,
+            // O emoji sem ninguem some da barra: um contador em zero seria um
+            // botao que promete uma reacao que nao existe mais.
+            reactions: (m.reactions ?? [])
+              .map(r => r.emoji === emoji
+                ? { ...r, userIds: r.userIds.filter(u => u !== userId) }
+                : r)
+              .filter(r => r.userIds.length > 0),
+          })),
+        }))
+      }
       case 'voice.participant_left': {
         const { channelId, userId } = d as { channelId: string; userId: string }
         return set(estado => ({
@@ -249,6 +317,15 @@ export const useStore = create<Estado>(set => ({
   })),
 
   escolherCanal: channelId => set({ canalAtivo: channelId }),
+
+  marcarLido: (channelId, ateMensagem) => set(estado => (
+    // Nunca ANDA PARA TRAS. Rolar para cima no historico dispara leituras de
+    // mensagens antigas, e aceitar a ultima recebida faria o contador de
+    // nao-lidos subir sozinho enquanto a pessoa le.
+    (estado.leituras[channelId] ?? '') >= ateMensagem
+      ? {}
+      : { leituras: { ...estado.leituras, [channelId]: ateMensagem } }
+  )),
 
   carregarMensagens: (channelId, mensagens) => set(estado => ({
     mensagens: {
@@ -279,7 +356,7 @@ export const useStore = create<Estado>(set => ({
 
   limpar: () => set({
     user: null, groups: [], channels: [], members: [], mensagens: {},
-    grupoAtivo: null, canalAtivo: null, chamadas: {},
+    grupoAtivo: null, canalAtivo: null, chamadas: {}, leituras: {},
   }),
 }))
 

@@ -41,14 +41,20 @@ const AVISAR_A_PARTIR_DE = 3800
  * Enter envia e Shift+Enter quebra linha - a convencao da categoria, e trocar
  * isso obrigaria a reaprender o gesto mais repetido do dia.
  */
-export function Composer({ campo, aoDigitar, aoFocar, aoDesfocar, desativado }: {
+export function Composer({
+  campo, aoDigitar, aoFocar, aoDesfocar, desativado, respondendo, aoCancelarResposta,
+}: {
   campo: RefObject<HTMLTextAreaElement | null>
   aoDigitar?: () => void
   aoFocar?: () => void
   aoDesfocar?: () => void
   desativado?: boolean
+  /** A mensagem sendo respondida, se houver. */
+  respondendo?: { id: string; autor: string; trecho: string } | null
+  aoCancelarResposta?: () => void
 }): ReactNode {
   const canalAtivo = useStore(e => e.canalAtivo)
+  const members = useStore(e => e.members)
   const [texto, setTexto] = useState('')
   const [pendentes, setPendentes] = useState<Pendente[]>([])
   const [arrastando, setArrastando] = useState(false)
@@ -120,7 +126,30 @@ export function Composer({ campo, aoDigitar, aoFocar, aoDesfocar, desativado }: 
     // pronto para a proxima frase e o que faz a conversa fluir.
     setTexto('')
     setPendentes([])
-    void enviarMensagem(canalAtivo, conteudo, undefined, anexos)
+    aoCancelarResposta?.()
+    void enviarMensagem(canalAtivo, conteudo, undefined, anexos, respondendo?.id)
+  }
+
+  /**
+   * O `@` que ainda esta sendo escrito, no ponto onde o cursor esta.
+   *
+   * Casa so o trecho FINAL do texto: um `@` escrito tres frases atras nao pode
+   * reabrir a lista enquanto a pessoa digita outra coisa. E como a classe
+   * exclui espaco, a lista fecha sozinha assim que o nome termina.
+   */
+  const parcial = /(?:^|\s)@([^\s@]*)$/.exec(texto)
+  const candidatos = parcial === null
+    ? []
+    : members
+      .filter(m => m.displayName.toLowerCase().startsWith(parcial[1]!.toLowerCase()))
+      .slice(0, 6)
+
+  function completar(nome: string): void {
+    if (parcial === null) return
+    // Substitui so o trecho parcial e preserva o que veio antes: reescrever o
+    // campo inteiro perderia a frase em andamento.
+    setTexto(`${texto.slice(0, texto.length - parcial[1]!.length)}${nome} `)
+    campo.current?.focus()
   }
 
   /**
@@ -218,6 +247,59 @@ export function Composer({ campo, aoDigitar, aoFocar, aoDesfocar, desativado }: 
       )}
 
       <label htmlFor="composer" className="sr-only">Escrever mensagem</label>
+      {/*
+        A quem se responde, mostrado ANTES do campo.
+
+        Sem esta linha a citacao seria invisivel: a pessoa nao teria como saber
+        que ainda esta respondendo a algo de tres minutos atras, nem como
+        desfazer.
+      */}
+      {respondendo != null && (
+        <div
+          className="mb-1 flex items-center gap-2 rounded border-l-2 border-accent
+                     bg-bg-raised px-2 py-1 text-[11px] text-fg-muted"
+        >
+          <span className="truncate">
+            Respondendo a {respondendo.autor}: {respondendo.trecho}
+          </span>
+          <button
+            type="button"
+            onClick={aoCancelarResposta}
+            aria-label="Cancelar resposta"
+            className="ml-auto shrink-0 rounded px-1 text-fg-muted hover:text-fg"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {/*
+        O autocompletar de mencao.
+
+        Uma LISTA de botoes, e nao uma caixa flutuante com teclas proprias: o
+        Tab ja navega, o leitor de tela ja anuncia, e nao ha atalho novo para
+        ninguem aprender.
+      */}
+      {candidatos.length > 0 && (
+        <ul
+          aria-label="Mencionar alguem"
+          className="mb-1 flex flex-wrap gap-1 rounded border border-border bg-bg-raised p-1"
+        >
+          {candidatos.map(m => (
+            <li key={m.userId}>
+              <button
+                type="button"
+                onClick={() => { completar(m.displayName) }}
+                className="rounded px-2 py-1 text-xs text-fg hover:bg-bg-hover
+                           focus-visible:bg-bg-hover"
+              >
+                @{m.displayName}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <textarea
         id="composer"
         ref={campo}

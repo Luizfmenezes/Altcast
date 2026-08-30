@@ -11,6 +11,11 @@ import { newId } from '../shared/ids.js'
 import { emit } from '../realtime/emit.js'
 import { parse, uuidOu404 } from './groups.routes.js'
 import { anexosDe, prenderAnexos, serializeAttachment } from './attachments.routes.js'
+import {
+  extrairMencoes, membrosParaMencao, mencoesDe, reacoesDe,
+} from './chatRico.routes.js'
+import { mentions } from '../db/schema.js'
+import type { ReacaoSerializada } from './chatRico.routes.js'
 import { MAXIMO_POR_MENSAGEM } from '../media/armazenamento.js'
 
 type Message = typeof messages.$inferSelect
@@ -35,6 +40,12 @@ const enviarSchema = z.object({
   // mensagem legitima, e exigir texto obrigaria a inventar um.
   content: z.string().trim().max(4000),
   attachmentIds: z.array(z.uuid()).max(MAXIMO_POR_MENSAGEM).optional(),
+  /**
+   * A mensagem citada. Conferida contra o MESMO canal antes de gravar: sem
+   * isso, alguem poderia citar uma mensagem de um canal privado do qual nao
+   * participa e vazar o texto dela na citacao.
+   */
+  replyToId: z.uuid().optional(),
 })
 const editarSchema = z.object({ content: conteudo })
 
@@ -45,12 +56,19 @@ const listarSchema = z.object({
 })
 
 function serializeMessage(
-  m: Message, anexos: Record<string, unknown>[] = [],
+  m: Message,
+  anexos: Record<string, unknown>[] = [],
+  reacoes: ReacaoSerializada[] = [],
+  mencionados: string[] = [],
 ): Record<string, unknown> {
   return {
     id: m.id, channelId: m.channelId, authorId: m.authorId, content: m.content,
     createdAt: m.createdAt, editedAt: m.editedAt,
     attachments: anexos,
+    replyToId: m.replyToId,
+    mentionsEveryone: m.mentionsEveryone,
+    reactions: reacoes,
+    mentions: mencionados,
   }
 }
 
@@ -122,8 +140,18 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
 
     // Uma consulta para a pagina inteira, e nao uma por mensagem: cinquenta
     // mensagens dariam cinquenta idas ao banco para montar uma tela so.
-    const anexos = await anexosDe(linhas.map(l => l.id))
-    return linhas.map(l => serializeMessage(l, (anexos.get(l.id) ?? []).map(serializeAttachment)))
+    const ids = linhas.map(l => l.id)
+    // Tres consultas para a pagina inteira, e nao tres por mensagem: cinquenta
+    // mensagens dariam cento e cinquenta idas ao banco para montar uma tela.
+    const [anexos, reacoes, mencionados] = await Promise.all([
+      anexosDe(ids), reacoesDe(ids), mencoesDe(ids),
+    ])
+    return linhas.map(l => serializeMessage(
+      l,
+      (anexos.get(l.id) ?? []).map(serializeAttachment),
+      reacoes.get(l.id) ?? [],
+      mencionados.get(l.id) ?? [],
+    ))
   })
 
   app.post('/api/channels/:id/messages', {
@@ -150,14 +178,41 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
     }
     if (idsDeAnexo.length > MAXIMO_POR_MENSAGEM) throw new AppError('too_many_attachments')
 
+    // A mensagem citada precisa ser do MESMO canal. Sem esta conferencia,
+    // citar uma mensagem de um canal privado alheio vazaria o texto dela na
+    // linha de citacao de um canal publico.
+    if (campos.replyToId !== undefined) {
+      const [citada] = await db.select({ id: messages.id }).from(messages)
+        .where(and(
+          eq(messages.id, campos.replyToId),
+          eq(messages.channelId, channelId),
+          isNull(messages.deletedAt),
+        )).limit(1)
+      if (!citada) throw new AppError('validation_failed')
+    }
+
+    // Resolvidas na ESCRITA, contra quem esta no grupo agora. Resolver na
+    // leitura faria a mencao trocar de dono quando alguem se renomeasse.
+    const membros = await membrosParaMencao(carregado.channel.groupId)
+    const mencionados = extrairMencoes(campos.content, membros)
+
     try {
       const [criada] = await db.insert(messages).values({
         id: campos.id ?? newId(), channelId, authorId: userId, content: campos.content,
+        replyToId: campos.replyToId ?? null,
+        mentionsEveryone: mencionados.todos,
       }).returning()
       // Depois da mensagem existir: `message_id` e chave estrangeira, e prender
       // antes deixaria o anexo apontando para uma linha que ainda nao ha.
       const presos = await prenderAnexos(criada!.id, channelId, idsDeAnexo)
-      const dados = serializeMessage(criada!, presos.map(serializeAttachment))
+      if (mencionados.userIds.length > 0) {
+        await db.insert(mentions)
+          .values(mencionados.userIds.map(uid => ({ messageId: criada!.id, userId: uid })))
+          .onConflictDoNothing()
+      }
+      const dados = serializeMessage(
+        criada!, presos.map(serializeAttachment), [], mencionados.userIds,
+      )
       // O autor tambem esta na audiencia: e o que mantem as outras abas dele
       // em dia e permite reconciliar o eco otimista pelo mesmo ID.
       await emit.toChannel(channelId, { t: 'message.created', d: dados })

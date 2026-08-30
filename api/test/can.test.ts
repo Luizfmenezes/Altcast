@@ -52,6 +52,12 @@ describe('can — tabela de verdade', () => {
     // ser admin, "privado" valeria para o texto e nao para o que vai junto.
     ['admin fora do privado NAO le anexo', ator('admin', false),  'attachment.read',   canalPrivado, false],
     ['owner fora do privado NAO le anexo', ator('owner', false),  'attachment.read',   canalPrivado, false],
+    // Reagir acompanha ESCREVER, e nao ler: a reacao e visivel para a sala
+    // inteira e leva o nome de quem reagiu junto. Quem so le nao deixa rastro.
+    ['member reage em publico',            ator('member'),        'message.react',     canalPublico, true],
+    ['member fora do privado nao reage',   ator('member', false), 'message.react',     canalPrivado, false],
+    ['member dentro do privado reage',     ator('member', true),  'message.react',     canalPrivado, true],
+    ['admin fora do privado NAO reage',    ator('admin', false),  'message.react',     canalPrivado, false],
     ['autor edita a propria',              ator('member'),        'message.edit_own',   msgPropria,  true],
     ['nao edita a de terceiro',            ator('member'),        'message.edit_own',   msgTerceiro, false],
     ['autor apaga a propria',              ator('member'),        'message.delete_own', msgPropria,  true],
@@ -92,7 +98,7 @@ it('nao-membro nao pode absolutamente nada', () => {
     'channel.read','channel.write','channel.manage_members','message.create',
     'message.edit_own','message.delete_own','message.delete_any',
     'channel.join_call','channel.publish','channel.moderate_call',
-    'message.attach','attachment.read',
+    'message.attach','attachment.read','message.react',
   ]
   for (const acao of acoes) {
     expect(can(ator(null), acao, grupo)).toBe(false)

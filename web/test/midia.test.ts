@@ -48,8 +48,12 @@ class SalaFalsa implements SalaDeMidia {
     },
   }
 
+  /** O navegador pode recusar o gesto — um clique sintetico, por exemplo. */
+  recusarDestravar = false
+
   async startAudio(): Promise<void> {
     this.destravou += 1
+    if (this.recusarDestravar) throw new Error('gesto recusado')
     this.canPlaybackAudio = true
   }
 
@@ -82,7 +86,16 @@ class SalaFalsa implements SalaDeMidia {
 
 type Quadro = { t: string; d?: unknown }
 
-function montar(opcoes: { credencial?: Credencial; erroDaCredencial?: unknown } = {}): {
+function montar(opcoes: {
+  credencial?: Credencial
+  erroDaCredencial?: unknown
+  /**
+   * As saidas de som que a maquina tem AGORA. O padrao e a lista vazia, que e
+   * o que um navegador sem permissao concedida devolve — e tambem o que o
+   * jsdom devolve, entao o padrao aqui e o comportamento real do ambiente.
+   */
+  saidas?: { deviceId: string; label: string }[]
+} = {}): {
   chamada: ReturnType<typeof criarChamada>
   sala: SalaFalsa
   enviados: Quadro[]
@@ -98,6 +111,7 @@ function montar(opcoes: { credencial?: Credencial; erroDaCredencial?: unknown } 
     },
     aoMudar: () => undefined,
     criarSala: () => sala,
+    listarSaidas: async () => opcoes.saidas ?? [],
     obterCredencial: async () => {
       if (opcoes.erroDaCredencial !== undefined) throw opcoes.erroDaCredencial
       return opcoes.credencial ?? CREDENCIAL
@@ -422,16 +436,45 @@ describe('audio barrado pelo navegador', () => {
     await chamada.entrar()
     sala.canPlaybackAudio = false
     sala.emitir(RoomEvent.AudioPlaybackStatusChanged)
+    // A entrada ja tenta destravar uma vez; o que este teste prova e que o
+    // clique no botao chega ao SDK, e nao quantas tentativas houve ao todo.
+    const antes = sala.destravou
 
     await chamada.destravarAudio()
 
-    expect(sala.destravou).toBe(1)
+    expect(sala.destravou).toBe(antes + 1)
     expect(chamada.estado().audioBloqueado).toBe(false)
   })
 
   it('destravar fora da chamada nao estoura', async () => {
     const { chamada } = montar()
     await expect(chamada.destravarAudio()).resolves.toBeUndefined()
+  })
+
+  it('a entrada tenta destravar dentro do gesto que a abriu', async () => {
+    const { chamada, sala } = montar()
+    sala.canPlaybackAudio = false
+    await chamada.entrar()
+
+    // `entrar()` nasce de um clique, e a ativacao da pessoa ainda vale ali. E
+    // o unico instante da chamada em que da para destravar sem cobrar um
+    // segundo clique de quem ja clicou uma vez.
+    expect(sala.destravou).toBe(1)
+    expect(chamada.estado().audioBloqueado).toBe(false)
+  })
+
+  it('sala que ja conecta bloqueada mostra o botao sem depender de evento', async () => {
+    const { chamada, sala } = montar()
+    sala.canPlaybackAudio = false
+    sala.recusarDestravar = true
+    await chamada.entrar()
+
+    // Nenhum `AudioPlaybackStatusChanged` e emitido aqui, de proposito: uma
+    // sala que ja nasce bloqueada nunca MUDA de estado, e o evento so avisa de
+    // mudancas. Sem ler `canPlaybackAudio` na entrada, o botao jamais seria
+    // renderizado e o audio morreria calado — sem erro e sem aviso.
+    expect(chamada.estado().audioBloqueado).toBe(true)
+    expect(chamada.estado().fase).toBe('dentro')
   })
 })
 
@@ -444,6 +487,37 @@ describe('saida de som escolhida', () => {
 
     // Aplicar so na troca manual faz a primeira frase da chamada sair pelo
     // alto-falante errado — as vezes por um que nem esta ligado.
+    expect(sala.trocados).toContain('audiooutput:fone-usb')
+    localStorage.clear()
+  })
+
+  it('saida que sumiu da maquina e ignorada em vez de engolir o som', async () => {
+    localStorage.clear()
+    localStorage.setItem(
+      'altcast:dispositivos', JSON.stringify({ audiooutput: 'fone-que-sumiu' }),
+    )
+    const { chamada, sala } = montar({
+      saidas: [{ deviceId: 'alto-falante', label: 'Alto-falante' }],
+    })
+    await chamada.entrar()
+
+    // O `catch` da troca so cobre a troca que FALHA. Este e o outro caso, e o
+    // mais traicoeiro dos dois: a troca que FUNCIONA apontando para o lugar
+    // errado. Um fone desligado que o sistema ainda enumera aceita o ajuste
+    // sem reclamar, e o som passa a sair por um dispositivo que ninguem esta
+    // escutando — com todos os indicadores da tela dizendo que esta tudo bem.
+    expect(sala.trocados).toEqual([])
+    localStorage.clear()
+  })
+
+  it('lista vazia nao e prova de que o dispositivo sumiu', async () => {
+    localStorage.clear()
+    localStorage.setItem('altcast:dispositivos', JSON.stringify({ audiooutput: 'fone-usb' }))
+    const { chamada, sala } = montar({ saidas: [] })
+    await chamada.entrar()
+
+    // Vazio e o que o navegador devolve ANTES de conceder a permissao.
+    // Descartar a preferencia aqui trocaria um defeito raro por um constante.
     expect(sala.trocados).toContain('audiooutput:fone-usb')
     localStorage.clear()
   })
@@ -544,6 +618,79 @@ describe('volume por transmissao', () => {
     expect(som.volume).toBe(0)
     localStorage.clear()
   })
+
+  it('ensurdecer NAO destroi os ajustes individuais', async () => {
+    localStorage.clear()
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    const voz = faixaSonora()
+    sala.emitir(RoomEvent.TrackSubscribed, voz, MICROFONE, { identity: 'u2' })
+    chamada.definirVolume('u2', 'audio', 0.3)
+
+    await chamada.definirSurdo(true)
+    expect(voz.volume).toBe(0)
+
+    await chamada.definirSurdo(false)
+
+    // Este e o ponto todo do interruptor ser POR CIMA: se ensurdecer fosse um
+    // `definirVolume(0)` em cada faixa, desfazer devolveria a sala ao volume
+    // cheio e apagaria ajustes que a pessoa levou meses acertando.
+    expect(voz.volume).toBe(0.3)
+    expect(chamada.estado().volumes['u2:audio']).toBe(0.3)
+    localStorage.clear()
+  })
+
+  it('ensurdecer cala o proprio microfone junto', async () => {
+    localStorage.clear()
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    await chamada.definirMicrofone(true)
+
+    await chamada.definirSurdo(true)
+
+    // E o que a palavra significa em toda ferramenta que a usa: "sai um
+    // pouco". Ficar mudo para a sala e continuar falando seria o pior dos
+    // dois mundos.
+    expect(sala.chamadas).toContain('mic:false')
+    expect(chamada.estado().microfone).toBe(false)
+    localStorage.clear()
+  })
+
+  it('quem chega durante o surdo tambem chega calado', async () => {
+    localStorage.clear()
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    await chamada.definirSurdo(true)
+
+    const atrasado = faixaSonora()
+    sala.emitir(RoomEvent.TrackSubscribed, atrasado, MICROFONE, { identity: 'u3' })
+
+    // Sem isto, ficar surdo silenciaria so quem ja estava na sala, e cada
+    // pessoa que entrasse depois voltaria a ser ouvida.
+    expect(atrasado.volume).toBe(0)
+    localStorage.clear()
+  })
+
+  it('restaurar devolve o som cheio agora, e nao so na proxima chamada', async () => {
+    localStorage.clear()
+    localStorage.setItem('altcast:volumes', JSON.stringify({ 'u2:audio': 0 }))
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    const som = faixaSonora()
+    sala.emitir(RoomEvent.TrackSubscribed, som, MICROFONE, { identity: 'u2' })
+    expect(som.volume).toBe(0)
+
+    chamada.restaurarVolumes()
+
+    // Um `0` guardado numa chamada antiga silencia alguem para sempre e viaja
+    // com o NAVEGADOR, nao com o codigo — sobrevive a qualquer correcao do
+    // sistema. E limpar so a chave consertaria a PROXIMA chamada, deixando
+    // muda justamente aquela em que a pessoa esta enquanto procura o botao.
+    expect(som.volume).toBe(1)
+    expect(chamada.estado().volumes).toEqual({})
+    expect(localStorage.getItem('altcast:volumes')).toBeNull()
+    localStorage.clear()
+  })
 })
 
 /**
@@ -554,6 +701,112 @@ describe('volume por transmissao', () => {
  * terceiro — e uma divergencia entre as duas nao produz erro nenhum: produz
  * uma transmissao na qualidade errada, sem rastro.
  */
+/**
+ * A qualidade que quem ASSISTE escolhe.
+ *
+ * A assimetria que isto conserta: ate agora so quem publicava tinha escolha, e
+ * a unica saida para "travou pra mim" era pedir a quem transmite que piorasse
+ * a transmissao para a sala inteira.
+ */
+describe('qualidade escolhida por quem assiste', () => {
+  /** Uma publicacao remota que sabe trocar de camada, como a do LiveKit sabe. */
+  const publicacaoDeVideo = (): {
+    kind: string; source: string; camada: number | null; setVideoQuality: (q: number) => void
+  } => {
+    const p = {
+      kind: 'video',
+      source: 'screen_share',
+      camada: null as number | null,
+      setVideoQuality: (q: number) => { p.camada = q },
+    }
+    return p
+  }
+
+  it('escolher um nivel chega a publicacao daquela faixa, e so dela', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    const daAna = publicacaoDeVideo()
+    const doBruno = publicacaoDeVideo()
+    sala.emitir(RoomEvent.TrackSubscribed, { sid: 'TR_ANA' }, daAna, { identity: 'ana' })
+    sala.emitir(RoomEvent.TrackSubscribed, { sid: 'TR_BRUNO' }, doBruno, { identity: 'bruno' })
+
+    chamada.definirQualidadeDeRecepcao('TR_ANA', 'baixa')
+
+    // Baixar a tela de uma pessoa nao pode mexer na de outra — e, sobretudo,
+    // nao mexe no que qualquer uma delas PUBLICA.
+    expect(daAna.camada).toBe(0)
+    expect(doBruno.camada).toBeNull()
+    expect(chamada.estado().recepcao['TR_ANA']).toBe('baixa')
+  })
+
+  it('automatica e o que vale para quem nunca escolheu', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    sala.emitir(
+      RoomEvent.TrackSubscribed, { sid: 'TR_ANA' }, publicacaoDeVideo(), { identity: 'ana' },
+    )
+
+    expect(chamada.estado().recepcao).toEqual({})
+  })
+
+  it('a escolha morre com a faixa em vez de virar lixo indexado por sid', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    const faixa = { sid: 'TR_ANA' }
+    sala.emitir(RoomEvent.TrackSubscribed, faixa, publicacaoDeVideo(), { identity: 'ana' })
+    chamada.definirQualidadeDeRecepcao('TR_ANA', 'media')
+
+    sala.emitir(RoomEvent.TrackUnsubscribed, faixa)
+
+    // O proximo `sid` que o SFU emitir nunca sera este: guardar a preferencia
+    // so acumularia entradas mortas.
+    expect(chamada.estado().recepcao).toEqual({})
+  })
+
+  it('sair da chamada esquece a escolha: a rede de ontem nao e a de hoje', async () => {
+    localStorage.clear()
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    sala.emitir(
+      RoomEvent.TrackSubscribed, { sid: 'TR_ANA' }, publicacaoDeVideo(), { identity: 'ana' },
+    )
+    chamada.definirQualidadeDeRecepcao('TR_ANA', 'baixa')
+    await chamada.sair()
+
+    // Ao contrario do volume, que e preferencia sobre uma PESSOA e sobrevive,
+    // a qualidade e preferencia sobre uma REDE e nao deve atravessar chamadas.
+    expect(chamada.estado().recepcao).toEqual({})
+    localStorage.clear()
+  })
+
+  it('escolher para uma faixa que nao existe nao estoura', async () => {
+    const { chamada } = montar()
+    await chamada.entrar()
+    expect(() => { chamada.definirQualidadeDeRecepcao('TR_FANTASMA', 'alta') }).not.toThrow()
+  })
+})
+
+describe('forca do sinal', () => {
+  it('o aviso do SFU vira estado por pessoa', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+
+    sala.emitir(RoomEvent.ConnectionQualityChanged, 'poor', { identity: 'ana' })
+
+    // "O video de fulano esta ruim" nao distingue a camera dele da rede dele, e
+    // as duas pedem providencias opostas. O SFU ja sabia a resposta.
+    expect(chamada.estado().sinais['ana']).toBe('ruim')
+  })
+
+  it('um nivel que o SDK invente amanha e ignorado em vez de virar rotulo vazio', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    sala.emitir(RoomEvent.ConnectionQualityChanged, 'quantica', { identity: 'ana' })
+
+    expect(chamada.estado().sinais).toEqual({})
+  })
+})
+
 describe('qualidade da tela escolhida pela pessoa', () => {
   it('1080p60 e o padrao de quem nunca escolheu', async () => {
     localStorage.clear()

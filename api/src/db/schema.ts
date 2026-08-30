@@ -1,7 +1,8 @@
 import {
-  customType, index, integer, pgEnum, pgTable, primaryKey,
+  boolean, customType, index, integer, pgEnum, pgTable, primaryKey,
   text, timestamp, uniqueIndex, uuid,
 } from 'drizzle-orm/pg-core'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
 /** citext nao existe no drizzle-orm. E o que faz o e-mail ser unico sem
@@ -114,8 +115,67 @@ export const messages = pgTable('messages', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   editedAt: timestamp('edited_at', { withTimezone: true }),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  /**
+   * A mensagem citada. `set null`, e jamais `cascade`: apagar a mensagem
+   * citada nao pode levar junto a resposta a ela. Com `cascade`, apagar uma
+   * pergunta apagaria em silencio todas as respostas — a citacao vira
+   * "mensagem apagada" e a conversa continua legivel.
+   */
+  replyToId: uuid('reply_to_id').references((): AnyPgColumn => messages.id, {
+    onDelete: 'set null',
+  }),
+  /**
+   * Mencao a todos do canal. E uma COLUNA, e nao uma linha por pessoa em
+   * `mentions`: um grupo de 200 pessoas geraria 200 linhas por mensagem sem
+   * nenhuma informacao nova.
+   */
+  mentionsEveryone: boolean('mentions_everyone').notNull().default(false),
 }, t => [
   index('messages_channel_id_desc_idx').on(t.channelId, t.id.desc()),
+])
+
+/**
+ * Reagir sem escrever.
+ *
+ * A PK tripla e a regra "uma pessoa nao reage duas vezes com o mesmo emoji",
+ * garantida pelo BANCO. Uma consulta antes da insercao perderia a corrida com
+ * dois cliques rapidos e deixaria a contagem errada para sempre.
+ */
+export const reactions = pgTable('reactions', {
+  messageId: uuid('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** O caractere Unicode, nao um id de catalogo: assim ele nunca expira. */
+  emoji: text('emoji').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  primaryKey({ columns: [t.messageId, t.userId, t.emoji] }),
+  index('reactions_message_id_idx').on(t.messageId),
+])
+
+/** Mencao a UMA pessoa. A mencao a todos e `messages.mentionsEveryone`. */
+export const mentions = pgTable('mentions', {
+  messageId: uuid('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+}, t => [
+  primaryKey({ columns: [t.messageId, t.userId] }),
+])
+
+/**
+ * Ate onde cada pessoa leu cada canal.
+ *
+ * Guarda um MARCO, e nao uma contagem. O numero de nao-lidos e derivado de
+ * "mensagens com id maior que este" — e como o id e UUIDv7, isso e uma
+ * comparacao que o indice (channel_id, id DESC) ja atende. Guardar o numero
+ * exigiria reescrever uma linha por membro a cada mensagem enviada.
+ */
+export const channelReads = pgTable('channel_reads', {
+  channelId: uuid('channel_id').notNull().references(() => channels.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  lastReadMessageId: uuid('last_read_message_id'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  primaryKey({ columns: [t.channelId, t.userId] }),
+  index('channel_reads_user_idx').on(t.userId),
 ])
 
 /**

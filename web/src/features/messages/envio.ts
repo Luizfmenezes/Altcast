@@ -18,7 +18,12 @@ export const LIMITE_DE_CARACTERES = 4000
  * criar uma segunda mensagem identica.
  */
 export async function enviarMensagem(
-  channelId: string, conteudo: string, idExistente?: string, anexos: Anexo[] = [],
+  channelId: string,
+  conteudo: string,
+  idExistente?: string,
+  anexos: Anexo[] = [],
+  /** A mensagem citada, se esta for uma resposta. */
+  replyToId?: string,
 ): Promise<void> {
   const { user, registrarEco, marcarEnvio } = useStore.getState()
   const id = idExistente ?? uuidv7()
@@ -34,12 +39,18 @@ export async function enviarMensagem(
     // otimista mostra a imagem de verdade e nao um espaco vazio que salta
     // quando a confirmacao chega.
     attachments: anexos,
+    // No eco tambem: sem isto a linha de citacao so apareceria quando a
+    // confirmacao chegasse, e a mensagem saltaria de lugar na tela.
+    replyToId: replyToId ?? null,
     envio: 'enviando',
   })
 
   try {
     const confirmada = await api.post<Mensagem>(`/channels/${channelId}/messages`, {
-      id, content: conteudo, attachmentIds: anexos.map(a => a.id),
+      id,
+      content: conteudo,
+      attachmentIds: anexos.map(a => a.id),
+      ...(replyToId === undefined ? {} : { replyToId }),
     })
     // A versao do servidor substitui o eco pelo mesmo ID: horario real, autor
     // canonico, e sem o marcador de envio.

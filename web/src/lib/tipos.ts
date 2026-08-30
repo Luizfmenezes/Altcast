@@ -58,6 +58,14 @@ export type Anexo = {
   createdAt: string
 }
 
+/**
+ * Uma reacao agrupada por emoji.
+ *
+ * Traz os `userIds`, e nao so a contagem, porque a interface precisa saber se
+ * EU reagi para destacar a minha — e a contagem sozinha nao responde isso.
+ */
+export type Reacao = { emoji: string; userIds: string[] }
+
 export type Mensagem = {
   id: string
   channelId: string
@@ -66,6 +74,11 @@ export type Mensagem = {
   createdAt: string
   editedAt: string | null
   attachments?: Anexo[]
+  /** A mensagem citada. Nula tambem quando a citada foi apagada. */
+  replyToId?: string | null
+  mentionsEveryone?: boolean
+  reactions?: Reacao[]
+  mentions?: string[]
   /** So existe no cliente: acompanha o eco otimista ate a confirmacao. */
   envio?: 'enviando' | 'falhou'
 }
@@ -75,5 +88,14 @@ export type Ready = {
   groups: Grupo[]
   channels: Canal[]
   members: Membro[]
+  /**
+   * Ate onde esta pessoa leu cada canal, por `channelId`.
+   *
+   * Um MARCO, e nao uma contagem: o numero de nao-lidos e derivado aqui no
+   * cliente comparando ids, que sao UUIDv7 e portanto ordenam por tempo.
+   * Opcional porque um servidor anterior a esta versao nao manda o campo, e o
+   * cliente novo nao pode quebrar por causa disso.
+   */
+  reads?: Record<string, string | null>
   serverTime: string
 }

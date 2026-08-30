@@ -7,7 +7,7 @@ export type Action =
   | 'channel.create' | 'channel.update' | 'channel.delete'
   | 'channel.read' | 'channel.write' | 'channel.manage_members'
   | 'message.create' | 'message.edit_own' | 'message.delete_own' | 'message.delete_any'
-  | 'message.attach' | 'attachment.read'
+  | 'message.attach' | 'attachment.read' | 'message.react'
   | 'channel.join_call' | 'channel.publish' | 'channel.moderate_call'
 
 export type Actor = { userId: string; role: Role | null; inChannel: boolean }
@@ -55,9 +55,14 @@ export function can(actor: Actor, action: Action, resource: Resource): boolean {
   // o arquivo herda o segredo do canal. Se o admin de fora lesse o anexo por
   // ser admin, "privado" valeria para o texto e nao para o que vai junto —
   // que e a mesma porta com duas fechaduras diferentes.
+  //
+  // `message.react` acompanha ESCREVER, e nao ler: uma reacao e visivel para
+  // a sala inteira e leva o nome de quem reagiu junto. Quem so pode ler um
+  // canal nao pode deixar rastro nele.
   if (
     action === 'channel.read' || action === 'channel.write' || action === 'message.create'
     || action === 'message.attach' || action === 'attachment.read'
+    || action === 'message.react'
     || PARTICIPA_DA_CHAMADA.includes(action)
   ) {
     return resource.visibility === 'private' ? actor.inChannel : true

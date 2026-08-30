@@ -8,6 +8,7 @@ import { env } from '../env.js'
 import { registry } from './registry.js'
 import { presence } from './presence.js'
 import { calls } from './calls.js'
+import { leiturasDe } from '../routes/chatRico.routes.js'
 import { audienceOfChannel } from './fanout.js'
 import { emit } from './emit.js'
 import { loadChannelActor } from '../permissions/context.js'
@@ -84,6 +85,15 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
     members: membros.map(m => ({
       ...m, status: presence.isOnline(m.userId) ? 'online' : 'offline',
     })),
+    /**
+     * Ate onde esta pessoa leu cada canal.
+     *
+     * Vem como MARCO, e nao como contagem: o cliente deriva o numero de
+     * nao-lidos comparando ids — que sao UUIDv7 e portanto ordenam por tempo.
+     * Mandar a contagem obrigaria o servidor a recalcula-la a cada mensagem
+     * nova de cada canal, para cada pessoa conectada.
+     */
+    reads: await leiturasDe(userId),
     serverTime: new Date().toISOString(),
   }
 }

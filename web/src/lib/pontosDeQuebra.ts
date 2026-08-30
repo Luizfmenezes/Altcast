@@ -15,6 +15,19 @@ import { useEffect, useState } from 'react'
 export const LARGURA_CANAIS_FIXOS = 900
 export const LARGURA_MEMBROS_FIXOS = 1200
 
+/**
+ * A partir daqui o chat cabe AO LADO da transmissao; abaixo, ele vira uma aba
+ * sobre ela.
+ *
+ * Nao esta na tabela da spec 05 porque canal de voz nao tinha conversa quando
+ * ela foi escrita. O numero sai da conta que ele precisa fechar: a coluna de
+ * conversa ja perde 64px da barra de grupos e ate 240px da lista de canais, e
+ * o chat pede 320. Dividir o que sobra abaixo de mil pixels entregaria um
+ * video pequeno demais para ler e um chat estreito demais para conversar — os
+ * dois piores, em vez de um bom.
+ */
+export const LARGURA_CHAT_NA_CHAMADA = 1000
+
 export function usaLarguraMinima(px: number): boolean {
   const consulta = `(min-width: ${px}px)`
   const medir = (): boolean =>

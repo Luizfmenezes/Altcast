@@ -1,7 +1,39 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { listarDispositivos, lerPreferencias, QUALIDADES } from '../../lib/midia.js'
-import type { Dispositivo, QualidadeDaTela, TipoDeDispositivo } from '../../lib/midia.js'
+import {
+  guardarProcessamento, lerPreferencias, lerProcessamento, listarDispositivos, QUALIDADES,
+} from '../../lib/midia.js'
+import type {
+  Dispositivo, Processamento, QualidadeDaTela, TipoDeDispositivo,
+} from '../../lib/midia.js'
+import { guardarFala, lerFala } from './atalhos.js'
+import type { ModoDeFala } from './atalhos.js'
+
+/**
+ * Os tres tratamentos que o navegador aplica ao microfone.
+ *
+ * Cada um traz o que ele CUSTA junto do que ele resolve. Sem isso, "supressao
+ * de ruido" parece um bem incondicional que ninguem desligaria — e quem
+ * transmite musica passaria a tarde procurando por que o instrumento sai
+ * picotado.
+ */
+const TRATAMENTOS: { chave: keyof Processamento; rotulo: string; nota: string }[] = [
+  {
+    chave: 'ruido',
+    rotulo: 'Supressao de ruido',
+    nota: 'Otima para voz. Desligue para transmitir musica ou instrumento.',
+  },
+  {
+    chave: 'eco',
+    rotulo: 'Cancelamento de eco',
+    nota: 'Indispensavel sem fone de ouvido.',
+  },
+  {
+    chave: 'ganho',
+    rotulo: 'Volume automatico',
+    nota: 'Nivela a voz, mas levanta o chiado no silencio.',
+  },
+]
 
 const ROTULOS: Record<TipoDeDispositivo, string> = {
   audioinput: 'Microfone',
@@ -130,6 +162,7 @@ function Medidor({ nivel, ativo }: { nivel: number; ativo: boolean }): ReactNode
  */
 export function ConfiguracaoDeMidia({
   nivel, microfoneLigado, aoTrocar, qualidade, aoTrocarQualidade, compartilhandoTela,
+  aoRestaurarVolumes,
 }: {
   nivel: number
   microfoneLigado: boolean
@@ -137,6 +170,7 @@ export function ConfiguracaoDeMidia({
   qualidade: QualidadeDaTela
   aoTrocarQualidade: (qualidade: QualidadeDaTela) => void
   compartilhandoTela: boolean
+  aoRestaurarVolumes: () => void
 }): ReactNode {
   const [dispositivos, setDispositivos] = useState<Record<TipoDeDispositivo, Dispositivo[]>>({
     audioinput: [], videoinput: [], audiooutput: [],
@@ -144,6 +178,8 @@ export function ConfiguracaoDeMidia({
   const [escolhido, setEscolhido] = useState<Partial<Record<TipoDeDispositivo, string>>>(
     () => lerPreferencias(),
   )
+  const [tratamento, setTratamento] = useState<Processamento>(lerProcessamento)
+  const [fala, setFala] = useState(lerFala)
 
   useEffect(() => {
     let vigente = true
@@ -193,7 +229,69 @@ export function ConfiguracaoDeMidia({
           aoEscolher={aoTrocarQualidade}
           compartilhando={compartilhandoTela}
         />
+
+        {/*
+          Como o microfone abre.
+
+          `aberto` e o que sempre existiu. `apertar` e o push-to-talk, e o
+          aviso ao lado nao e detalhe: quem liga o modo e nao sabe qual tecla
+          usar conclui, com razao, que o microfone quebrou.
+        */}
+        <label className="flex min-w-[180px] flex-1 flex-col gap-1">
+          <span className="text-[13px] font-medium text-fg">Como falar</span>
+          <select
+            value={fala.modo}
+            onChange={e => {
+              const proximo = { ...fala, modo: e.target.value as ModoDeFala }
+              setFala(proximo)
+              guardarFala(proximo)
+            }}
+            className="h-9 rounded border border-border bg-bg-raised px-2 text-sm text-fg"
+          >
+            <option value="aberto">Microfone aberto</option>
+            <option value="apertar">Apertar para falar (barra de espaco)</option>
+          </select>
+          {fala.modo === 'apertar' && (
+            <span className="text-xs text-fg-muted">
+              Segure a barra de espaco para falar. Fora desta aba o navegador nao
+              entrega a tecla, e o microfone fecha sozinho.
+            </span>
+          )}
+        </label>
       </div>
+
+      {/*
+        O tratamento do microfone.
+
+        A troca so vale na PROXIMA entrada porque ela e aplicada na captura, e
+        recapturar no meio da chamada faria o navegador pedir a permissao de
+        novo. Dizer isso custa uma linha e evita a conclusao de que o
+        interruptor nao funciona.
+      */}
+      <fieldset className="flex flex-wrap gap-4 border-t border-border-subtle p-3">
+        <legend className="sr-only">Tratamento do microfone</legend>
+        {TRATAMENTOS.map(({ chave, rotulo, nota }) => (
+          <label key={chave} className="flex max-w-[240px] flex-col gap-1">
+            <span className="flex items-center gap-2 text-[13px] font-medium text-fg">
+              <input
+                type="checkbox"
+                checked={tratamento[chave]}
+                onChange={e => {
+                  const proximo = { ...tratamento, [chave]: e.target.checked }
+                  setTratamento(proximo)
+                  guardarProcessamento(proximo)
+                }}
+                className="size-4 accent-accent"
+              />
+              {rotulo}
+            </span>
+            <span className="text-xs text-fg-muted">{nota}</span>
+          </label>
+        ))}
+        <p className="basis-full text-xs text-fg-muted">
+          Vale na proxima vez que voce entrar numa chamada.
+        </p>
+      </fieldset>
 
       {dispositivos.audioinput.length === 0 && (
         <p className="px-3 pb-3 text-xs text-fg-muted">
@@ -201,6 +299,31 @@ export function ConfiguracaoDeMidia({
           para conceder a permissao e ver os nomes.
         </p>
       )}
+
+      {/*
+        A saida de emergencia de um defeito com uma forma muito particular: um
+        volume zerado numa chamada antiga silencia alguem para SEMPRE, e viaja
+        com o navegador em vez de com o codigo — nenhuma correcao do sistema o
+        alcanca. Quem cai nele ouve todo mundo menos uma pessoa, e nao tem
+        nenhuma razao para suspeitar de um ajuste que fez semanas atras.
+
+        Fica aqui, junto dos dispositivos, porque e a mesma classe de decisao:
+        preferencia da MAQUINA, guardada no navegador.
+      */}
+      <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle px-3 py-2">
+        <button
+          type="button"
+          onClick={aoRestaurarVolumes}
+          className="rounded border border-border px-2 text-sm text-fg hover:bg-bg-hover
+                     focus-visible:bg-bg-hover"
+          style={{ minHeight: 'var(--height-row)' }}
+        >
+          Restaurar volumes
+        </button>
+        <span className="text-xs text-fg-muted">
+          Devolve todas as transmissoes ao som cheio.
+        </span>
+      </div>
     </details>
   )
 }

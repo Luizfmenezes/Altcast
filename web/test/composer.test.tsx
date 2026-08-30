@@ -114,9 +114,9 @@ describe('composicao', () => {
   })
 
   it('falha vira estado visivel com botao de tentar de novo', async () => {
-    vi.mocked(fetch).mockResolvedValue(respostaDoServidor({
+    vi.mocked(fetch).mockImplementation(() => Promise.resolve(respostaDoServidor({
       error: { code: 'internal_error', message: 'Algo deu errado.', requestId: 'r' },
-    }, 500))
+    }, 500)))
     const usuario = userEvent.setup()
     render(<Conversa />)
 
@@ -127,9 +127,9 @@ describe('composicao', () => {
   })
 
   it('NUNCA some em silencio: o texto continua na tela apos o erro', async () => {
-    vi.mocked(fetch).mockResolvedValue(respostaDoServidor({
+    vi.mocked(fetch).mockImplementation(() => Promise.resolve(respostaDoServidor({
       error: { code: 'internal_error', message: 'Algo deu errado.', requestId: 'r' },
-    }, 500))
+    }, 500)))
     const usuario = userEvent.setup()
     render(<Conversa />)
 
@@ -142,9 +142,9 @@ describe('composicao', () => {
   })
 
   it('tentar de novo reenvia com o mesmo ID', async () => {
-    vi.mocked(fetch).mockResolvedValue(respostaDoServidor({
+    vi.mocked(fetch).mockImplementation(() => Promise.resolve(respostaDoServidor({
       error: { code: 'internal_error', message: 'Algo deu errado.', requestId: 'r' },
-    }, 500))
+    }, 500)))
     const usuario = userEvent.setup()
     render(<Conversa />)
 
@@ -154,10 +154,10 @@ describe('composicao', () => {
     )
 
     const idAntes = useStore.getState().mensagens[CANAL]![0]!.id
-    vi.mocked(fetch).mockResolvedValue(respostaDoServidor({
+    vi.mocked(fetch).mockImplementation(() => Promise.resolve(respostaDoServidor({
       id: idAntes, channelId: CANAL, authorId: 'u1', content: 'segunda chance',
       createdAt: '2026-08-29T12:00:00.000Z', editedAt: null,
-    }))
+    })))
     await usuario.click(botao)
 
     // O mesmo ID: reenviar com ID novo criaria duas mensagens se a primeira

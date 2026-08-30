@@ -9,6 +9,9 @@ import { ListaCanais } from './features/channels/ListaCanais.js'
 import { Conversa } from './features/channels/Conversa.js'
 import { PainelMembros } from './features/presence/PainelMembros.js'
 import { BarraConexao } from './features/presence/BarraConexao.js'
+import { BarraDeChamada } from './features/voice/BarraDeChamada.js'
+import { registrarSaidaDaAba } from './features/voice/chamadaAtiva.js'
+import { useAtalhosDaChamada } from './features/voice/atalhos.js'
 
 /**
  * Quatro colunas: 64px, 240px, flexivel, 240px. As larguras sao fixas onde
@@ -64,6 +67,21 @@ export function AppShell({ aoDigitar, latenciaMs }: {
     window.addEventListener('keydown', aoTeclar)
     return () => window.removeEventListener('keydown', aoTeclar)
   }, [navegar])
+
+  /**
+   * A chamada nao morre mais no desmonte de um componente — ela sobrevive a
+   * navegacao de proposito. Fechar a ABA, porem, continua tendo de derruba-la:
+   * e o unico caso em que nenhuma interface pode avisar, porque nao ha mais
+   * interface nenhuma.
+   */
+  useEffect(registrarSaidaDaAba, [])
+
+  // `M` muda, `D` ensurdece, e a tecla de push-to-talk abre o microfone
+  // enquanto pressionada. Ficam no shell, e nao no painel de voz, porque a
+  // chamada agora sobrevive a navegacao: um atalho que so funcionasse com o
+  // canal da chamada aberto seria inutil justamente quando mais se precisa
+  // dele.
+  useAtalhosDaChamada()
 
   // Esc fecha a sobreposicao vigente, sempre.
   useEffect(() => {
@@ -131,6 +149,7 @@ export function AppShell({ aoDigitar, latenciaMs }: {
         )}
       </div>
 
+      <BarraDeChamada />
       <BarraConexao latenciaMs={latenciaMs ?? null} />
     </div>
   )
