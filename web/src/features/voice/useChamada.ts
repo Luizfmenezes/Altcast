@@ -11,6 +11,7 @@ export type ControleDaChamada = {
   alternarCamera: () => void
   alternarTela: () => void
   trocarDispositivo: (tipo: TipoDeDispositivo, deviceId: string) => void
+  destravarAudio: () => void
 }
 
 /**
@@ -61,6 +62,7 @@ export function useChamada(channelId: string | null): ControleDaChamada {
     estado,
     entrar: useCallback(() => void chamada.current?.entrar(), []),
     sair: useCallback(() => void chamada.current?.sair(), []),
+    destravarAudio: useCallback(() => void chamada.current?.destravarAudio(), []),
     trocarDispositivo: (tipo, deviceId) => {
       void chamada.current?.trocarDispositivo(tipo, deviceId)
     },

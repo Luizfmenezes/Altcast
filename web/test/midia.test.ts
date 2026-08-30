@@ -20,6 +20,11 @@ class SalaFalsa implements SalaDeMidia {
   chamadas: string[] = []
   trocados: string[] = []
   falharTroca = false
+  /** O que `setScreenShareEnabled` recebeu como segundo argumento. */
+  opcoesDaTela: unknown = undefined
+  /** Quantas vezes o gesto da pessoa destravou o audio. */
+  destravou = 0
+  canPlaybackAudio = true
 
   private ouvintes = new Map<string, (...args: never[]) => void>()
 
@@ -32,7 +37,15 @@ class SalaFalsa implements SalaDeMidia {
   localParticipant = {
     setMicrophoneEnabled: (v: boolean): Promise<unknown> => this.dispositivo('mic', v),
     setCameraEnabled: (v: boolean): Promise<unknown> => this.dispositivo('cam', v),
-    setScreenShareEnabled: (v: boolean): Promise<unknown> => this.dispositivo('tela', v),
+    setScreenShareEnabled: (v: boolean, opcoes?: unknown): Promise<unknown> => {
+      this.opcoesDaTela = opcoes
+      return this.dispositivo('tela', v)
+    },
+  }
+
+  async startAudio(): Promise<void> {
+    this.destravou += 1
+    this.canPlaybackAudio = true
   }
 
   private async dispositivo(qual: string, v: boolean): Promise<unknown> {
@@ -317,5 +330,101 @@ describe('socket caido', () => {
     // sobreviver a uma reconexao do WebSocket.
     expect(sala.chamadas).toContain('mic:true')
     expect(chamada.estado().microfone).toBe(true)
+  })
+})
+
+/**
+ * O defeito que motivou esta suite: dezoito compartilhamentos de tela subiram
+ * ao SFU de producao e nenhum trouxe faixa `SCREEN_SHARE_AUDIO` junto. O
+ * LiveKit nao captura o som da tela por conta propria — sem pedir, o navegador
+ * nem oferece a caixa "compartilhar audio da guia", e a transmissao sai muda
+ * sem que nada, em lugar nenhum, registre um erro.
+ */
+describe('som da tela compartilhada', () => {
+  it('compartilhar a tela pede o audio dela junto', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    await chamada.definirTela(true)
+
+    expect(sala.chamadas).toContain('tela:true')
+    expect(sala.opcoesDaTela).toEqual({ audio: true })
+  })
+
+  it('o som da tela alheia vira faixa propria, distinta do microfone', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    sala.emitir(
+      RoomEvent.TrackSubscribed,
+      { sid: 'TR_TELA_AUDIO' },
+      { kind: 'audio', source: 'screen_share_audio' },
+      { identity: 'u2' },
+    )
+
+    // Separar os dois papeis e o que impede o som da tela de sequestrar o
+    // medidor do microfone e de ser tratado como eco.
+    expect(chamada.estado().faixas).toMatchObject([
+      { userId: 'u2', papel: 'audio-tela', local: false },
+    ])
+  })
+
+  it('o som da propria tela nao volta pelo proprio alto-falante', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    sala.emitir(RoomEvent.LocalTrackPublished, {
+      kind: 'audio', source: 'screen_share_audio', track: { sid: 'TR_MINHA_TELA' },
+    })
+
+    // Reproduzir aqui criaria realimentacao com o proprio alto-falante — o
+    // mesmo motivo pelo qual o microfone proprio tambem nao vira faixa.
+    expect(chamada.estado().faixas).toEqual([])
+  })
+})
+
+/**
+ * O segundo silencio possivel, e o mais traicoeiro: o navegador recusa tocar o
+ * audio remoto por politica de autoplay. Tudo indica sucesso — a faixa chegou,
+ * o elemento existe, o SFU esta entregando — e ninguem ouve nada.
+ */
+describe('audio barrado pelo navegador', () => {
+  it('o bloqueio vira estado visivel em vez de silencio inexplicado', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    expect(chamada.estado().audioBloqueado).toBe(false)
+
+    sala.canPlaybackAudio = false
+    sala.emitir(RoomEvent.AudioPlaybackStatusChanged)
+
+    expect(chamada.estado().audioBloqueado).toBe(true)
+  })
+
+  it('o gesto da pessoa destrava o audio e some com o aviso', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    sala.canPlaybackAudio = false
+    sala.emitir(RoomEvent.AudioPlaybackStatusChanged)
+
+    await chamada.destravarAudio()
+
+    expect(sala.destravou).toBe(1)
+    expect(chamada.estado().audioBloqueado).toBe(false)
+  })
+
+  it('destravar fora da chamada nao estoura', async () => {
+    const { chamada } = montar()
+    await expect(chamada.destravarAudio()).resolves.toBeUndefined()
+  })
+})
+
+describe('saida de som escolhida', () => {
+  it('vale desde a entrada, e nao so depois de trocar na mao', async () => {
+    localStorage.clear()
+    localStorage.setItem('altcast:dispositivos', JSON.stringify({ audiooutput: 'fone-usb' }))
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+
+    // Aplicar so na troca manual faz a primeira frase da chamada sair pelo
+    // alto-falante errado — as vezes por um que nem esta ligado.
+    expect(sala.trocados).toContain('audiooutput:fone-usb')
+    localStorage.clear()
   })
 })

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Mic, MicOff, MonitorUp, Video, VideoOff, PhoneOff } from 'lucide-react'
+import { Mic, MicOff, MonitorUp, Video, VideoOff, PhoneOff, Volume2 } from 'lucide-react'
 import { Botao } from '../../ui/Botao.js'
 import { useStore } from '../../lib/store.js'
 import { FaixaDeMidia } from './FaixaDeMidia.js'
@@ -32,6 +32,7 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
 }): ReactNode {
   const {
     estado, entrar, sair, alternarMicrofone, alternarCamera, alternarTela, trocarDispositivo,
+    destravarAudio,
   } = useChamada(channelId)
   const participantes = useStore(e => e.chamadas[channelId]) ?? NINGUEM
   const members = useStore(e => e.members)
@@ -43,8 +44,9 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
       : members.find(m => m.userId === userId)?.displayName ?? 'Alguem'
 
   const dentro = estado.fase === 'dentro'
-  const videos = estado.faixas.filter(f => f.papel !== 'audio')
-  const audios = estado.faixas.filter(f => f.papel === 'audio')
+  const ehSom = (papel: string): boolean => papel === 'audio' || papel === 'audio-tela'
+  const videos = estado.faixas.filter(f => !ehSom(f.papel))
+  const audios = estado.faixas.filter(f => ehSom(f.papel))
 
   return (
     <section
@@ -61,6 +63,18 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
           : dentro ? `Na chamada, ${participantes.length} participantes`
             : 'Fora da chamada'}
       </p>
+
+      {/*
+        O navegador segurou a reproducao. Isto e um BOTAO, e nao um aviso, por
+        uma razao tecnica: a politica de autoplay so libera o som dentro de um
+        gesto da pessoa, entao o unico jeito de destravar e ela clicar.
+      */}
+      {estado.audioBloqueado && (
+        <Botao onClick={destravarAudio}>
+          <Volume2 aria-hidden="true" className="size-4" />
+          Ativar o som da chamada
+        </Botao>
+      )}
 
       {estado.erro !== null && (
         <p role="alert" className="rounded border border-danger px-3 py-2 text-sm text-danger">
@@ -89,7 +103,7 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
       {/* Fora da grade: audio nao ocupa espaco, so precisa existir. */}
       {audios.map(faixa => (
         <FaixaDeMidia
-          key={faixa.track.sid ?? `${faixa.userId}-audio`}
+          key={faixa.track.sid ?? `${faixa.userId}-${faixa.papel}`}
           faixa={faixa}
           rotulo={nomeDe(faixa.userId)}
         />

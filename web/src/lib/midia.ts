@@ -103,7 +103,13 @@ export async function listarDispositivos(tipo: TipoDeDispositivo): Promise<Dispo
   }
 }
 
-export type PapelDaFaixa = 'camera' | 'tela' | 'audio'
+/**
+ * `audio` e o microfone de alguem; `audio-tela` e o som do que essa pessoa
+ * esta compartilhando. Sao papeis separados porque as regras deles divergem
+ * exatamente onde importa: o microfone proprio alimenta o medidor de nivel, e
+ * o som da propria tela nao alimenta nada — nem medidor, nem alto-falante.
+ */
+export type PapelDaFaixa = 'camera' | 'tela' | 'audio' | 'audio-tela'
 
 export type Faixa = {
   /** A identidade no LiveKit e o proprio userId da API — media/token.ts. */
@@ -135,6 +141,16 @@ export type EstadoDaChamada = {
    * esta ligado, e so o nivel diz que ele esta captando alguma coisa.
    */
   nivel: number
+  /**
+   * O navegador recusou tocar o audio remoto por politica de autoplay.
+   *
+   * E o silencio mais dificil de diagnosticar que existe numa chamada: a faixa
+   * chegou, o elemento esta no DOM, o SFU esta entregando os pacotes, e
+   * ninguem ouve nada. Vira estado para que a interface possa oferecer o clique
+   * que o navegador exige, em vez de deixar a pessoa procurando defeito no
+   * fone de ouvido.
+   */
+  audioBloqueado: boolean
   erro: string | null
 }
 
@@ -147,6 +163,7 @@ export const ESTADO_INICIAL: EstadoDaChamada = {
   tela: false,
   podePublicar: false,
   nivel: 0,
+  audioBloqueado: false,
   erro: null,
 }
 
@@ -160,10 +177,22 @@ export type SalaDeMidia = {
   disconnect: () => Promise<void>
   on: (evento: string, ouvinte: (...args: never[]) => void) => unknown
   switchActiveDevice: (tipo: TipoDeDispositivo, deviceId: string) => Promise<unknown>
+  /** Toca o audio represado. So funciona dentro de um gesto da pessoa. */
+  startAudio: () => Promise<void>
+  /** Falso enquanto o navegador estiver segurando a reproducao. */
+  canPlaybackAudio?: boolean
   localParticipant: {
     setMicrophoneEnabled: (ligado: boolean) => Promise<unknown>
     setCameraEnabled: (ligado: boolean) => Promise<unknown>
-    setScreenShareEnabled: (ligado: boolean) => Promise<unknown>
+    /**
+     * O segundo argumento e o motivo desta assinatura existir por extenso: sem
+     * `{ audio: true }` o LiveKit chama `getDisplayMedia` sem pedir som, o
+     * Chrome nem mostra a caixa "compartilhar audio da guia", e a transmissao
+     * sai muda sem erro em lugar nenhum.
+     */
+    setScreenShareEnabled: (
+      ligado: boolean, opcoes?: { audio: boolean },
+    ) => Promise<unknown>
   }
 }
 
@@ -202,7 +231,9 @@ const obterCredencialPadrao = (channelId: string): Promise<Credencial> =>
   api.post<Credencial>(`/channels/${channelId}/call-token`)
 
 function papelDe(publicacao: RemoteTrackPublication, lk: ModuloLiveKit): PapelDaFaixa | null {
-  if (publicacao.kind === 'audio') return 'audio'
+  if (publicacao.kind === 'audio') {
+    return publicacao.source === lk.Track.Source.ScreenShareAudio ? 'audio-tela' : 'audio'
+  }
   if (publicacao.source === lk.Track.Source.ScreenShare) return 'tela'
   if (publicacao.source === lk.Track.Source.Camera) return 'camera'
   // Fonte desconhecida — uma versao mais nova do SFU — nao vira quadrado vazio
@@ -214,6 +245,8 @@ export type Chamada = {
   entrar: () => Promise<void>
   sair: () => Promise<void>
   trocarDispositivo: (tipo: TipoDeDispositivo, deviceId: string) => Promise<void>
+  /** Chamar SEMPRE de dentro de um clique: o navegador exige o gesto. */
+  destravarAudio: () => Promise<void>
   definirMicrofone: (ligado: boolean) => Promise<void>
   definirCamera: (ligado: boolean) => Promise<void>
   definirTela: (ligado: boolean) => Promise<void>
@@ -313,13 +346,23 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
         if (publicacao.track) medirNivel(publicacao.track, lk)
         return
       }
+      // O som da propria tela tambem nao volta pelo proprio alto-falante: seria
+      // realimentacao. E, ao contrario do microfone, tambem nao alimenta o
+      // medidor — a barra responde por "estao me ouvindo", nao pelo volume do
+      // video que esta sendo transmitido.
+      if (papel === 'audio-tela') return
       const track = publicacao.track
       if (!track) return
       aplicar({ faixas: [...estado.faixas, { userId: identidade, papel, track, local: true }] })
     }) as (...args: never[]) => void)
 
     ouvir(RoomEvent.LocalTrackUnpublished, ((publicacao: LocalTrackPublication) => {
-      if (publicacao.kind === 'audio') pararDeMedir?.()
+      // So o MICROFONE desliga o medidor. Parar de compartilhar a tela tambem
+      // despublica uma faixa de audio, e derrubar a barra por causa dela
+      // apagaria o unico sinal de que o microfone continua captando.
+      if (papelDe(publicacao as unknown as RemoteTrackPublication, lk) === 'audio') {
+        pararDeMedir?.()
+      }
       aplicar({ faixas: estado.faixas.filter(f => f.track !== publicacao.track) })
     }) as (...args: never[]) => void)
 
@@ -331,6 +374,10 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
       // Sem isto, quem sai no meio de um congelamento de rede deixa o ultimo
       // quadro do video parado na tela como se ainda estivesse na sala.
       aplicar({ faixas: estado.faixas.filter(f => f.userId !== participante.identity) })
+    }) as (...args: never[]) => void)
+
+    ouvir(RoomEvent.AudioPlaybackStatusChanged, (() => {
+      aplicar({ audioBloqueado: s.canPlaybackAudio === false })
     }) as (...args: never[]) => void)
 
     ouvir(RoomEvent.ActiveSpeakersChanged, ((falantes: { identity: string }[]) => {
@@ -379,6 +426,22 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
 
     sala = s
     identidade = credencial.identity
+
+    // A saida de som escolhida vale desde a ENTRADA. As outras duas ja valem:
+    // microfone e camera entram por `audioCaptureDefaults`/`videoCaptureDefaults`
+    // na construcao da sala. O alto-falante nao tem equivalente na construcao,
+    // entao sem esta troca a primeira frase da chamada sai pelo dispositivo
+    // errado — as vezes por um que nem esta ligado.
+    const saida = lerPreferencias().audiooutput
+    if (saida !== undefined) {
+      try {
+        await s.switchActiveDevice('audiooutput', saida)
+      } catch {
+        // O fone guardado pode ter sido desconectado desde a ultima chamada.
+        // Cair no padrao do sistema e melhor do que recusar a entrada.
+      }
+    }
+
     aplicar({ fase: 'dentro', podePublicar: credencial.podePublicar })
     // A ordem importa: `voice.join` depois da conexao de midia de pe. Anunciar
     // antes faria a sala mostrar alguem que ainda pode falhar ao conectar.
@@ -394,10 +457,13 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     if (sala === null || !estado.podePublicar) return
     const local = sala.localParticipant
     const acao = qual === 'microfone'
-      ? local.setMicrophoneEnabled.bind(local)
+      ? (v: boolean) => local.setMicrophoneEnabled(v)
       : qual === 'camera'
-        ? local.setCameraEnabled.bind(local)
-        : local.setScreenShareEnabled.bind(local)
+        ? (v: boolean) => local.setCameraEnabled(v)
+        // `{ audio: true }` e o que faz o Chrome oferecer a caixa
+        // "compartilhar audio da guia". Sem ele a tela sobe muda, e nada — nem
+        // no navegador, nem no SFU — registra que faltou alguma coisa.
+        : (v: boolean) => local.setScreenShareEnabled(v, { audio: true })
 
     try {
       await acao(ligado)
@@ -438,10 +504,30 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     }
   }
 
+  /**
+   * Destrava o audio que o navegador segurou.
+   *
+   * Precisa nascer de um clique — a politica de autoplay so aceita a
+   * reproducao dentro de um gesto da pessoa. Por isso nao ha tentativa
+   * automatica em lugar nenhum: ela falharia calada e o aviso sumiria da tela
+   * sem que o som voltasse.
+   */
+  async function destravarAudio(): Promise<void> {
+    if (sala === null) return
+    try {
+      await sala.startAudio()
+      aplicar({ audioBloqueado: false })
+    } catch {
+      // O gesto nao contou (um clique sintetico, por exemplo). O aviso fica na
+      // tela para a pessoa tentar de novo, que e a unica saida possivel.
+    }
+  }
+
   return {
     entrar,
     sair,
     trocarDispositivo,
+    destravarAudio,
     definirMicrofone: ligado => definir('microfone', ligado),
     definirCamera: ligado => definir('camera', ligado),
     definirTela: ligado => definir('tela', ligado),

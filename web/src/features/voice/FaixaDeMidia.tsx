@@ -25,7 +25,7 @@ export function FaixaDeMidia({ faixa, rotulo }: {
     }
   }, [faixa.track])
 
-  if (faixa.papel === 'audio') {
+  if (faixa.papel === 'audio' || faixa.papel === 'audio-tela') {
     // O audio nao tem o que mostrar, mas precisa estar no DOM para tocar.
     // `aria-hidden` porque um leitor de tela anunciando "reprodutor de audio"
     // para cada pessoa da sala seria ruido, nao informacao.
