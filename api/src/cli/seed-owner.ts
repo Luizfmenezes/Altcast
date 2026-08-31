@@ -36,6 +36,12 @@ export async function seedOwner(): Promise<void> {
     email,
     passwordHash: await hashPassword(senha),
     displayName: email.split('@')[0] ?? 'Owner',
+    // Ja confirmado: quem roda este comando tem acesso ao servidor e ao .env,
+    // o que e prova mais forte do que clicar num link. Sem isto o primeiro
+    // dono nasceria travado — sem poder criar grupo nem emitir o convite que
+    // traria as outras pessoas — e dependendo de um e-mail que talvez nem
+    // esteja configurado ainda.
+    emailVerifiedAt: new Date(),
   })
   await db.insert(groups).values({ id: groupId, name: 'Anticorp', ownerId: userId })
   await db.insert(groupMembers).values({ groupId, userId, role: 'owner' })

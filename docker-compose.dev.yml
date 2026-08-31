@@ -38,6 +38,12 @@ services:
       STORAGE_SECRET_KEY: altcast_dev_minio
       STORAGE_BUCKET: altcast
       STORAGE_USE_SSL: "false"
+      # Sem chave de proposito: em desenvolvimento o correio escreve a mensagem
+      # inteira no log do container, e o link de recuperacao pode ser copiado
+      # de la. Percorre o fluxo todo sem credencial nenhuma. Para exercitar o
+      # envio de verdade, passe RESEND_API_KEY pelo ambiente.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Altcast <nao-responda@altcast.local>}
     ports: ["3000:3000"]
     volumes:
       # O bind traz o codigo-fonte; os volumes anonimos impedem que o

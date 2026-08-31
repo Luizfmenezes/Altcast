@@ -31,14 +31,14 @@ test.describe('acessibilidade WCAG 2.2 AA', () => {
 
     await dono.getByRole('button', { name: 'Configuracoes' }).click()
     await dono.getByRole('tab', { name: 'Grupo' }).click()
-    await dono.getByRole('button', { name: 'Gerar convite' }).click()
+    await dono.getByRole('button', { name: 'Gerar link' }).click()
     const codigo = (await dono.getByRole('dialog').locator('code').first().textContent())?.trim()
 
     await page.goto(`/convite/${codigo}`)
     await expect(page.getByText('Anticorp')).toBeVisible()
-    expect(await varrer(page)).toEqual([])
-
-    await page.getByRole('button', { name: 'Criar conta' }).click()
+    // A previa e o cadastro aparecem JUNTOS desde o cadastro aberto: quem
+    // chegou por um link ja disse o que veio fazer, e uma aba a mais entre a
+    // pessoa e a conta so atrasa.
     await expect(page.getByLabel('Nome de exibicao')).toBeVisible()
     expect(await varrer(page)).toEqual([])
   })

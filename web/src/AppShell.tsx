@@ -51,15 +51,24 @@ export function AppShell({ aoDigitar, latenciaMs }: {
 
   const doGrupo = channels.filter(c => c.groupId === grupoAtivo)
 
-  // A primeira renderizacao nao move o foco: roubar o foco de quem acabou de
-  // chegar na pagina seria pior do que nao ajudar ninguem.
-  const primeiraVez = useRef(true)
+  /**
+   * Trocar de canal leva o foco ao campo de escrita. CHEGAR nao leva.
+   *
+   * A guarda antiga era um booleano de "primeira renderizacao", e ela nao
+   * cobria o caso real: na montagem `canalAtivo` ainda e nulo, o booleano se
+   * gasta ali, e quando o `ready` chega e escolhe o primeiro canal a segunda
+   * passada ja se considera uma troca — e rouba o foco de quem acabou de abrir
+   * a pagina. O sintoma e o link de pular para a conversa, que deixa de ser
+   * alcancavel pelo primeiro Tab justamente para quem depende dele.
+   *
+   * Guardar o canal anterior, e nao um booleano, diz o que se quis dizer: so e
+   * troca quando havia um canal antes.
+   */
+  const canalAnterior = useRef<string | null>(null)
   useEffect(() => {
-    if (primeiraVez.current) {
-      primeiraVez.current = false
-      return
-    }
-    campoEscrita.current?.focus()
+    const veioDeOutroCanal = canalAnterior.current !== null && canalAnterior.current !== canalAtivo
+    canalAnterior.current = canalAtivo
+    if (veioDeOutroCanal) campoEscrita.current?.focus()
   }, [canalAtivo])
 
   /** Alt com seta anda pela lista e para nas pontas, em vez de dar a volta. */

@@ -1,17 +1,49 @@
 # 03 — Autenticação, convites e permissões
 
-## 1. Cadastro é fechado por construção
+## 1. Cadastro é aberto, e a confirmação de e-mail é quem cobra a conta
 
-**Não existe cadastro avulso.** A criação de conta exige um código de convite
-válido. Sem código, a rota de registro recusa.
+> **Mudou.** Até a fatia do redesenho, esta seção dizia o contrário: não existia
+> cadastro avulso, e o convite era a única porta. Aquela decisão comprava uma
+> coisa real — dispensava verificar e-mail, porque sempre havia alguém
+> respondendo por quem entrava. Abrir o cadastro devolve esse custo, e é a
+> confirmação de endereço que passa a pagá-lo.
 
-Isso remove do escopo, de uma vez: verificação de e-mail contra robôs,
-moderação, fila de aprovação, defesa contra cadastro em massa. A porta de
-entrada já é a lista de convidados.
+**Qualquer pessoa cria conta.** `POST /api/auth/register` aceita `inviteCode`,
+mas não o exige. Com código, a conta nasce dentro do grupo, na mesma transação.
+Sem código, nasce sozinha, e a pessoa cria o próprio grupo ou aceita um convite
+depois. O convite deixou de ser a porta e virou um atalho.
+
+**A conta entra na hora, e confirma depois.** `users.email_verified_at` nasce
+nulo. Enquanto for nulo, a conta lê e escreve normalmente — exigir confirmação
+para conversar transformaria o cadastro aberto numa promessa vazia — mas **não
+cria grupo nem emite convite**, que são exatamente as ações de que uma conta
+descartável abusaria.
+
+Esse portão mora em `src/auth/verificacao.ts`, e **não** em `can.ts`. A razão é
+de fronteira, não de conveniência: `can()` responde "este papel, neste recurso,
+pode esta ação?", e conta descartável não é papel nem pertencimento. Colocá-la
+lá obrigaria a mudar a assinatura de `can()` e a refazer uma tabela-verdade de
+sessenta casos com cobertura obrigatória de 100%, para expressar algo que não é
+uma permissão de grupo.
+
+**Recuperação de senha.** `forgot-password` responde `204` sempre — e-mail
+cadastrado ou não, envio bem-sucedido ou não. É a mesma razão do `DUMMY_HASH` no
+login: uma resposta diferente para endereço inexistente transformaria a rota num
+verificador de quem tem conta aqui. Redefinir derruba **todas** as sessões, pelo
+motivo mais comum de alguém redefinir a senha: ter perdido a conta para outra
+pessoa.
+
+Os tokens vão para o banco em SHA-256, nunca em claro. `invites.code` fica
+legível porque um convite existe para circular; um token de recuperação é uma
+credencial de uso único, e um dump vazado entregaria toda conta com pedido em
+aberto.
 
 **Bootstrap:** a primeira conta nasce por comando de CLI dentro do container
 (`npm run seed:owner`), uma única vez, criando o usuário inicial e seu primeiro
-grupo. O comando é idempotente e recusa rodar se já houver usuários.
+grupo. O comando é idempotente e recusa rodar se já houver usuários. Ela nasce
+**já confirmada**: quem roda o comando tem acesso ao servidor e ao `.env`, o que
+é prova mais forte do que clicar num link — e sem isso o primeiro dono ficaria
+travado, dependendo de um e-mail que talvez ainda nem esteja configurado.
 
 ## 2. Fluxo de entrada
 

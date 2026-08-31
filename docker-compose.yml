@@ -60,6 +60,13 @@ services:
       STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-}
       STORAGE_BUCKET: ${STORAGE_BUCKET:-altcast}
       STORAGE_USE_SSL: ${STORAGE_USE_SSL:-false}
+      # Correio. Sem a chave a API sobe inteira e escreve os e-mails no log em
+      # vez de envia-los — e avisa, porque em producao isso deixa quem perdeu a
+      # senha sem caminho de volta. EMAIL_FROM precisa ser de um dominio
+      # verificado no Resend, senao o envio e recusado.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Altcast <nao-responda@altcast.local>}
+      EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
     depends_on:
       postgres:
         condition: service_healthy

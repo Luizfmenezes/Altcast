@@ -3,6 +3,23 @@ import { readFileSync } from 'node:fs'
 import { test, expect, type Browser, type Page } from '@playwright/test'
 import { ANA, ARQUIVO_GRUPO, DONO, ESTADO_ANA, ESTADO_DONO } from './global-setup.js'
 
+/**
+ * O canal na barra lateral.
+ *
+ * Era `getByRole('tab', { name: '# nome' })`. A lista deixou de ser um
+ * `tablist`: um tablist exige que os filhos sejam `tab`, e as secoes
+ * colapsaveis colocam entre eles um cabecalho focavel que nao e. Hoje e
+ * navegacao, o `#` virou icone, e o nome acessivel e so o nome do canal.
+ */
+function canalNaBarra(pagina: Page, nome: string) {
+  return pagina
+    .getByRole('navigation', { name: 'Canais do grupo' })
+    // Sem `exact`: canal privado acrescenta um sr-only "(canal privado)" ao
+    // nome acessivel, porque o cadeado sozinho nao existe para quem nao ve.
+    .getByRole('button', { name: nome })
+}
+
+
 const GRUPO = (): string => readFileSync(ARQUIVO_GRUPO, 'utf8').trim()
 
 /** O compose exige as variaveis mesmo para um `restart`. */
@@ -41,7 +58,7 @@ test.describe('fluxos da Fatia 1', () => {
 
     await dono.getByRole('button', { name: 'Configuracoes' }).click()
     await dono.getByRole('tab', { name: 'Grupo' }).click()
-    await dono.getByRole('button', { name: 'Gerar convite' }).click()
+    await dono.getByRole('button', { name: 'Gerar link' }).click()
 
     const codigo = (await dono.getByRole('dialog').locator('code').first().textContent())?.trim()
     expect(codigo).toMatch(/^[0-9A-Z]{8}$/)
@@ -93,7 +110,7 @@ test.describe('fluxos da Fatia 1', () => {
     const canal = (await criado.json()).id as string
 
     // Ana nao participa: para ela o canal nao existe - nem o nome, nem o ID.
-    await expect(ana.getByRole('tab', { name: `# ${nome}` })).toHaveCount(0)
+    await expect(canalNaBarra(ana, nome)).toHaveCount(0)
     expect(await ana.content()).not.toContain(nome)
     expect(await ana.content()).not.toContain(canal)
 
@@ -108,14 +125,14 @@ test.describe('fluxos da Fatia 1', () => {
     })
 
     // Aparece na hora: channel.created vai so para quem foi adicionado.
-    await expect(ana.getByRole('tab', { name: `# ${nome}` })).toBeVisible({ timeout: 15_000 })
+    await expect(canalNaBarra(ana, nome)).toBeVisible({ timeout: 15_000 })
 
     await dono.request.delete(`/api/channels/${canal}/members/${idDaAna}`, {
       headers: { origin: 'http://localhost' },
     })
 
     // E some na hora: channel.deleted vai so para quem saiu.
-    await expect(ana.getByRole('tab', { name: `# ${nome}` })).toHaveCount(0, { timeout: 15_000 })
+    await expect(canalNaBarra(ana, nome)).toHaveCount(0, { timeout: 15_000 })
   })
 
   test('reconexao cura o buraco', async ({ browser }) => {
@@ -210,7 +227,7 @@ test.describe('fluxos da Fatia 1', () => {
     await comoDono.dispose()
 
     const page = await abaDe(browser, ESTADO_ANA)
-    await expect(page.getByRole('tab', { name: `# ${segundoCanal}` }))
+    await expect(canalNaBarra(page, segundoCanal))
       .toBeVisible({ timeout: 15_000 })
 
     // O primeiro foco da aplicacao e o atalho para a conversa.

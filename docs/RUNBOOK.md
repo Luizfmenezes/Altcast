@@ -19,8 +19,9 @@ docker compose up -d
 A API aplica as migrações no arranque, antes de aceitar tráfego, e um lock
 consultivo garante que instâncias subindo juntas migrem uma de cada vez.
 
-Crie o primeiro usuário — não existe cadastro avulso, e o primeiro convite
-precisa de alguém para emiti-lo:
+Crie o primeiro usuário. O cadastro é aberto, mas o primeiro convite precisa de
+alguém para emiti-lo — e esta conta nasce já com o e-mail confirmado, porque
+quem roda o comando tem acesso ao servidor:
 
 ```bash
 docker compose exec \
@@ -275,9 +276,27 @@ A câmera continua no padrão do SDK (30 fps). A esmagadora maioria das webcams
 não captura acima disso, e pedir 60 lá gastaria banda para receber os mesmos
 30 quadros duplicados.
 
+## Conferir que o e-mail sai
+
+A configuração de correio falha onde ninguém olha: chave errada, domínio não
+verificado e remetente de outro domínio produzem os três o mesmo sintoma — a
+pessoa que perdeu a senha nunca recebe nada, e nenhuma tela tem como saber.
+
+```bash
+docker compose exec api node api/dist/cli/enviar-teste.js voce@exemplo.com
+```
+
+Sem `RESEND_API_KEY` o comando avisa e não finge sucesso: nesse estado a API
+escreve os e-mails no log em vez de enviá-los.
+
+**`PUBLIC_URL` monta os links.** Se ela estiver errada, o e-mail chega com um
+endereço que não leva a lugar nenhum, e o único jeito de descobrir é alguém
+tentar usar o link.
+
 ## Atualizar
 
 ```bash
+bash ops/backup.sh          # antes da migração, sempre
 git pull
 docker compose up -d --build
 ```
