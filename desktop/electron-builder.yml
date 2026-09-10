@@ -7,6 +7,11 @@ appId: com.altcast.desktop
 productName: Altcast
 copyright: Altcast
 
+# Compila antes de empacotar, por qualquer caminho de invocacao. Ver o
+# comentario no proprio arquivo: um instalador com `dist/` velho ja foi parar
+# em producao apontando para um dominio inexistente.
+beforePack: ./scripts/antes-de-empacotar.js
+
 directories:
   output: dist-instalador
   buildResources: recursos
