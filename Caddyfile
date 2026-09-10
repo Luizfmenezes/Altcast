@@ -31,6 +31,22 @@
 		reverse_proxy livekit:7880
 	}
 
+	# O instalador do aplicativo de desktop.
+	#
+	# Fica fora do `handle` da aplicacao porque ele NAO e parte do pacote do
+	# `web/`: e um binario de ~90 MB construido no Windows e enviado por scp,
+	# e passa-lo pelo build da imagem faria cada deploy carregar o instalador
+	# junto. `browse` fica ligado para que `latest.yml` e as versoes antigas
+	# sejam listaveis — e o que o electron-updater consulta.
+	handle_path /baixar/* {
+		root * /srv/baixar
+		file_server browse
+		# Um instalador novo por versao, e o nome estavel `Altcast.exe` sempre
+		# apontando para a atual. Sem isto o navegador serviria do cache um
+		# .exe antigo depois de uma atualizacao.
+		header Cache-Control "public, max-age=300"
+	}
+
 	handle {
 		root * /srv/web
 		# A aplicacao e de pagina unica: qualquer caminho desconhecido devolve

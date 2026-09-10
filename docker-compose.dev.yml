@@ -20,6 +20,11 @@ services:
       DATABASE_URL: postgres://altcast:altcast_dev@postgres:5432/altcast
       NODE_ENV: development
       PORT: "3000"
+      # O `npm ci` acima instala o repositorio INTEIRO, e o workspace `desktop`
+      # traz o Electron. Sem esta variavel, cada subida do container baixaria
+      # ~100 MB de um binario de Linux que nunca vai rodar aqui: quem abre a
+      # janela do app e o Windows do host, nunca este container.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
       ALLOWED_ORIGINS: http://localhost:5173
       PUBLIC_URL: http://localhost:5173
       SESSION_COOKIE_NAME: altcast_session
@@ -51,6 +56,14 @@ services:
       - ".:/app"
       - "/app/node_modules"
       - "/app/api/node_modules"
+      # `web` e `desktop` pela mesma razao, e nao por simetria: nem tudo hasteia
+      # para a raiz. O esbuild, por exemplo, vem em duas versoes diferentes e a
+      # segunda fica ANINHADA em `desktop/node_modules` — com o binario do
+      # Windows dentro. Sem estes dois volumes, o `npm ci` do container o
+      # substitui pelo de Linux e o build no host passa a falhar com "you
+      # installed esbuild for another platform".
+      - "/app/web/node_modules"
+      - "/app/desktop/node_modules"
     depends_on:
       postgres: { condition: service_healthy }
       minio: { condition: service_started }

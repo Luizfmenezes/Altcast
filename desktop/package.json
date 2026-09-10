@@ -1,0 +1,27 @@
+{
+  "name": "@altcast/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Altcast para Windows",
+  "author": "Altcast",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -b && npm run empacotar:preload",
+    "empacotar:preload": "esbuild src/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/preload.js",
+    "dev": "npm run build && electron .",
+    "empacotar": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "typecheck": "tsc -b --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "electron": "44.3.0",
+    "esbuild": "^0.25.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.7.3"
+  }
+}

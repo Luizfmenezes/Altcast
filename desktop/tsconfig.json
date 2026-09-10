@@ -1,0 +1,28 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // CommonJS, e nao ESM como o resto do repositorio.
+    //
+    // Nao e preferencia: um `preload` com `sandbox: true` — que e o modo em
+    // que esta janela roda, porque ela carrega conteudo remoto — NAO aceita
+    // modulo ESM. O Electron o carrega por um `require` proprio, e um
+    // `import` ali morre no arranque com "Cannot use import statement".
+    // Manter os dois processos no mesmo formato evita um build hibrido para
+    // ganhar nada.
+    "module": "CommonJS",
+    "moduleResolution": "Node10",
+    // `verbatimModuleSyntax` proibe `import` em saida CommonJS. Desligado aqui
+    // e so aqui; nos outros workspaces ele continua valendo.
+    "verbatimModuleSyntax": false,
+    // Os tipos do Electron referenciam tipos de DOM (Event, MediaStream) mesmo
+    // no processo principal, que nao tem DOM nenhum. Sem `DOM` na lib, o
+    // typecheck quebra dentro do .d.ts da biblioteca.
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts"]
+}

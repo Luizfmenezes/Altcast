@@ -13,6 +13,9 @@ import {
   ESPERA_DE_FALA_MS, MEMORIA_INICIAL, escolherPalco, guardarModo, idDaFaixa, lerModo,
 } from './palco.js'
 import { chaveDeVolume } from '../../lib/midia.js'
+import { nativo } from '../../lib/nativo.js'
+import { SeletorDeFonte } from './SeletorDeFonte.js'
+import type { SomDaTela } from '../../lib/nativo.js'
 import type { ModoDaChamada } from './palco.js'
 import type { ParticipanteDeVoz } from '../../lib/store.js'
 import type { Faixa, PapelSonoro, QualidadeDeRecepcao, Sinal } from '../../lib/midia.js'
@@ -83,6 +86,36 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
   const memoria = useRef(MEMORIA_INICIAL)
   /** O anuncio da troca MANUAL de palco. A automatica nunca anuncia. */
   const [anuncioDoPalco, setAnuncioDoPalco] = useState('')
+
+  /**
+   * O seletor de tela do app de desktop.
+   *
+   * `ponte` e `null` no navegador, e entao nada disto existe: o caminho de
+   * sempre continua sendo o do Chrome, com a caixa dele. E a mesma interface
+   * servida nos dois lugares — a diferenca e uma capacidade presente ou
+   * ausente, nunca um build separado.
+   */
+  const ponte = nativo()
+  const [seletorAberto, setSeletorAberto] = useState(false)
+
+  /**
+   * Escolher a fonte ANTES de capturar, e nao durante.
+   *
+   * O processo principal guarda a escolha e a consome no `getDisplayMedia` que
+   * o LiveKit dispara em seguida — por isso o `await` importa: comecar a
+   * captura antes de a escolha chegar do outro lado faria o handler nao achar
+   * nada e negar, e o sintoma seria um botao que as vezes nao funciona.
+   *
+   * A ordem tambem e o que faz CANCELAR nao virar erro. No caminho oposto — o
+   * seletor aparecer durante a captura — desistir rejeita a promessa do
+   * `getDisplayMedia`, e `midia.ts` traduz isso para "O navegador nao liberou
+   * o dispositivo". Desistir de escolher uma janela nao e falha de dispositivo.
+   */
+  async function compartilharFonte(id: string, som: SomDaTela): Promise<void> {
+    if (ponte === null) return
+    await ponte.escolherFonte(id, som)
+    alternarTela()
+  }
 
   /**
    * O relogio da histerese.
@@ -464,7 +497,15 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
 
             <Botao
               variante="discreto"
-              onClick={alternarTela}
+              onClick={() => {
+                // Parar de compartilhar nunca abre seletor: nao ha o que
+                // escolher para desligar.
+                if (ponte !== null && !estado.tela) {
+                  setSeletorAberto(true)
+                  return
+                }
+                alternarTela()
+              }}
               disabled={!estado.podePublicar}
               aria-pressed={estado.tela}
             >
@@ -496,6 +537,18 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
           </>
         )}
       </div>
+
+      {/*
+        So no app. No navegador o seletor do Chrome ja faz este trabalho, e um
+        segundo dialogo antes dele seria uma escolha pedida duas vezes.
+      */}
+      {ponte !== null && (
+        <SeletorDeFonte
+          aberto={seletorAberto}
+          aoFechar={() => { setSeletorAberto(false) }}
+          aoEscolher={(id, som) => { void compartilharFonte(id, som) }}
+        />
+      )}
     </section>
   )
 }

@@ -16,6 +16,7 @@ import { ProvedorDeDicas, Dica } from './ui/Tooltip.js'
 import { PanelLeftClose, PanelLeftOpen, Search, Users } from 'lucide-react'
 import { PaletaDeComandos } from './features/busca/PaletaDeComandos.js'
 import { FaixaDeVerificacao } from './features/auth/FaixaDeVerificacao.js'
+import { FaixaDeInstalacao } from './features/voice/FaixaDeInstalacao.js'
 import { BoasVindas } from './features/groups/BoasVindas.js'
 import { Botao } from './ui/Botao.js'
 import { Kbd } from './ui/Kbd.js'
@@ -129,6 +130,7 @@ export function AppShell({ aoDigitar, latenciaMs }: {
     return (
       <ProvedorDeDicas>
         <div className="flex h-full flex-col">
+          <FaixaDeInstalacao />
           <FaixaDeVerificacao />
           <BoasVindas />
         </div>
@@ -146,6 +148,7 @@ export function AppShell({ aoDigitar, latenciaMs }: {
       {/* Primeiro elemento focavel da aplicacao. */}
       <a href="#conversa" className="pular-para-conversa">Pular para a conversa</a>
 
+      <FaixaDeInstalacao />
       <FaixaDeVerificacao />
 
       {/* A barra do topo. Ela existe para dar um lugar fixo ao que antes eram

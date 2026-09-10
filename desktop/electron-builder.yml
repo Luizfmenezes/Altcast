@@ -1,0 +1,75 @@
+# O empacotamento para Windows.
+#
+# `appId` e o que o Windows usa para reconhecer o programa entre versoes: ele
+# amarra atalho, notificacao e desinstalador ao MESMO app. Trocar depois faz a
+# atualizacao instalar um segundo Altcast ao lado do primeiro.
+appId: com.altcast.desktop
+productName: Altcast
+copyright: Altcast
+
+directories:
+  output: dist-instalador
+  buildResources: recursos
+
+# So o que roda. Sem isto o pacote leva o `src/`, os tsconfig e os mapas de
+# fonte — nao e um risco, e sao dezenas de megabytes que ninguem baixa de bom
+# grado numa atualizacao.
+files:
+  - dist/**/*
+  - package.json
+
+win:
+  # O nome do arquivo carrega a versao porque o electron-updater a compara com
+  # a instalada. O link estavel que o site oferece — /baixar/Altcast.exe — e
+  # uma copia deste, feita no deploy: um `<a href>` para um nome versionado
+  # quebraria a cada release.
+  artifactName: Altcast-Setup-${version}.exe
+  target:
+    - target: nsis
+      arch: [x64]
+  # O ICONE, quando existir, vai em `recursos/icon.ico` e o electron-builder o
+  # encontra sozinho — sem ele o app sai com o icone do proprio Electron, que e
+  # a bolinha atomica na barra de tarefas de quem instalou. 256x256 no minimo:
+  # o Windows usa a maior camada disponivel em telas de alta densidade, e um
+  # 48x48 esticado aparece borrado.
+
+nsis:
+  # Instalacao por usuario, sem pedir administrador.
+  #
+  # Nao e so conveniencia: um instalador que pede UAC numa maquina onde a
+  # pessoa nao e administradora simplesmente nao instala. E e o que permite a
+  # atualizacao automatica rodar sem prompt nenhum.
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Altcast
+  # O link de convite abrindo no app em vez do navegador. O registro do
+  # esquema acontece na instalacao; quem trata a URL e o processo principal.
+  # (A fase de notificacoes e links liga o outro lado disto.)
+  # customUnWelcomeMessage e afins ficam de fora: menos telas, menos leitura.
+
+# A ASSINATURA fica de fora deste arquivo de proposito.
+#
+# Sem assinatura o instalador funciona, mas o SmartScreen mostra "O Windows
+# protegeu o seu PC" nas primeiras execucoes. Isso NAO e heuristica de
+# antivirus: e ausencia de reputacao, e a unica cura e um certificado.
+#
+# Para assinar, acrescente ao bloco `win:`:
+#
+#   certificateFile: caminho/para/certificado.pfx
+#   certificateSubjectName: "Nome no certificado"   # para token fisico/HSM
+#
+# e nunca versione o arquivo nem a senha. Certificado OV precisa de token
+# fisico ou HSM desde 2023; EV pula a fase de reputacao e nao mostra o aviso
+# desde a primeira instalacao.
+
+# A atualizacao automatica.
+#
+# `generic` serve um diretorio pela propria VPS, atras do Caddy que ja existe —
+# sem depender do GitHub e sem token nenhum. Trocar por `provider: github` se
+# preferir Releases.
+publish:
+  - provider: generic
+    url: https://altcast.altcorphub.com/baixar

@@ -97,6 +97,11 @@ services:
       # taxa da autoridade certificadora.
       - caddy_data:/data
       - caddy_config:/config
+      # O instalador do app. Bind do disco do HOST, e nao volume nomeado nem
+      # camada da imagem: ele e enviado por scp fora do ciclo de build, e um
+      # `up --build` nao pode apaga-lo. Somente leitura porque o Caddy nunca
+      # precisa escrever ali.
+      - ./baixar:/srv/baixar:ro
     depends_on:
       api:
         condition: service_healthy

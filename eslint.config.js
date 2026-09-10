@@ -45,6 +45,24 @@ export default tseslint.config(
     },
   },
   {
+    // Os scripts de build do app de desktop sao JavaScript puro, e nao
+    // TypeScript: neles o `no-undef` continua valendo, e sem os globais
+    // declarados o `require` e o `Buffer` do Node viram erro.
+    files: ['desktop/scripts/**/*.js'],
+    languageOptions: {
+      globals: {
+        require: 'readonly', module: 'writable', process: 'readonly',
+        console: 'readonly', Buffer: 'readonly', __dirname: 'readonly',
+      },
+    },
+    rules: {
+      // O script roda pelo `node` direto, fora de qualquer empacotador, e o
+      // workspace `desktop` e CommonJS de proposito (o preload em sandbox nao
+      // aceita ESM). `require` aqui e a forma correta, nao um resquicio.
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
     files: ['api/test/**/*.ts', 'web/test/**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
