@@ -66,6 +66,15 @@ function vencido(inv: { expiresAt: Date | null }): boolean {
   return inv.expiresAt !== null && inv.expiresAt.getTime() < Date.now()
 }
 
+/** `23505` e a violacao de unicidade do Postgres, e nada mais. */
+function ehUnicidadeViolada(err: unknown): boolean {
+  for (let atual = err, salto = 0; atual != null && salto < 4; salto++) {
+    if ((atual as { code?: unknown }).code === '23505') return true
+    atual = (atual as { cause?: unknown }).cause
+  }
+  return false
+}
+
 /**
  * Aceita, de uma vez, todo convite pendente enderecado a este endereco.
  *
@@ -166,9 +175,17 @@ export async function invitationsRoutes(app: FastifyInstance, opcoes?: {
         targetUserId: alvoUserId, targetEmail: alvoEmail,
         role: dados.role, expiresAt,
       })
-    } catch {
-      // O indice unico parcial e quem decide: um pendente por destinatario por
-      // grupo. Chegar aqui significa que ja existe um.
+    } catch (err) {
+      // 23505 e SOMENTE violacao de unicidade — aqui, o indice parcial que
+      // garante um pendente por destinatario por grupo. Engolir todo erro
+      // neste `catch` transformaria um banco fora do ar, ou uma coluna que
+      // mudou, em "esta pessoa ja tem um convite pendente": a mensagem mais
+      // convincente e mais errada que a tela poderia mostrar.
+      //
+      // O codigo vem em `cause` quando o drizzle embrulha o erro do
+      // node-postgres, e na raiz quando nao embrulha. Olhar so um dos dois
+      // faria a checagem passar hoje e falhar numa atualizacao da biblioteca.
+      if (!ehUnicidadeViolada(err)) throw err
       throw new AppError('already_invited')
     }
 
@@ -344,7 +361,7 @@ export async function invitationsRoutes(app: FastifyInstance, opcoes?: {
     const id = uuidOu404((req.params as { id: string }).id)
     const userId = req.user!.id
 
-    const groupId = await db.transaction(async tx => {
+    const { groupId, role } = await db.transaction(async tx => {
       // `for('update')` pela mesma razao do convite por codigo: dois cliques
       // simultaneos no mesmo convite leriam ambos "pendente".
       const [inv] = await tx.select().from(groupInvitations)
@@ -363,7 +380,7 @@ export async function invitationsRoutes(app: FastifyInstance, opcoes?: {
       await tx.update(groupInvitations).set({ acceptedAt: new Date() })
         .where(eq(groupInvitations.id, id))
 
-      return inv.groupId
+      return { groupId: inv.groupId, role: inv.role }
     })
 
     const [g] = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1)
@@ -374,15 +391,18 @@ export async function invitationsRoutes(app: FastifyInstance, opcoes?: {
     // Depois do commit, e com o nome dentro do evento: o mesmo contrato que
     // `invites.routes.ts` ja cumpre, e o que faz a lista de membros desenhar a
     // linha nova sem uma segunda requisicao.
+    // O papel do CONVITE, e nao 'member' fixo: convidar alguem como
+    // administrador e depois a lista de membros mostra-lo como membro comum,
+    // ate alguem recarregar, seria a interface mentindo sobre permissao.
     await emit.toGroup(groupId, {
       t: 'member.joined',
       d: {
-        groupId, userId, role: 'member', status: 'online',
+        groupId, userId, role, status: 'online',
         displayName: eu?.displayName ?? 'usuario', avatarUrl: eu?.avatarUrl ?? null,
       },
     })
 
-    return { group: { id: g!.id, name: g!.name, iconUrl: g!.iconUrl, role: 'member' } }
+    return { group: { id: g!.id, name: g!.name, iconUrl: g!.iconUrl, role } }
   })
 
   app.post('/api/invitations/:id/decline', { preHandler: requireAuth }, async (req, reply) => {
