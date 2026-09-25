@@ -11,6 +11,7 @@ let pronto: Promise<NodePgDatabase<typeof schema>> | undefined
 
 const TABELAS = [
   'messages', 'channel_members', 'channels', 'invites',
+  'group_invitations', 'external_identities',
   // Caem pelo CASCADE de users, mas o contrato deste helper e a lista
   // explicita: um TRUNCATE que depende de cascata escondida e um TRUNCATE que
   // deixa de limpar no dia em que a chave estrangeira mudar.

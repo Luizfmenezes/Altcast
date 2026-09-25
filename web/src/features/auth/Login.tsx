@@ -4,15 +4,34 @@ import { ApiError, api, rearmarAvisoDeSessao } from '../../lib/api.js'
 import { Campo } from '../../ui/Campo.js'
 import { Botao } from '../../ui/Botao.js'
 import { TituloDaPorta } from './PalcoMercurio.js'
+import { EntrarComGoogle } from './EntrarComGoogle.js'
 import { irPara } from '../../lib/rota.js'
 import type { Usuario } from '../../lib/tipos.js'
 
 export type { Usuario }
 
+/**
+ * A falha da entrada pelo Google chega pela URL, e nao por uma resposta.
+ *
+ * O callback e uma navegacao de servidor: quem chega aqui depois de um erro
+ * chegou por `Location:`, nao por `fetch`. Sem este aviso, a pessoa voltaria
+ * para o login sem nenhuma explicacao de por que nao entrou.
+ */
+function erroDaUrl(): string | null {
+  const q = new URLSearchParams(window.location.search).get('erro')
+  if (q === 'google') {
+    return 'Nao foi possivel entrar pelo Google. Tente de novo ou use sua senha.'
+  }
+  if (q === 'google_indisponivel') {
+    return 'A entrada pelo Google nao esta configurada neste servidor.'
+  }
+  return null
+}
+
 export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }): ReactNode {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
-  const [erro, setErro] = useState<string | null>(null)
+  const [erro, setErro] = useState<string | null>(erroDaUrl)
   const [enviando, setEnviando] = useState(false)
   const campoEmail = useRef<HTMLInputElement>(null)
 
@@ -63,6 +82,8 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }): ReactNo
           </Botao>
         </div>
       </form>
+
+      <EntrarComGoogle rotulo="Entrar com Google" />
 
       <nav className="rodape-da-porta">
         <button type="button" className="text-fg-muted hover:text-fg"

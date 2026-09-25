@@ -35,6 +35,26 @@ const schema = z.object({
   // o fluxo de recuperacao de ponta a ponta; em producao, a falta da chave
   // deixaria alguem sem caminho de volta para a propria conta.
   RESEND_API_KEY: z.string().optional(),
+  /**
+   * Entrada pelo Google. Opcionais pelo mesmo motivo de tudo acima: sem elas a
+   * API sobe inteira e o botao simplesmente nao aparece na tela — `GET
+   * /api/auth/providers` diz ao front o que existe neste servidor.
+   *
+   * O segredo NUNCA sai daqui: o fluxo e Authorization Code com PKCE, e a
+   * troca do codigo pelo token acontece servidor-a-servidor.
+   */
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  /**
+   * Assina o cookie de dez minutos que carrega o `state` e o verificador PKCE
+   * entre a ida ao Google e a volta.
+   *
+   * Opcional, caindo no `DATABASE_URL` quando ausente: o `state` precisa de um
+   * segredo estavel para cumprir o papel dele — amarrar a volta ao navegador
+   * que saiu —, e qualquer segredo estavel serve. Exigir variavel nova
+   * impediria toda instalacao existente de subir depois desta atualizacao.
+   */
+  COOKIE_SECRET: z.string().optional(),
   // Precisa ser de um dominio verificado no Resend, senao ele recusa o envio.
   EMAIL_FROM: z.string().default('Altcast <nao-responda@altcast.local>'),
   EMAIL_REPLY_TO: z.string().optional(),

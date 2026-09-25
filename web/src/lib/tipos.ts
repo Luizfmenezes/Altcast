@@ -24,6 +24,23 @@ export type Grupo = {
   role: Papel
 }
 
+/**
+ * Um convite dirigido a MIM.
+ *
+ * Diferente do convite por codigo, que e um link sem destinatario: este chega
+ * a interface de quem foi convidado e fica esperando resposta. Por isso
+ * carrega o grupo inteiro e quem convidou — aceitar so faz sentido com as duas
+ * informacoes na tela.
+ */
+export type ConviteRecebido = {
+  id: string
+  group: { id: string; name: string; iconUrl: string | null }
+  role: Papel
+  invitedBy: { displayName: string; avatarUrl: string | null }
+  createdAt: string
+  expiresAt: string | null
+}
+
 export type Canal = {
   id: string
   groupId: string

@@ -1,7 +1,7 @@
 import type { Mensagem } from './tipos.js'
 
 /**
- * Os dois e-mails que o Altcast manda.
+ * Os e-mails que o Altcast manda.
  *
  * Escritos em pt-BR, na segunda pessoa, sem assunto em maiuscula e sem
  * "clique aqui": o link inteiro aparece em texto, porque quem desconfia de
@@ -15,6 +15,22 @@ import type { Mensagem } from './tipos.js'
 const CINZA = '#475569'
 const AZUL = '#1d4ed8'
 const TINTA = '#0f172a'
+
+/**
+ * Escapa o que vem de gente.
+ *
+ * `displayName` e `groups.name` entram nestes modelos e sao texto livre: sem
+ * isto, um nome com marcacao dentro viraria HTML de verdade na mensagem que
+ * NOS mandamos, assinada pelo nosso dominio. Cliente de e-mail moderno nao
+ * roda script, mas renderiza `<a>` o bastante para disfarcar um link.
+ */
+function escapar(texto: string): string {
+  return texto
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
 
 function moldura(titulo: string, corpo: string, botao: { texto: string; url: string }): string {
   return `<!doctype html>
@@ -68,7 +84,7 @@ export function emailDeVerificacao(opcoes: {
     ].join('\n'),
     html: moldura(
       'Confirme seu e-mail',
-      `<p style="margin:0 0 8px">Ola, ${opcoes.nome}.</p>
+      `<p style="margin:0 0 8px">Ola, ${escapar(opcoes.nome)}.</p>
        <p style="margin:0 0 8px">Confirme este endereco para liberar a criacao de
        grupos e o envio de convites. O link vale por 24 horas.</p>
        <p style="margin:0;font-size:13px;color:${CINZA}">Se nao foi voce quem criou
@@ -99,12 +115,59 @@ export function emailDeRecuperacao(opcoes: {
     ].join('\n'),
     html: moldura(
       'Redefinir sua senha',
-      `<p style="margin:0 0 8px">Ola, ${opcoes.nome}.</p>
+      `<p style="margin:0 0 8px">Ola, ${escapar(opcoes.nome)}.</p>
        <p style="margin:0 0 8px">Alguem pediu para redefinir a senha desta conta.
        O link vale por uma hora e so pode ser usado uma vez.</p>
        <p style="margin:0;font-size:13px;color:${CINZA}">Se nao foi voce, nao ha nada
        a fazer: sua senha continua a mesma, e este link expira sozinho.</p>`,
       { texto: 'Redefinir senha', url: opcoes.url },
+    ),
+  }
+}
+
+/**
+ * Convite para um grupo, enderecado a quem ainda NAO tem conta.
+ *
+ * Quem ja tem conta nunca recebe este e-mail: o convite aparece dentro do
+ * aplicativo, em tempo real, e depender da entrega de uma mensagem para uma
+ * pessoa que esta do outro lado da mesma tela seria trocar o caminho certo
+ * pelo caminho fragil.
+ *
+ * O destino e a tela de cadastro com o codigo ja embutido — e nao a de
+ * convite avulso — porque quem chega aqui, por definicao, ainda precisa
+ * criar a conta.
+ */
+export function emailDeConvite(opcoes: {
+  para: string
+  grupo: string
+  convidadoPor: string
+  url: string
+}): Mensagem {
+  return {
+    para: opcoes.para,
+    // O nome do grupo no assunto e o que faz a mensagem ser reconhecida na
+    // caixa de entrada por quem estava esperando por ela.
+    assunto: `${opcoes.convidadoPor} convidou voce para ${opcoes.grupo} no Altcast`,
+    texto: [
+      `${opcoes.convidadoPor} convidou voce para o grupo "${opcoes.grupo}" no Altcast.`,
+      '',
+      'Crie sua conta por este endereco e voce ja entra no grupo:',
+      '',
+      opcoes.url,
+      '',
+      'Se voce nao conhece quem convidou, ignore esta mensagem. Nada acontece',
+      'enquanto voce nao criar a conta.',
+    ].join('\n'),
+    html: moldura(
+      'Voce foi convidado',
+      `<p style="margin:0 0 8px"><strong>${escapar(opcoes.convidadoPor)}</strong> convidou
+       voce para o grupo <strong>${escapar(opcoes.grupo)}</strong> no Altcast.</p>
+       <p style="margin:0 0 8px">Crie sua conta por este endereco e voce ja entra
+       no grupo.</p>
+       <p style="margin:0;font-size:13px;color:${CINZA}">Se voce nao conhece quem
+       convidou, ignore esta mensagem — nada acontece enquanto voce nao criar a
+       conta.</p>`,
+      { texto: 'Aceitar convite', url: opcoes.url },
     ),
   }
 }

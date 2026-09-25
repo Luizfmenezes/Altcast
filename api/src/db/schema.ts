@@ -23,7 +23,14 @@ export const visibilityEnum = pgEnum('visibility_enum', ['public', 'private'])
 export const users = pgTable('users', {
   id: uuid('id').primaryKey(),
   email: citext('email').notNull().unique(),
-  passwordHash: text('password_hash').notNull(),
+  /**
+   * Nulo em conta que nasceu por provedor externo. Inventar um hash para
+   * preencher a coluna guardaria uma credencial que ninguem pode usar e que
+   * todo codigo de leitura trataria como se fosse real; nulo diz a verdade, e
+   * quem quiser definir uma senha depois passa pelo "esqueci a senha" que ja
+   * existe — ele emite o token e o reset grava o hash, sem caminho novo.
+   */
+  passwordHash: text('password_hash'),
   displayName: text('display_name').notNull(),
   avatarUrl: text('avatar_url'),
   /**
@@ -245,4 +252,53 @@ export const attachments = pgTable('attachments', {
 }, t => [
   index('attachments_message_id_idx').on(t.messageId),
   index('attachments_channel_id_idx').on(t.channelId),
+])
+
+/**
+ * Identidade num provedor externo.
+ *
+ * A chave e (provider, subject), e nao o e-mail: o `sub` do Google e estavel e
+ * imutavel, enquanto o endereco muda. Amarrar pelo e-mail faria uma troca de
+ * endereco la virar uma conta nova aqui.
+ */
+export const externalIdentities = pgTable('external_identities', {
+  provider: text('provider').notNull(),
+  subject: text('subject').notNull(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** O endereco no momento do vinculo. Diagnostico, nunca fonte de verdade. */
+  email: citext('email').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  primaryKey({ columns: [t.provider, t.subject] }),
+  index('external_identities_user_idx').on(t.userId),
+  uniqueIndex('external_identities_user_provider_key').on(t.userId, t.provider),
+])
+
+/**
+ * Convite dirigido a UMA pessoa.
+ *
+ * Nao substitui `invites`. Sao duas coisas diferentes: `invites.code` e um
+ * codigo que circula, e quem o receber pode usa-lo. Este tem destinatario, e e
+ * o que faz o convite existir dentro do sistema — quem ja tem conta ve o
+ * convite na propria interface, sem link e sem depender de e-mail chegar.
+ *
+ * `targetUserId` XOR `targetEmail`, garantido por CHECK no banco: um convite
+ * sem destinatario, ou com dois, nao tem tela que saiba o que fazer com ele.
+ */
+export const groupInvitations = pgTable('group_invitations', {
+  id: uuid('id').primaryKey(),
+  groupId: uuid('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  invitedBy: uuid('invited_by').references(() => users.id, { onDelete: 'set null' }),
+  targetUserId: uuid('target_user_id').references(() => users.id, { onDelete: 'cascade' }),
+  targetEmail: citext('target_email'),
+  role: roleEnum('role').notNull().default('member'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  declinedAt: timestamp('declined_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  index('group_invitations_group_idx').on(t.groupId),
+  index('group_invitations_user_idx').on(t.targetUserId),
+  index('group_invitations_email_idx').on(t.targetEmail),
 ])

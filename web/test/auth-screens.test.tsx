@@ -17,6 +17,28 @@ const PREVIA_VALIDA = {
 }
 
 /**
+ * Responde a TODA requisicao com um corpo novo.
+ *
+ * `mockResolvedValue(json(...))` devolveria a MESMA instancia de `Response` a
+ * cada chamada, e o corpo de uma `Response` so pode ser lido uma vez: a
+ * segunda requisicao da tela receberia um corpo ja consumido e cairia no erro
+ * generico. A tela de entrada passou a fazer duas — `/auth/providers`, para
+ * saber se desenha o botao do Google, e a do proprio formulario —, e um mock
+ * de instancia unica nao sobrevive a isso.
+ *
+ * `/auth/providers` responde separadamente porque nao e o assunto de nenhum
+ * destes testes: sem o Google configurado, o botao nao existe e as telas ficam
+ * exatamente como estavam.
+ */
+function respondendo(status: number, corpo: unknown): void {
+  vi.mocked(fetch).mockImplementation((entrada: RequestInfo | URL) => {
+    const url = typeof entrada === 'string' ? entrada : entrada.toString()
+    if (url.includes('/auth/providers')) return Promise.resolve(json(200, { google: false }))
+    return Promise.resolve(json(status, corpo))
+  })
+}
+
+/**
  * Qual tela aparece passou a ser decidido pela URL, e nao por uma propriedade:
  * recuperacao de senha e confirmacao de e-mail chegam por link, e precisam
  * existir como endereco. Cada teste posiciona a rota antes de montar.
@@ -35,6 +57,35 @@ describe('telas de autenticacao', () => {
     estarEm('/')
   })
 
+  it('o botao do Google e um link, e so existe onde o servidor o oferece', async () => {
+    // Um `<a href>`, e nao um botao com `fetch`: o fluxo vive em
+    // redirecionamentos de servidor, e e por isso que a sessao volta para
+    // DENTRO da janela do aplicativo de desktop.
+    respondendo(200, {})
+    vi.mocked(fetch).mockImplementation(() =>
+      Promise.resolve(json(200, { google: true })))
+
+    render(<Login aoEntrar={vi.fn()} />)
+    const link = await screen.findByRole('link', { name: 'Entrar com Google' })
+    expect(link).toHaveAttribute('href', '/api/auth/google/start')
+  })
+
+  it('sem Google configurado, a tela de entrada fica como estava', async () => {
+    respondendo(200, {})
+    render(<Login aoEntrar={vi.fn()} />)
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    expect(screen.queryByRole('link', { name: /Google/ })).not.toBeInTheDocument()
+  })
+
+  it('a falha do Google volta pela URL e aparece como aviso', async () => {
+    // O callback e uma navegacao de servidor: quem chega depois de um erro
+    // chegou por `Location:`, e nao por uma resposta que o cliente possa ler.
+    estarEm('/entrar?erro=google')
+    respondendo(200, {})
+    render(<Login aoEntrar={vi.fn()} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Google/)
+  })
+
   it('login tem rotulos persistentes, nao apenas placeholder', () => {
     render(<Login aoEntrar={vi.fn()} />)
     // Rotulo que some ao digitar deixa quem voltou ao formulario sem saber o
@@ -45,9 +96,9 @@ describe('telas de autenticacao', () => {
 
   it('erro aparece em texto e devolve o foco ao campo', async () => {
     const usuario = userEvent.setup()
-    vi.mocked(fetch).mockResolvedValue(json(401, {
+    respondendo(401, {
       error: { code: 'invalid_credentials', message: 'E-mail ou senha incorretos.', requestId: 'r' },
-    }))
+    })
 
     render(<Login aoEntrar={vi.fn()} />)
     await usuario.type(screen.getByLabelText('E-mail'), 'a@x.com')
@@ -60,7 +111,7 @@ describe('telas de autenticacao', () => {
   })
 
   it('previa de convite mostra nome e contagem, e nada mais', async () => {
-    vi.mocked(fetch).mockResolvedValue(json(200, PREVIA_VALIDA))
+    respondendo(200, PREVIA_VALIDA)
     const { container } = render(<PreviaConvite codigo="K7M2P9XQ" aoEntrar={vi.fn()} />)
 
     expect(await screen.findByText('Anticorp')).toBeInTheDocument()
@@ -74,7 +125,7 @@ describe('telas de autenticacao', () => {
   })
 
   it('convite invalido explica o motivo em portugues', async () => {
-    vi.mocked(fetch).mockResolvedValue(json(200, { valid: false, reason: 'expired' }))
+    respondendo(200, { valid: false, reason: 'expired' })
     render(<PreviaConvite codigo="K7M2P9XQ" aoEntrar={vi.fn()} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Este convite expirou.')
@@ -83,7 +134,7 @@ describe('telas de autenticacao', () => {
   })
 
   it('o codigo aparece em monoespacada, para ser ditado sem erro', async () => {
-    vi.mocked(fetch).mockResolvedValue(json(200, PREVIA_VALIDA))
+    respondendo(200, PREVIA_VALIDA)
     render(<PreviaConvite codigo="K7M2P9XQ" aoEntrar={vi.fn()} />)
 
     const codigo = await screen.findByText('K7M2P9XQ')
@@ -92,7 +143,7 @@ describe('telas de autenticacao', () => {
 
   it('cadastro preserva o codigo ao alternar com o login', async () => {
     const usuario = userEvent.setup()
-    vi.mocked(fetch).mockResolvedValue(json(200, PREVIA_VALIDA))
+    respondendo(200, PREVIA_VALIDA)
     estarEm('/convite/K7M2P9XQ')
     render(<TelaAuth aoEntrar={vi.fn()} />)
 
@@ -154,7 +205,7 @@ describe('telas de autenticacao', () => {
   })
 
   it('axe nao encontra violacao nas tres telas', async () => {
-    vi.mocked(fetch).mockResolvedValue(json(200, PREVIA_VALIDA))
+    respondendo(200, PREVIA_VALIDA)
     const usuario = userEvent.setup()
 
     const login = render(<TelaAuth aoEntrar={vi.fn()} />)

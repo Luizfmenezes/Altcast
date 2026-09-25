@@ -13,6 +13,8 @@ import { authRoutes } from './routes/auth.routes.js'
 import type { Correio } from './email/tipos.js'
 import { groupsRoutes } from './routes/groups.routes.js'
 import { invitesRoutes } from './routes/invites.routes.js'
+import { invitationsRoutes } from './routes/invitations.routes.js'
+import { googleRoutes } from './routes/google.routes.js'
 import { channelsRoutes } from './routes/channels.routes.js'
 import { messagesRoutes } from './routes/messages.routes.js'
 import { chatRicoRoutes } from './routes/chatRico.routes.js'
@@ -55,7 +57,16 @@ export async function buildServer(opcoes: OpcoesDoServidor = {}): Promise<Fastif
     trustProxy: env.TRUST_PROXY,
   })
 
-  await app.register(cookie)
+  // Com segredo, e nao mais sem: a entrada pelo Google guarda `state` e
+  // verificador PKCE num cookie de dez minutos, e um cookie nao assinado ali
+  // seria um `state` que o proprio atacante escolhe — o que anula a defesa.
+  // Nenhum cookie existente muda: assinar e opcional por cookie, e so o do
+  // fluxo OAuth pede `signed: true`.
+  //
+  // Cai no DATABASE_URL quando COOKIE_SECRET nao existe. O papel do segredo
+  // aqui e ser estavel e nao-publico, e exigir variavel nova impediria toda
+  // instalacao existente de subir depois desta atualizacao.
+  await app.register(cookie, { secret: env.COOKIE_SECRET ?? env.DATABASE_URL })
 
   // O teto vive aqui e nao so na rota: o plugin corta o fluxo assim que passa,
   // em vez de deixar o processo receber 4 GB na memoria para so depois
@@ -132,6 +143,13 @@ export async function buildServer(opcoes: OpcoesDoServidor = {}): Promise<Fastif
   await app.register(authRoutes, opcoes.correio === undefined ? {} : { correio: opcoes.correio })
   await app.register(groupsRoutes)
   await app.register(invitesRoutes)
+  // Mesmo correio injetavel do `authRoutes`, e pela mesma razao: o convite por
+  // endereco manda e-mail, e um teste que precisasse de rede para verificar
+  // isso seria um teste que ninguem roda.
+  await app.register(
+    invitationsRoutes, opcoes.correio === undefined ? {} : { correio: opcoes.correio },
+  )
+  await app.register(googleRoutes)
   await app.register(channelsRoutes)
   await app.register(messagesRoutes)
   await app.register(chatRicoRoutes)

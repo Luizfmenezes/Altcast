@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import type { Canal, Grupo, Membro, Mensagem, Ready, Usuario } from './tipos.js'
+import type {
+  Canal, ConviteRecebido, Grupo, Membro, Mensagem, Papel, Ready, Usuario,
+} from './tipos.js'
 import type { QuadroCliente, ServerEvent, SocketStatus } from './socket.js'
 
 /**
@@ -33,6 +35,18 @@ type Estado = {
    */
   leituras: Record<string, string | null>
   marcarLido: (channelId: string, ateMensagem: string) => void
+
+  /**
+   * Convites dirigidos a mim, ainda sem resposta.
+   *
+   * Nao vem no `ready` de proposito: o `ready` e a fotografia do que ja e meu
+   * — grupos, canais, membros — e um convite e exatamente o contrario disso.
+   * A lista e buscada por REST quando o painel monta, e o evento
+   * `invitation.received` a mantem viva enquanto a aba esta aberta.
+   */
+  convites: ConviteRecebido[]
+  definirConvites: (lista: ConviteRecebido[]) => void
+  removerConvite: (id: string) => void
 
   /**
    * Manda um quadro pelo socket. O padrao devolve `false` porque antes de a
@@ -131,6 +145,7 @@ export const useStore = create<Estado>(set => ({
   conexao: 'reconectando',
   chamadas: {},
   leituras: {},
+  convites: [],
   enviarQuadro: () => false,
 
   aplicarReady: ready => set(estado => {
@@ -232,6 +247,36 @@ export const useStore = create<Estado>(set => ({
               : m),
         }))
       }
+      case 'invitation.received': {
+        // O evento chega achatado porque e o formato que a rota emite; a store
+        // guarda a mesma forma que `GET /invitations` devolve, para que o
+        // painel nao precise conhecer duas.
+        const c = d as unknown as {
+          id: string; groupId: string; groupName: string; groupIconUrl: string | null
+          role: Papel; expiresAt: string | null
+          invitedBy: { displayName: string; avatarUrl: string | null }
+        }
+        return set(estado => ({
+          // Sem duplicar: o mesmo evento pode chegar duas vezes numa segunda
+          // aba ou numa reconexao, e dois convites iguais na lista seriam dois
+          // botoes de aceitar para a mesma coisa.
+          convites: [
+            {
+              id: c.id,
+              group: { id: c.groupId, name: c.groupName, iconUrl: c.groupIconUrl },
+              role: c.role,
+              invitedBy: c.invitedBy,
+              createdAt: new Date().toISOString(),
+              expiresAt: c.expiresAt,
+            },
+            ...estado.convites.filter(v => v.id !== c.id),
+          ],
+        }))
+      }
+      case 'invitation.revoked': {
+        const { id } = d as { id: string }
+        return set(estado => ({ convites: estado.convites.filter(c => c.id !== id) }))
+      }
       case 'presence.update': {
         const { userId, status } = d as { userId: string; status: Membro['status'] }
         return set(estado => ({
@@ -307,6 +352,12 @@ export const useStore = create<Estado>(set => ({
     }
   },
 
+  definirConvites: convites => set({ convites }),
+
+  removerConvite: id => set(estado => ({
+    convites: estado.convites.filter(c => c.id !== id),
+  })),
+
   definirConexao: conexao => set({ conexao }),
 
   definirEnvio: enviar => set({ enviarQuadro: enviar }),
@@ -356,7 +407,7 @@ export const useStore = create<Estado>(set => ({
 
   limpar: () => set({
     user: null, groups: [], channels: [], members: [], mensagens: {},
-    grupoAtivo: null, canalAtivo: null, chamadas: {}, leituras: {},
+    grupoAtivo: null, canalAtivo: null, chamadas: {}, leituras: {}, convites: [],
   }),
 }))
 

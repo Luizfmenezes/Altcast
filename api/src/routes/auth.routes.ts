@@ -21,6 +21,7 @@ import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
 import { normalizeInviteCode } from '../invites/code.js'
 import { consumirConvite } from './invites.routes.js'
+import { resgatarConvites } from './invitations.routes.js'
 import { emit } from '../realtime/emit.js'
 import { env } from '../env.js'
 
@@ -148,16 +149,23 @@ export async function authRoutes(app: FastifyInstance, opcoes?: {
     const passwordHash = await hashPassword(password)
 
     const userId = newId()
-    let groupId: string | null = null
+    let entrou: string[] = []
     await db.transaction(async tx => {
       await tx.insert(users).values({ id: userId, email, passwordHash, displayName })
       // Mesma transacao que a criacao da conta: um convite esgotado sem conta
       // criada, ou uma conta orfa sem grupo, seriam os dois estados que
       // nenhuma tela sabe consertar.
-      if (inviteCode !== null) groupId = await consumirConvite(tx, inviteCode, userId)
+      if (inviteCode !== null) entrou.push(await consumirConvite(tx, inviteCode, userId))
+      // Convite dirigido a ESTE endereco, feito antes de a conta existir.
+      //
+      // Aqui, e nao numa tela depois do cadastro: quem foi convidado por
+      // e-mail nem sabe que existe um convite a aceitar — ele veio para
+      // entrar num grupo, e pedir um segundo clique para concluir o que ja
+      // estava decidido so cria um lugar onde desistir.
+      entrou = entrou.concat(await resgatarConvites(tx, userId, email))
     })
 
-    if (groupId !== null) {
+    for (const groupId of [...new Set(entrou)]) {
       await emit.toGroup(groupId, {
         t: 'member.joined',
         d: {
@@ -395,6 +403,12 @@ export async function authRoutes(app: FastifyInstance, opcoes?: {
 
     const [u] = await db.select().from(users).where(eq(users.id, req.user!.id)).limit(1)
     if (!u) throw new AppError('unauthenticated')
+    // Conta nascida pelo Google nao tem senha atual para conferir. Dizer isso
+    // e seguro — quem recebe a mensagem ja provou ser o dono da sessao — e e
+    // melhor do que um "senha atual incorreta" que nao tem como ficar certo.
+    // O caminho para CRIAR a primeira senha e o "esqueci a senha" que ja
+    // existe: ele emite o token e o reset grava o hash, sem codigo novo.
+    if (u.passwordHash === null) throw new AppError('no_password_set')
     if (!await verifyPassword(u.passwordHash, parsed.data.currentPassword)) {
       throw new AppError('wrong_password')
     }

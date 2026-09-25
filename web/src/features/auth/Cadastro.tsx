@@ -4,6 +4,7 @@ import { ApiError, api, rearmarAvisoDeSessao } from '../../lib/api.js'
 import { Campo } from '../../ui/Campo.js'
 import { Botao } from '../../ui/Botao.js'
 import { TituloDaPorta } from './PalcoMercurio.js'
+import { EntrarComGoogle } from './EntrarComGoogle.js'
 import { irPara } from '../../lib/rota.js'
 import type { Usuario } from '../../lib/tipos.js'
 
@@ -22,7 +23,17 @@ export function Cadastro({ codigo, aoEntrar }: {
   aoEntrar: (u: Usuario) => void
 }): ReactNode {
   const [nome, setNome] = useState('')
-  const [email, setEmail] = useState('')
+  /**
+   * O e-mail do convite ja vem preenchido.
+   *
+   * Nao e so comodidade: o convite dirigido a um endereco so e resgatado no
+   * cadastro se a conta nascer com AQUELE endereco. Quem digitasse outro
+   * entraria sem o grupo e sem entender por que — o convite continuaria
+   * pendente, enderecado a um endereco que ele nao usa mais.
+   */
+  const [email, setEmail] = useState(
+    () => new URLSearchParams(window.location.search).get('email') ?? '',
+  )
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [campos, setCampos] = useState<Record<string, string[]>>({})
@@ -95,6 +106,8 @@ export function Cadastro({ codigo, aoEntrar }: {
           </Botao>
         </div>
       </form>
+
+      <EntrarComGoogle rotulo="Criar conta com Google" />
 
       <nav className="rodape-da-porta">
         <button type="button" className="text-fg-muted hover:text-fg"

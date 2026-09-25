@@ -5,6 +5,7 @@ import { Avatar } from '../../ui/Avatar.js'
 import { Dica } from '../../ui/Tooltip.js'
 import { Separador } from '../../ui/Separador.js'
 import { CriarGrupo } from './CriarGrupo.js'
+import { Convites } from './Convites.js'
 import { cn } from '../../lib/utils.js'
 
 /**
@@ -93,6 +94,9 @@ export function BarraGrupos(): ReactNode {
 
       <div className="mt-auto flex flex-col items-center gap-2">
         <Separador className="w-8" />
+        {/* Acima das configuracoes: um convite pendente e a unica coisa nesta
+            coluna que pede resposta, e aparece so quando existe. */}
+        <Convites />
         <Configuracoes
           groupId={grupoAtivo}
           podeAdministrar={administra}

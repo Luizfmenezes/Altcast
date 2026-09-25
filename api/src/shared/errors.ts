@@ -26,6 +26,16 @@ export const ERROR_CATALOG = {
   reset_token_invalid: { status: 400, message: 'Este link e invalido ou ja expirou. Peca outro.' },
   verification_token_invalid: { status: 400, message: 'Este link e invalido ou ja expirou. Peca outro.' },
   wrong_password:      { status: 401, message: 'Senha atual incorreta.' },
+  invitation_not_found:{ status: 404, message: 'Convite inexistente.' },
+  // 410, e nao 404: aqui o convite EXISTIU e quem pergunta e o proprio
+  // destinatario. Esconder isso dele nao protege ninguem, so confunde.
+  invitation_closed:   { status: 410, message: 'Este convite nao esta mais aberto.' },
+  already_invited:     { status: 409, message: 'Esta pessoa ja tem um convite pendente.' },
+  cannot_invite_self:  { status: 422, message: 'Voce ja participa deste grupo.' },
+  // Conta nascida pelo Google nao tem senha para conferir. Dizer isso e
+  // seguro: quem recebe a mensagem ja provou ser o dono da sessao.
+  no_password_set:     { status: 409, message: 'Esta conta entra pelo Google. Use "esqueci a senha" para criar uma senha.' },
+  google_unavailable:  { status: 503, message: 'A entrada pelo Google nao esta configurada neste servidor.' },
   internal_error:      { status: 500, message: 'Algo deu errado. Tente novamente.' },
 } as const
 

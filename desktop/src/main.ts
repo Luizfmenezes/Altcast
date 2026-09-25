@@ -88,6 +88,40 @@ function ehNossa(url: string): boolean {
   }
 }
 
+/**
+ * Os hosts da tela de entrada do Google.
+ *
+ * Lista fechada, e nao "qualquer coisa .google.com": o que precisa abrir aqui
+ * dentro e a tela de escolher a conta, e mais nada. `youtube.com` e
+ * `drive.google.com` sao do mesmo dono e nao tem o que fazer nesta janela.
+ */
+const HOSTS_DO_GOOGLE = new Set([
+  'accounts.google.com',
+  'accounts.youtube.com',
+])
+
+/**
+ * A entrada pelo Google e a UNICA excecao a regra de navegar para fora.
+ *
+ * Sem ela o fluxo quebra de um jeito silencioso: o clique no botao abriria o
+ * Google no navegador do SISTEMA, a pessoa entraria la, e o cookie de sessao
+ * nasceria no navegador — nao nesta janela. O app continuaria na tela de
+ * login, sem erro nenhum, e ninguem entenderia por que.
+ *
+ * O risco que a regra original evita continua coberto: um link de terceiro
+ * postado no chat nao esta nesta lista, e as permissoes de midia sao
+ * concedidas so para `ORIGEM` — a pagina do Google roda sem microfone e sem
+ * camera.
+ */
+function ehEntradaPeloGoogle(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' && HOSTS_DO_GOOGLE.has(u.hostname)
+  } catch {
+    return false
+  }
+}
+
 function criarJanela(): void {
   janela = new BrowserWindow({
     width: 1280,
@@ -129,7 +163,7 @@ function criarJanela(): void {
    * de terceiro pertence.
    */
   janela.webContents.on('will-navigate', (evento, url) => {
-    if (ehNossa(url)) return
+    if (ehNossa(url) || ehEntradaPeloGoogle(url)) return
     evento.preventDefault()
     void shell.openExternal(url)
   })
@@ -137,7 +171,10 @@ function criarJanela(): void {
   // `target="_blank"` e `window.open` seguem a mesma regra, por um caminho
   // diferente: aqui o Chromium nem dispara `will-navigate`.
   janela.webContents.setWindowOpenHandler(({ url }) => {
-    if (ehNossa(url)) return { action: 'allow' }
+    // O Google abre a tela de consentimento numa janela nova em alguns
+    // caminhos; manda-la para o navegador do sistema perderia o cookie do
+    // mesmo jeito que em `will-navigate`.
+    if (ehNossa(url) || ehEntradaPeloGoogle(url)) return { action: 'allow' }
     void shell.openExternal(url)
     return { action: 'deny' }
   })

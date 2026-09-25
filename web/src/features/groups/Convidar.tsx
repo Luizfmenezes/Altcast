@@ -5,6 +5,7 @@ import { ApiError, api } from '../../lib/api.js'
 import { Botao } from '../../ui/Botao.js'
 import { ConfirmarAcao } from '../../ui/ConfirmarAcao.js'
 import { Separador } from '../../ui/Separador.js'
+import { ConvidarPessoa } from './ConvidarPessoa.js'
 
 type Convite = {
   code: string
@@ -97,8 +98,17 @@ export function Convidar({ groupId }: { groupId: string }): ReactNode {
 
   return (
     <section className="flex flex-col gap-4">
+      {/* Primeiro o convite dirigido, depois o link.
+          A ordem e a recomendacao: convidar uma pessoa e o caminho que nao
+          depende de nada chegar — quem tem conta ve o convite na hora, e o
+          link so e a melhor escolha quando o destinatario ainda nao tem
+          nome nem endereco, como um grupo de WhatsApp inteiro. */}
+      <ConvidarPessoa groupId={groupId} />
+
+      <Separador />
+
       <div>
-        <h3 className="text-[15px] font-semibold text-fg">Convidar pessoas</h3>
+        <h3 className="text-[15px] font-semibold text-fg">Ou gerar um link aberto</h3>
         <p className="mt-1 text-[13px] text-fg-muted">
           Quem abrir o link entra no grupo. Voce pode revogar a qualquer momento.
         </p>
