@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Botao } from '../../ui/Botao.js'
 import { Separador } from '../../ui/Separador.js'
 import { GestaoDeCanais } from './GestaoDeCanais.js'
 import { Convidar } from '../groups/Convidar.js'
@@ -20,17 +19,11 @@ import { Membros } from '../groups/Membros.js'
  * tambem sao alcancados pelo menu do grupo, e duplicar a tela seria manter
  * duas versoes da mesma coisa envelhecendo separadas.
  */
-export function ConfiguracoesGrupo({ groupId, aoFechar }: {
-  groupId: string
-  aoFechar: () => void
-}): ReactNode {
+export function ConfiguracoesGrupo({ groupId }: { groupId: string }): ReactNode {
   return (
+    // Sem botao de fechar proprio: o dialogo que a contem ja tem um, e dois
+    // controles de fechar na mesma tela so criam duvida sobre qual fecha o que.
     <section aria-label="Configuracoes do grupo" className="flex flex-col gap-6 p-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-base font-semibold text-fg">Configuracoes do grupo</h1>
-        <Botao variante="discreto" onClick={aoFechar}>Fechar</Botao>
-      </header>
-
       <GestaoDeCanais groupId={groupId} />
 
       <Separador />

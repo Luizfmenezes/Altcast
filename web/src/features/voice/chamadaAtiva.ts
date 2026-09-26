@@ -5,6 +5,7 @@ import type {
   TipoDeDispositivo,
 } from '../../lib/midia.js'
 import { useStore } from '../../lib/store.js'
+import { destravarSons, tocar } from '../../lib/sons.js'
 
 /**
  * A chamada como estado da APLICACAO, e nao de um componente.
@@ -68,6 +69,12 @@ export const useChamadaAtiva = create<EstadoDaChamadaAtiva>((set, get) => ({
   chamada: ESTADO_INICIAL,
 
   entrar: async (channelId: string) => {
+    // O navegador so libera audio dentro de um gesto, e entrar numa chamada
+    // nasce de um clique. Idempotente e barato — por isso vale a pena estar no
+    // topo das acoes em vez de depender do botao de destravar, que so aparece
+    // quando o som JA foi bloqueado.
+    destravarSons()
+
     // Ja estamos nesta chamada: entrar de novo abriria uma segunda sala para o
     // mesmo canal e mandaria o audio duas vezes.
     if (get().canal === channelId && viva !== null) return
@@ -83,21 +90,94 @@ export const useChamadaAtiva = create<EstadoDaChamadaAtiva>((set, get) => ({
       // volta, e uma funcao capturada na criacao enviaria para sempre pela
       // conexao morta.
       enviar: quadro => useStore.getState().enviarQuadro(quadro),
-      aoMudar: chamada => { set({ chamada }) },
+      /**
+       * As deixas sonoras saem daqui — da TRANSICAO de estado, e nunca do
+       * clique.
+       *
+       * `definir()` so muda o estado depois de o navegador entregar o
+       * dispositivo. Um som no clique confirmaria um microfone que a permissao
+       * acabou de negar, e ensinaria a pessoa a confiar num sinal falso.
+       */
+      aoMudar: chamada => {
+        const antes = get().chamada
+        set({ chamada })
+
+        if (antes.fase !== 'dentro' && chamada.fase === 'dentro') tocar('entrei')
+
+        // As guardas de `fase` nao sao zelo: `sair()` reseta para o estado
+        // inicial, que poe microfone e tela em false. Sem elas, sair de uma
+        // chamada com os dois ligados dispararia tres sons de uma vez.
+        if (antes.fase === 'dentro' && chamada.fase === 'dentro') {
+          if (chamada.microfone !== antes.microfone) {
+            tocar(chamada.microfone ? 'desmudo' : 'mudo')
+          }
+          if (chamada.tela !== antes.tela) {
+            tocar(chamada.tela ? 'tela-ligou' : 'tela-desligou')
+          }
+        }
+      },
+      // A sala que o token descreve, aplicada assim que o token chega — antes
+      // de carregar o SDK e de conectar ao SFU.
+      aoConhecerSala: participantes => {
+        useStore.getState().semearSala(channelId, participantes)
+      },
     })
     viva = nova
     set({ canal: channelId, chamada: ESTADO_INICIAL })
-    await nova.entrar()
+
+    /**
+     * Aparecer na propria lista ANTES da ida ao servidor.
+     *
+     * `entrar()` so manda `voice.join` depois do token, do carregamento do SDK
+     * e da conexao de midia — de um a quatro segundos em que quem clicou
+     * "entrar" nao se ve em lugar nenhum e conclui que o botao nao funcionou.
+     *
+     * Passa por `aplicarEvento`, e nao por uma acao propria, para que o
+     * caminho otimista e o caminho do servidor atravessem exatamente o mesmo
+     * redutor e nao possam divergir. O eco do servidor cai por cima depois:
+     * `fundirParticipante` dedupa por `userId`.
+     */
+    const eu = useStore.getState().user?.id
+    const desfazer = (): void => {
+      if (eu === undefined) return
+      useStore.getState().aplicarEvento({
+        t: 'voice.participant_left', d: { channelId, userId: eu },
+      })
+    }
+    if (eu !== undefined) {
+      useStore.getState().aplicarEvento({
+        t: 'voice.participant_joined',
+        d: { channelId, userId: eu, microfone: false, camera: false, tela: false },
+      })
+    }
+
+    try {
+      await nova.entrar()
+    } catch (erro) {
+      // Nao deixar o otimismo virar mentira permanente.
+      desfazer()
+      throw erro
+    }
+    // `entrar()` nao lanca na maioria das falhas: ele as engole e poe
+    // `fase: 'erro'`. Sem esta segunda checagem o `catch` acima cobriria so o
+    // caso raro (o import do SDK rejeitar) e deixaria o comum passar.
+    if (get().chamada.fase === 'erro') desfazer()
   },
 
   sair: async () => {
     const atual = viva
+    // Antes do reset: o estado inicial apaga `fase`, e o som de saida sairia
+    // pela guarda de transicao la em cima sem nunca tocar.
+    if (atual !== null) tocar('sai')
     viva = null
     set({ canal: null, chamada: ESTADO_INICIAL })
     await atual?.sair()
   },
 
-  alternarMicrofone: () => { void viva?.definirMicrofone(!get().chamada.microfone) },
+  alternarMicrofone: () => {
+    destravarSons()
+    void viva?.definirMicrofone(!get().chamada.microfone)
+  },
   definirMicrofone: ligado => { void viva?.definirMicrofone(ligado) },
   alternarSurdo: () => { void viva?.definirSurdo(!get().chamada.surdo) },
   alternarCamera: () => { void viva?.definirCamera(!get().chamada.camera) },
@@ -123,6 +203,27 @@ export const useChamadaAtiva = create<EstadoDaChamadaAtiva>((set, get) => ({
  * `pagehide` e o que cobre esse caminho. Disparar duas vezes e inofensivo: a
  * segunda encontra `viva` ja nulo.
  */
+/**
+ * Reanuncia a chamada quando o socket volta.
+ *
+ * Mora aqui, e nao em `socket.ts`, por camada: o socket nao conhece chamada
+ * nenhuma, e ensina-lo sobre voz para resolver isto faria o transporte
+ * depender de uma feature. `reconciliar()` cuida do buraco das MENSAGENS;
+ * este cuida do buraco da PRESENCA — dois buracos com a mesma causa.
+ *
+ * So na TRANSICAO para conectado: o `subscribe` do zustand dispara a cada
+ * `set` da store, e sem a deteccao de borda o medidor de nivel sozinho
+ * produziria dez `voice.join` por segundo.
+ */
+export function registrarReanuncioDaChamada(): () => void {
+  let anterior = useStore.getState().conexao
+  return useStore.subscribe(estado => {
+    const agora = estado.conexao
+    if (agora === 'conectado' && anterior !== 'conectado') viva?.reanunciar()
+    anterior = agora
+  })
+}
+
 export function registrarSaidaDaAba(): () => void {
   const derrubar = (): void => { void useChamadaAtiva.getState().sair() }
   window.addEventListener('beforeunload', derrubar)

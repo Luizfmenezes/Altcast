@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import { BarraDeChamada } from '../src/features/voice/BarraDeChamada.js'
 import {
-  plantarChamadaParaTeste, registrarSaidaDaAba, useChamadaAtiva, zerarChamadaParaTeste,
+  plantarChamadaParaTeste, registrarReanuncioDaChamada, registrarSaidaDaAba,
+  useChamadaAtiva, zerarChamadaParaTeste,
 } from '../src/features/voice/chamadaAtiva.js'
 import type { Chamada } from '../src/lib/midia.js'
 import { useStore } from '../src/lib/store.js'
@@ -48,11 +49,15 @@ const READY: Ready = {
  * A negociacao de midia ja esta provada em `midia.test.ts`, contra uma sala
  * falsa; repeti-la aqui nao acrescentaria nada.
  */
-function chamadaDuble(): Chamada & { sair: ReturnType<typeof vi.fn> } {
+function chamadaDuble(): Chamada & {
+  sair: ReturnType<typeof vi.fn>
+  reanunciar: ReturnType<typeof vi.fn>
+} {
   const nada = async (): Promise<void> => undefined
   return {
     entrar: nada,
     sair: vi.fn(nada),
+    reanunciar: vi.fn(() => undefined),
     trocarDispositivo: nada,
     destravarAudio: nada,
     definirMicrofone: nada,
@@ -64,7 +69,10 @@ function chamadaDuble(): Chamada & { sair: ReturnType<typeof vi.fn> } {
     definirQualidadeDeRecepcao: () => undefined,
     definirSurdo: nada,
     estado: () => useChamadaAtiva.getState().chamada,
-  } as Chamada & { sair: ReturnType<typeof vi.fn> }
+  } as Chamada & {
+    sair: ReturnType<typeof vi.fn>
+    reanunciar: ReturnType<typeof vi.fn>
+  }
 }
 
 function fingirChamadaEm(
@@ -183,5 +191,47 @@ describe('a chamada acima da arvore de componentes', () => {
 
     expect(useChamadaAtiva.getState().canal).toBeNull()
     expect(screen.queryByLabelText('Chamada em curso')).not.toBeInTheDocument()
+  })
+
+  /**
+   * O buraco da PRESENCA, irmao do buraco das mensagens.
+   *
+   * O servidor tira a pessoa de toda chamada quando o ultimo socket dela cai,
+   * mas a sala do SFU sobrevive a uma piscada de rede. `socket.ts` ja
+   * afirmava, num comentario, que "quem se importa com o estado o reanuncia ao
+   * reconectar" — e nao existia ninguem cumprindo essa promessa. O sintoma era
+   * ficar audivel e invisivel, sem recuperacao possivel a nao ser recarregar.
+   */
+  it('a volta do socket reanuncia a chamada', () => {
+    const duble = fingirChamadaEm(VOZ_A)
+    act(() => { useStore.getState().definirConexao('reconectando') })
+    const soltar = registrarReanuncioDaChamada()
+
+    expect(duble.reanunciar).not.toHaveBeenCalled()
+
+    act(() => { useStore.getState().definirConexao('conectado') })
+    expect(duble.reanunciar).toHaveBeenCalledTimes(1)
+
+    soltar()
+  })
+
+  /**
+   * Sem deteccao de borda seriam dez `voice.join` por segundo: o `subscribe`
+   * do zustand dispara a cada `set` da store, e o medidor de nivel sozinho
+   * escreve nela o tempo todo durante uma chamada.
+   */
+  it('escrever na store com a conexao de pe nao reanuncia de novo', () => {
+    const duble = fingirChamadaEm(VOZ_A)
+    // Partir de um estado conhecido: o teste anterior deixa a conexao de pe, e
+    // sem isto nao haveria borda nenhuma para detectar.
+    act(() => { useStore.getState().definirConexao('reconectando') })
+    const soltar = registrarReanuncioDaChamada()
+
+    act(() => { useStore.getState().definirConexao('conectado') })
+    act(() => { useStore.getState().escolherCanal(VOZ_B) })
+    act(() => { useStore.getState().definirConexao('conectado') })
+
+    expect(duble.reanunciar).toHaveBeenCalledTimes(1)
+    soltar()
   })
 })

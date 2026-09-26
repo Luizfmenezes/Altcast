@@ -5,6 +5,7 @@ import { TelaAuth } from './features/auth/TelaAuth.js'
 import { api, SESSAO_EXPIROU } from './lib/api.js'
 import { conectarSocket, type Conexao } from './lib/socket.js'
 import { canaisComHistorico, useStore } from './lib/store.js'
+import { cueDeEvento } from './features/voice/cues.js'
 import type { Mensagem, Ready, Usuario } from './lib/tipos.js'
 
 type Sessao = 'verificando' | 'fora' | 'dentro'
@@ -72,6 +73,10 @@ export function App(): ReactNode {
           return
         }
         aplicarEvento(evento)
+        // DEPOIS de aplicar: o som acompanha a lista que a pessoa acabou de
+        // ver mudar. E so aqui, porque este e o unico lugar do sistema onde
+        // "veio do servidor" e um fato estrutural — e nao uma suposicao.
+        cueDeEvento(evento)
       },
     })
 

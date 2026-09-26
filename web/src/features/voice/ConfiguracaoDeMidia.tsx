@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  guardarProcessamento, lerPreferencias, lerProcessamento, listarDispositivos, QUALIDADES,
+  guardarProcessamento, guardarQualidade, lerPreferencias, lerProcessamento, lerQualidade,
+  listarDispositivos, QUALIDADES,
 } from '../../lib/midia.js'
 import type {
   Dispositivo, Processamento, QualidadeDaTela, TipoDeDispositivo,
 } from '../../lib/midia.js'
 import { guardarFala, lerFala } from './atalhos.js'
 import type { ModoDeFala } from './atalhos.js'
+import { AjusteDeSons } from './AjusteDeSons.js'
 
 /**
  * Os tres tratamentos que o navegador aplica ao microfone.
@@ -160,18 +162,37 @@ function Medidor({ nivel, ativo }: { nivel: number; ativo: boolean }): ReactNode
  * identificar a maquina sem pedir. Por isso a lista e relida quando o microfone
  * liga: e nesse instante que os nomes de verdade aparecem.
  */
+/**
+ * As preferencias de midia, com ou sem chamada em curso.
+ *
+ * Tudo o que esta aqui — dispositivo, qualidade, modo de fala, tratamento de
+ * audio, sons — ja le e escreve `localStorage` por conta propria. Por isso
+ * NENHUMA prop e obrigatoria: nas configuracoes o componente monta sozinho e
+ * apenas persiste a escolha, que e o comportamento certo quando nao ha
+ * chamada nenhuma para reapontar.
+ *
+ * Dentro da chamada, o painel de voz passa os callbacks e o medidor, e entao a
+ * troca vale na hora em vez de na proxima entrada.
+ *
+ * Um componente so, e nao dois: uma segunda tela de dispositivos envelheceria
+ * em separado e as duas acabariam discordando sobre o que esta selecionado.
+ */
 export function ConfiguracaoDeMidia({
-  nivel, microfoneLigado, aoTrocar, qualidade, aoTrocarQualidade, compartilhandoTela,
-  aoRestaurarVolumes,
+  nivel = 0, microfoneLigado = false, aoTrocar, qualidade, aoTrocarQualidade,
+  compartilhandoTela = false, aoRestaurarVolumes, comMedidor = true, comMoldura = true,
 }: {
-  nivel: number
-  microfoneLigado: boolean
-  aoTrocar: (tipo: TipoDeDispositivo, deviceId: string) => void
-  qualidade: QualidadeDaTela
-  aoTrocarQualidade: (qualidade: QualidadeDaTela) => void
-  compartilhandoTela: boolean
-  aoRestaurarVolumes: () => void
-}): ReactNode {
+  nivel?: number
+  microfoneLigado?: boolean
+  aoTrocar?: (tipo: TipoDeDispositivo, deviceId: string) => void
+  qualidade?: QualidadeDaTela
+  aoTrocarQualidade?: (qualidade: QualidadeDaTela) => void
+  compartilhandoTela?: boolean
+  aoRestaurarVolumes?: () => void
+  /** O medidor nao tem o que medir fora de uma chamada. */
+  comMedidor?: boolean
+  /** Dentro da chamada e um `<details>` dobravel; nas configuracoes, nao. */
+  comMoldura?: boolean
+} = {}): ReactNode {
   const [dispositivos, setDispositivos] = useState<Record<TipoDeDispositivo, Dispositivo[]>>({
     audioinput: [], videoinput: [], audiooutput: [],
   })
@@ -198,19 +219,17 @@ export function ConfiguracaoDeMidia({
 
   function escolher(tipo: TipoDeDispositivo, deviceId: string): void {
     setEscolhido(atual => ({ ...atual, [tipo]: deviceId }))
-    aoTrocar(tipo, deviceId)
+    // Sem callback nao ha chamada para reapontar: a escolha fica guardada e
+    // vale na proxima entrada, que e o que a propria tela ja promete.
+    aoTrocar?.(tipo, deviceId)
   }
 
   /** O primeiro da lista e o que o navegador ja usa quando nada foi escolhido. */
   const valorDe = (tipo: TipoDeDispositivo): string =>
     escolhido[tipo] ?? dispositivos[tipo][0]?.deviceId ?? ''
 
-  return (
-    <details className="rounded border border-border-subtle">
-      <summary className="cursor-pointer px-3 py-2 text-sm text-fg">
-        Configurar dispositivos
-      </summary>
-
+  const corpo = (
+    <>
       <div className="flex flex-wrap items-end gap-3 border-t border-border-subtle p-3">
         {TIPOS.map(tipo => (
           <Escolha
@@ -222,11 +241,11 @@ export function ConfiguracaoDeMidia({
           />
         ))}
 
-        <Medidor nivel={nivel} ativo={microfoneLigado} />
+        {comMedidor && <Medidor nivel={nivel} ativo={microfoneLigado} />}
 
         <EscolhaDeQualidade
-          valor={qualidade}
-          aoEscolher={aoTrocarQualidade}
+          valor={qualidade ?? lerQualidade()}
+          aoEscolher={q => { guardarQualidade(q); aoTrocarQualidade?.(q) }}
           compartilhando={compartilhandoTela}
         />
 
@@ -293,6 +312,8 @@ export function ConfiguracaoDeMidia({
         </p>
       </fieldset>
 
+      <AjusteDeSons />
+
       {dispositivos.audioinput.length === 0 && (
         <p className="px-3 pb-3 text-xs text-fg-muted">
           O navegador ainda nao liberou os dispositivos. Ligue o microfone uma vez
@@ -314,6 +335,7 @@ export function ConfiguracaoDeMidia({
         <button
           type="button"
           onClick={aoRestaurarVolumes}
+          disabled={aoRestaurarVolumes === undefined}
           className="rounded border border-border px-2 text-sm text-fg hover:bg-bg-hover
                      focus-visible:bg-bg-hover"
           style={{ minHeight: 'var(--height-row)' }}
@@ -324,6 +346,31 @@ export function ConfiguracaoDeMidia({
           Devolve todas as transmissoes ao som cheio.
         </span>
       </div>
+    </>
+  )
+
+  // Dentro da chamada o painel e dobravel, para nao ocupar a coluna inteira.
+  // Nas configuracoes ele JA esta dentro de uma aba que alguem escolheu abrir,
+  // e uma segunda dobra ali seria um clique a mais por nada.
+  if (!comMoldura) return <div className="rounded border border-border-subtle">{corpo}</div>
+
+  return (
+    <details className="rounded border border-border-subtle">
+      <summary className="cursor-pointer px-3 py-2 text-sm text-fg">
+        Configurar dispositivos
+      </summary>
+      {corpo}
     </details>
   )
+}
+
+/**
+ * As mesmas preferencias, fora de qualquer chamada.
+ *
+ * Um alias com o enquadramento certo para a aba de configuracoes: sem medidor
+ * (nao ha o que medir) e sem dobra (a aba ja e a dobra). O componente por tras
+ * e exatamente o mesmo, e e isso que impede as duas telas de divergirem.
+ */
+export function PreferenciasDeMidia(): ReactNode {
+  return <ConfiguracaoDeMidia comMedidor={false} comMoldura={false} />
 }

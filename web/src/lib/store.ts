@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type {
-  Canal, ConviteRecebido, Grupo, Membro, Mensagem, Papel, Ready, Usuario,
+  Canal, ConviteRecebido, CotaDeGrupos, Grupo, Membro, Mensagem, Papel, Ready, Usuario,
 } from './tipos.js'
 import type { QuadroCliente, ServerEvent, SocketStatus } from './socket.js'
 
@@ -45,6 +45,13 @@ type Estado = {
    * `invitation.received` a mantem viva enquanto a aba esta aberta.
    */
   convites: ConviteRecebido[]
+  /**
+   * Quantos grupos esta pessoa ja criou e quantos pode criar.
+   *
+   * Nulo quando o servidor nao informou (versao anterior): nesse caso a tela
+   * nao promete teto nenhum, em vez de inventar um.
+   */
+  cotaDeGrupos: CotaDeGrupos | null
   definirConvites: (lista: ConviteRecebido[]) => void
   removerConvite: (id: string) => void
 
@@ -59,6 +66,7 @@ type Estado = {
   aplicarEvento: (evento: ServerEvent) => void
   definirConexao: (s: SocketStatus) => void
   definirEnvio: (enviar: (quadro: QuadroCliente) => boolean) => void
+  semearSala: (channelId: string, participantes: ParticipanteDeVoz[]) => void
   escolherGrupo: (groupId: string) => void
   escolherCanal: (channelId: string) => void
   carregarMensagens: (channelId: string, mensagens: Mensagem[]) => void
@@ -146,6 +154,7 @@ export const useStore = create<Estado>(set => ({
   chamadas: {},
   leituras: {},
   convites: [],
+  cotaDeGrupos: null,
   enviarQuadro: () => false,
 
   aplicarReady: ready => set(estado => {
@@ -164,6 +173,30 @@ export const useStore = create<Estado>(set => ({
       user: ready.user,
       groups: ready.groups,
       leituras: ready.reads ?? {},
+      /**
+       * SUBSTITUI o mapa de chamadas, e nao funde.
+       *
+       * O `ready` e a fotografia do que existe agora, e o servidor garante que
+       * nenhum evento de voz chegou antes dele — o socket so entra no fan-out
+       * depois de a fotografia estar pronta. Fundir manteria para sempre quem
+       * saiu da sala enquanto esta aba estava desconectada: o mesmo defeito de
+       * antes, com o sinal trocado.
+       *
+       * E a fotografia e MUDA: cinco pessoas ja na sala nao sao cinco
+       * chegadas, e nenhum som pode sair daqui. Por isso esta store nao
+       * conhece o modulo de sons — quem toca e o limite do socket, em App.tsx.
+       *
+       * Campo ausente (servidor antigo) deixa o mapa como estava, em vez de
+       * apaga-lo.
+       */
+      ...(ready.calls === undefined ? {} : {
+        chamadas: Object.fromEntries(
+          ready.calls.map(sala => [sala.channelId, sala.participants]),
+        ),
+      }),
+      // Mesma politica: ausente significa "este servidor nao fala de cota", e
+      // nao "a cota zerou".
+      ...(ready.groupQuota === undefined ? {} : { cotaDeGrupos: ready.groupQuota }),
       channels: [...ready.channels].sort(porPosicao),
       members: ready.members,
       grupoAtivo,
@@ -362,6 +395,29 @@ export const useStore = create<Estado>(set => ({
 
   definirEnvio: enviar => set({ enviarQuadro: enviar }),
 
+  /**
+   * A sala de UM canal, como o servidor a ve no instante do token de entrada.
+   *
+   * Substitui a lista daquele canal e nao toca em nenhum outro. O EU otimista
+   * sobrevive de proposito: o servidor so me poe na sala quando o `voice.join`
+   * chega, entao a fotografia do token nunca me inclui — assinar por cima dela
+   * faria a pessoa sumir da propria lista por um segundo, bem no momento em
+   * que ela esta procurando confirmacao de que o clique funcionou.
+   */
+  semearSala: (channelId, participantes) => set(estado => {
+    const eu = estado.user?.id
+    const meu = eu === undefined
+      ? undefined
+      : (estado.chamadas[channelId] ?? []).find(p => p.userId === eu)
+    const lista = participantes.filter(p => p.userId !== eu)
+    return {
+      chamadas: {
+        ...estado.chamadas,
+        [channelId]: meu === undefined ? lista : [...lista, meu],
+      },
+    }
+  }),
+
   escolherGrupo: groupId => set(estado => ({
     grupoAtivo: groupId,
     canalAtivo: primeiroCanalDoGrupo(estado.channels, groupId),
@@ -408,6 +464,7 @@ export const useStore = create<Estado>(set => ({
   limpar: () => set({
     user: null, groups: [], channels: [], members: [], mensagens: {},
     grupoAtivo: null, canalAtivo: null, chamadas: {}, leituras: {}, convites: [],
+    cotaDeGrupos: null,
   }),
 }))
 

@@ -81,7 +81,7 @@ describe('configuracoes', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('admin ve o nome do canal privado, mas nao consegue abri-lo', async () => {
-    render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+    render(<ConfiguracoesGrupo groupId={GRUPO} />)
 
     // A unica excecao a invisibilidade, e ela vem com o rotulo que a explica.
     expect(await screen.findByText('diretoria')).toBeInTheDocument()
@@ -94,7 +94,7 @@ describe('configuracoes', () => {
   it('cria canal de voz mandando o tipo que a pessoa escolheu', async () => {
     const fetchFalso = servidorFalso()
     vi.stubGlobal('fetch', fetchFalso)
-    render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+    render(<ConfiguracoesGrupo groupId={GRUPO} />)
 
     const formulario = await screen.findByRole('form', { name: 'Novo canal' })
     await userEvent.type(within(formulario).getByLabelText('Nome do canal'), 'reuniao')
@@ -115,7 +115,7 @@ describe('configuracoes', () => {
   it('editar um canal manda PATCH com o nome novo', async () => {
     const fetchFalso = servidorFalso()
     vi.stubGlobal('fetch', fetchFalso)
-    render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+    render(<ConfiguracoesGrupo groupId={GRUPO} />)
 
     await userEvent.click(await screen.findByRole('button', { name: 'Editar geral' }))
     const edicao = screen.getByRole('form', { name: 'Editar geral' })
@@ -136,7 +136,7 @@ describe('configuracoes', () => {
   it('apagar um canal pede confirmacao antes de mandar o DELETE', async () => {
     const fetchFalso = servidorFalso()
     vi.stubGlobal('fetch', fetchFalso)
-    render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+    render(<ConfiguracoesGrupo groupId={GRUPO} />)
 
     await userEvent.click(await screen.findByRole('button', { name: 'Apagar geral' }))
     // Antes de confirmar, nada saiu: apagar canal leva as mensagens junto.
@@ -156,7 +156,7 @@ describe('configuracoes', () => {
       [`/api/groups/${GRUPO}/invites`]: { code: 'K7M2P9XQ', uses: 0, maxUses: null },
     }))
     const usuario = userEvent.setup()
-    render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+    render(<ConfiguracoesGrupo groupId={GRUPO} />)
 
     await usuario.click(await screen.findByRole('button', { name: 'Gerar link' }))
 
@@ -172,7 +172,7 @@ describe('configuracoes', () => {
       ],
     }))
     const usuario = userEvent.setup()
-    render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+    render(<ConfiguracoesGrupo groupId={GRUPO} />)
 
     await usuario.click(await screen.findByRole('button', { name: 'Revogar o convite K7M2P9XQ' }))
 
@@ -190,7 +190,7 @@ describe('configuracoes', () => {
       ],
     }))
     const usuario = userEvent.setup()
-    render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+    render(<ConfiguracoesGrupo groupId={GRUPO} />)
 
     const gatilho = await screen.findByRole('button', { name: 'Revogar o convite K7M2P9XQ' })
     await usuario.click(gatilho)
@@ -204,7 +204,7 @@ describe('configuracoes', () => {
 
   it('sessoes ativas listam dispositivo e permitem revogar', async () => {
     const usuario = userEvent.setup()
-    render(<ThemeProvider><ConfiguracoesUsuario aoFechar={vi.fn()} /></ThemeProvider>)
+    render(<ThemeProvider><ConfiguracoesUsuario /></ThemeProvider>)
 
     expect(await screen.findByText('Firefox 142 / Windows')).toBeInTheDocument()
     expect(screen.getByText('Safari / iPhone')).toBeInTheDocument()
@@ -218,26 +218,26 @@ describe('configuracoes', () => {
   it('trocar densidade e tema persiste entre recarregamentos', async () => {
     const usuario = userEvent.setup()
     const tela = render(
-      <ThemeProvider><ConfiguracoesUsuario aoFechar={vi.fn()} /></ThemeProvider>,
+      <ThemeProvider><ConfiguracoesUsuario /></ThemeProvider>,
     )
 
     await usuario.click(screen.getByRole('button', { name: 'Tema claro' }))
     await usuario.click(screen.getByRole('button', { name: 'Densidade compacta' }))
     tela.unmount()
 
-    render(<ThemeProvider><ConfiguracoesUsuario aoFechar={vi.fn()} /></ThemeProvider>)
+    render(<ThemeProvider><ConfiguracoesUsuario /></ThemeProvider>)
     expect(document.documentElement.dataset.theme).toBe('light')
     expect(document.documentElement.dataset.density).toBe('compact')
   })
 
   it('axe nao encontra violacao nas duas telas', async () => {
-    const grupo = render(<ConfiguracoesGrupo groupId={GRUPO} aoFechar={vi.fn()} />)
+    const grupo = render(<ConfiguracoesGrupo groupId={GRUPO} />)
     await screen.findByText('diretoria')
     expect(await violacoes(grupo.container)).toEqual([])
     grupo.unmount()
 
     const conta = render(
-      <ThemeProvider><ConfiguracoesUsuario aoFechar={vi.fn()} /></ThemeProvider>,
+      <ThemeProvider><ConfiguracoesUsuario /></ThemeProvider>,
     )
     await screen.findByText('Firefox 142 / Windows')
     expect(await violacoes(conta.container)).toEqual([])

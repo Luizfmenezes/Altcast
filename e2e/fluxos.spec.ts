@@ -193,6 +193,11 @@ test.describe('fluxos da Fatia 1', () => {
     const novo = await abaDe(browser, ESTADO_DONO)
     await novo.getByRole('button', { name: 'Configuracoes' }).click()
 
+    // As sessoes moraram na primeira tela do dialogo enquanto ela era unica.
+    // Agora o dialogo abre em "Perfil", e a lista de aparelhos vive em
+    // "Conta" - o teste atravessa a aba como qualquer pessoa atravessaria.
+    await novo.getByRole('tab', { name: 'Conta' }).click()
+
     const encerrar = novo.getByRole('button', { name: `Encerrar ${aparelho}` })
     await expect(encerrar).toBeVisible()
     await encerrar.click()

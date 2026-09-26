@@ -6,6 +6,14 @@ export type Visibilidade = 'public' | 'private'
 export type Usuario = {
   id: string
   displayName: string
+  /**
+   * O handle unico, quando a pessoa escolheu um.
+   *
+   * `null` e estado legitimo e permanente: conta antiga nunca escolheu, e
+   * conta nascida pelo Google nunca teve a chance. Ausente e servidor anterior
+   * a esta versao.
+   */
+  username?: string | null
   avatarUrl: string | null
   email?: string
   /**
@@ -121,5 +129,42 @@ export type Ready = {
    * cliente novo nao pode quebrar por causa disso.
    */
   reads?: Record<string, string | null>
+  /**
+   * Quem esta em chamada AGORA, por canal de voz.
+   *
+   * O servidor sempre mandou este campo e o cliente sempre o ignorou — era
+   * essa a causa de quem ja estava numa chamada ficar invisivel para quem
+   * chegava depois: a lista so se formava quando alguem emitia um evento novo.
+   *
+   * Sala vazia nao vem. Como o cliente SUBSTITUI o mapa inteiro ao aplicar o
+   * `ready`, um canal ausente daqui vira lista vazia naturalmente.
+   *
+   * Opcional pelo mesmo motivo de `reads`: um servidor anterior a esta versao
+   * nao manda o campo, e nesse caso o mapa fica como estava.
+   */
+  calls?: SalaEmChamada[]
+  /**
+   * Quantos grupos esta pessoa ja criou, e qual o teto dela.
+   *
+   * Vem na fotografia inicial para o botao de criar grupo nascer ja no estado
+   * certo, em vez de aparecer habilitado e se desabilitar sozinho um instante
+   * depois. Opcional: servidor antigo nao manda, e sem teto conhecido a tela
+   * simplesmente nao promete nenhum.
+   */
+  groupQuota?: CotaDeGrupos
   serverTime: string
+}
+
+/** `max: null` significa sem teto — o administrador da plataforma. */
+export type CotaDeGrupos = { used: number; max: number | null }
+
+/** Uma sala de voz povoada, como o servidor a ve no instante do `ready`. */
+export type SalaEmChamada = {
+  channelId: string
+  participants: {
+    userId: string
+    microfone: boolean
+    camera: boolean
+    tela: boolean
+  }[]
 }

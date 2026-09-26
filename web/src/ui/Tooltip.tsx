@@ -23,16 +23,26 @@ export function ProvedorDeDicas({ children }: { children: ReactNode }): ReactNod
  * depende dela tambem carrega um rotulo acessivel proprio.
  */
 export function Dica({
-  texto, atalho, lado = 'right', children,
+  texto, atalho, lado = 'right', children, ...resto
 }: {
   texto: string
   atalho?: string
   lado?: 'top' | 'right' | 'bottom' | 'left'
   children: ReactNode
+  /**
+   * Tudo o mais que chegar, repassado ao gatilho.
+   *
+   * Nao e conveniencia: sem isto, `<Gatilho asChild><Dica><button/></Dica></Gatilho>`
+   * — que e como o `(+)` de criar grupo e varios outros botoes sao montados —
+   * PERDE o `onClick` e a referencia que o componente de fora injeta, porque a
+   * Radix clona o `<Dica>` com essas props e a assinatura antiga as descartava
+   * em silencio. O sintoma era um botao que simplesmente nao fazia nada.
+   */
+  [outra: string]: unknown
 }): ReactNode {
   return (
     <Primitiva.Root>
-      <Primitiva.Trigger asChild>{children}</Primitiva.Trigger>
+      <Primitiva.Trigger asChild {...resto}>{children}</Primitiva.Trigger>
       <Primitiva.Portal>
         <Primitiva.Content
           side={lado}

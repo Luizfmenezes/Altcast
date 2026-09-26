@@ -454,6 +454,14 @@ export type OpcoesDaChamada = {
   /** Manda `voice.*` pelo WebSocket da API. Devolve false se o socket caiu. */
   enviar: (quadro: { t: string; d?: unknown }) => boolean
   aoMudar: (estado: EstadoDaChamada) => void
+  /**
+   * A sala como o servidor a ve NO INSTANTE do token.
+   *
+   * Chega antes de qualquer `voice.participant_joined`, e e o que faz a lista
+   * aparecer povoada no primeiro quadro em vez de so no primeiro evento de
+   * outra pessoa. O campo ja vinha na credencial e era descartado aqui.
+   */
+  aoConhecerSala?: (participantes: Credencial['participants']) => void
   /** Injetavel para teste; em producao e uma Room de verdade. */
   criarSala?: () => SalaDeMidia
   obterCredencial?: (channelId: string) => Promise<Credencial>
@@ -567,6 +575,13 @@ function dicaDeMovimento(track: unknown): void {
 export type Chamada = {
   entrar: () => Promise<void>
   sair: () => Promise<void>
+  /**
+   * Reafirma `voice.join` e `voice.state` depois de o socket voltar.
+   *
+   * Fora da chamada nao faz nada. Repetir e seguro: o servidor ignora quem ja
+   * esta na sala.
+   */
+  reanunciar: () => void
   trocarDispositivo: (tipo: TipoDeDispositivo, deviceId: string) => Promise<void>
   /** Chamar SEMPRE de dentro de um clique: o navegador exige o gesto. */
   destravarAudio: () => Promise<void>
@@ -642,7 +657,7 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
    * nem entrou na chamada.
    */
   function anunciar(): void {
-    opcoes.enviar({
+    const foi = opcoes.enviar({
       t: 'voice.state',
       d: {
         channelId: opcoes.channelId,
@@ -651,6 +666,32 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
         tela: estado.tela,
       },
     })
+    // NAO enfileira, de proposito: `socket.ts` recusa fila porque um
+    // `voice.state` represado por vinte segundos afirmaria um microfone que ja
+    // mudou duas vezes desde entao. A recuperacao e o `reanunciar` da volta do
+    // socket, que le o estado de ENTAO. O rastro existe para que um estado
+    // perdido apareca no diagnostico em vez de sumir sem deixar marca — que e
+    // o que acontecia aqui antes, com o retorno de `enviar` ignorado.
+    if (!foi) rastro('voice.state perdido: socket fechado', { canal: opcoes.channelId })
+  }
+
+  /**
+   * Reafirma presenca e estado de midia depois de o socket voltar.
+   *
+   * O servidor tira a pessoa de toda chamada quando o ULTIMO socket dela cai,
+   * mas a sala do SFU sobrevive a uma piscada de rede. Sem isto a pessoa
+   * continua audivel e invisivel, para sempre — e o comentario de `socket.ts`
+   * ja prometia que "quem se importa com o estado o reanuncia ao reconectar"
+   * sem que existisse ninguem para cumprir a promessa.
+   *
+   * `voice.join` repetido e inofensivo: `calls.join` devolve false para quem ja
+   * esta dentro e o gateway aborta sem emitir nada.
+   */
+  function reanunciar(): void {
+    if (estado.fase !== 'dentro') return
+    const entrou = opcoes.enviar({ t: 'voice.join', d: { channelId: opcoes.channelId } })
+    if (!entrou) return rastro('reanuncio sem socket', { canal: opcoes.channelId })
+    anunciar()
   }
 
   /**
@@ -881,6 +922,10 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
       })
       return
     }
+
+    // Antes de carregar o SDK e de conectar: a lista pinta enquanto o SFU
+    // ainda esta apertando a mao, e nao um a quatro segundos depois.
+    opcoes.aoConhecerSala?.(credencial.participants ?? [])
 
     const lk = await carregarLiveKit()
     const s = criarSala === undefined ? salaPadrao(lk) : criarSala()
@@ -1118,6 +1163,7 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
   return {
     entrar,
     sair,
+    reanunciar,
     trocarDispositivo,
     destravarAudio,
     definirVolume,

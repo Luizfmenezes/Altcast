@@ -24,7 +24,7 @@ const QUANDO = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle:
  * token da sessao: o que aparece na tela tambem aparece em captura de tela e em
  * log de suporte, e um token nesse caminho seria uma credencial vazada.
  */
-export function ConfiguracoesUsuario({ aoFechar }: { aoFechar: () => void }): ReactNode {
+export function ConfiguracoesUsuario(): ReactNode {
   const { theme, setTheme } = useTheme()
   const { density, setDensity } = useDensity()
   const [sessoes, setSessoes] = useState<SessaoAtiva[]>([])
@@ -41,12 +41,10 @@ export function ConfiguracoesUsuario({ aoFechar }: { aoFechar: () => void }): Re
   }
 
   return (
+    // Sem cabecalho proprio nem botao de fechar: o dialogo que a contem ja tem
+    // UM controle de fechar, e o segundo so criava duvida sobre qual deles
+    // fecha o que.
     <section aria-label="Configuracoes da conta" className="flex flex-col gap-6 p-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-base font-semibold text-fg">Sua conta</h1>
-        <Botao variante="discreto" onClick={aoFechar}>Fechar</Botao>
-      </header>
-
       <div>
         <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
           Aparencia

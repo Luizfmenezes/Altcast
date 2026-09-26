@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { MailWarning, X } from 'lucide-react'
-import { api } from '../../lib/api.js'
 import { useStore } from '../../lib/store.js'
 import { Botao } from '../../ui/Botao.js'
+import { useReenviarVerificacao } from './useReenviarVerificacao.js'
 
 /**
  * Aviso de e-mail nao confirmado.
@@ -18,22 +18,16 @@ import { Botao } from '../../ui/Botao.js'
  */
 export function FaixaDeVerificacao(): ReactNode {
   const user = useStore(e => e.user)
+  const semGrupos = useStore(e => e.groups.length === 0)
   const [fechada, setFechada] = useState(false)
-  const [estado, setEstado] = useState<'ocioso' | 'enviando' | 'enviado' | 'falhou'>('ocioso')
+  const { estado, reenviar, precisaConfirmar } = useReenviarVerificacao()
 
-  // `undefined` e servidor antigo, que nao sabe do assunto; `null` e conta que
-  // de fato nao confirmou. Sao casos diferentes, e so o segundo vira aviso.
-  if (fechada || user?.emailVerifiedAt !== null) return null
+  if (fechada || !precisaConfirmar) return null
 
-  async function reenviar(): Promise<void> {
-    setEstado('enviando')
-    try {
-      await api.post('/auth/resend-verification', {})
-      setEstado('enviado')
-    } catch {
-      setEstado('falhou')
-    }
-  }
+  // Sem grupo nenhum, quem fala e a tela de boas-vindas — e ela fala mais
+  // alto, com o endereco na tela e o Google ao lado. Duas barras dizendo a
+  // mesma coisa viram ruido, e o ruido e o que faz as duas serem ignoradas.
+  if (semGrupos) return null
 
   return (
     <div
@@ -45,7 +39,7 @@ export function FaixaDeVerificacao(): ReactNode {
 
       <p className="min-w-0 flex-1 text-fg-muted">
         {estado === 'enviado'
-          ? <>Link novo enviado para <strong className="text-fg">{user.email}</strong>.</>
+          ? <>Link novo enviado para <strong className="text-fg">{user?.email}</strong>.</>
           : estado === 'falhou'
             ? 'Nao foi possivel reenviar agora. Tente daqui a pouco.'
             : <>Confirme seu e-mail para criar grupos e convidar pessoas.</>}
