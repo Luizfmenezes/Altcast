@@ -8,6 +8,19 @@ const schema = z.object({
   PUBLIC_URL: z.url(),
   SESSION_COOKIE_NAME: z.string().default('altcast_session'),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  /**
+   * Quanto tempo alguem continua na chamada depois de o ultimo socket dela
+   * cair.
+   *
+   * Quinze segundos: mais do que um recarregamento de pagina e do que uma
+   * piscada de rede movel, e menos do que o tempo que o LiveKit leva para
+   * declarar o participante morto — nesta ordem a nossa lista nunca sobrevive
+   * a sala de midia, que seria o defeito inverso (mostrar quem ja nao esta
+   * mais la).
+   *
+   * Zero desliga a graca e volta ao comportamento antigo, de saida imediata.
+   */
+  VOICE_RECONNECT_GRACE_MS: z.coerce.number().int().min(0).default(15_000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   // Ligue APENAS quando houver um proxy reverso na frente (Caddy, e em
   // producao tambem o Nginx Proxy Manager). Sem isto, `req.ip` e o endereco

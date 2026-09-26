@@ -18,6 +18,17 @@ const MUDO: EstadoDeMidia = { microfone: false, camera: false, tela: false }
 
 const porCanal = new Map<string, Map<string, EstadoDeMidia>>()
 
+/**
+ * A saida adiada de quem perdeu o socket, por usuario.
+ *
+ * Existe porque a queda do WebSocket e a queda da chamada sao coisas
+ * diferentes: a sala do SFU sobrevive a uma piscada de rede, e expulsar
+ * alguem do mapa no instante em que o socket cai deixava a pessoa audivel
+ * para os outros e invisivel na lista — sem recuperacao possivel, porque nada
+ * a recolocava la.
+ */
+const saidasAdiadas = new Map<string, NodeJS.Timeout>()
+
 function salaDe(channelId: string): Map<string, EstadoDeMidia> {
   const atual = porCanal.get(channelId)
   if (atual) return atual
@@ -68,7 +79,46 @@ export const calls = {
     return [...porCanal].filter(([, sala]) => sala.has(userId)).map(([canal]) => canal)
   },
 
+  /**
+   * Agenda a saida desta pessoa de TODAS as salas dela.
+   *
+   * Nao emite nada: quem conhece `emit` e o gateway, e manter esta separacao e
+   * o que impede um segundo lugar no sistema a decidir audiencia. O `aoExpirar`
+   * devolve o controle para la.
+   *
+   * Reconexao dentro da janela cancela tudo e NAO produz evento nenhum — nem
+   * `left`, nem `joined`. Para quem esta olhando a lista, nada aconteceu, que
+   * e exatamente o que deve parecer quando nada aconteceu.
+   */
+  agendarSaida(userId: string, ms: number, aoExpirar: (channelId: string) => void): void {
+    this.cancelarSaida(userId)
+    const canais = this.canaisDe(userId)
+    if (canais.length === 0) return
+    const timer = setTimeout(() => {
+      saidasAdiadas.delete(userId)
+      for (const channelId of canais) aoExpirar(channelId)
+    }, ms)
+    // unref pelo mesmo motivo do heartbeat: um timer pendurado impediria o
+    // processo de encerrar sozinho.
+    timer.unref()
+    saidasAdiadas.set(userId, timer)
+  },
+
+  /** Cancela a saida agendada. true se havia uma. */
+  cancelarSaida(userId: string): boolean {
+    const timer = saidasAdiadas.get(userId)
+    if (timer === undefined) return false
+    clearTimeout(timer)
+    saidasAdiadas.delete(userId)
+    return true
+  },
+
   clear(): void {
     porCanal.clear()
+    // Os timers TAMBEM, e nao so as salas: um timer sobrevivente de um teste
+    // dispararia no meio do proximo, tirando da chamada alguem que acabou de
+    // entrar. O mesmo vale em producao para qualquer reinicio a quente.
+    for (const timer of saidasAdiadas.values()) clearTimeout(timer)
+    saidasAdiadas.clear()
   },
 }

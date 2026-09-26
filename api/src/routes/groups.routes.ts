@@ -5,6 +5,7 @@ import { db } from '../db/client.js'
 import { channelMembers, channels, groupMembers, groups, users } from '../db/schema.js'
 import { requireAuth } from '../auth/middleware.js'
 import { assertEmailVerificado } from '../auth/verificacao.js'
+import { assertPodeCriarGrupo } from '../groups/limite.js'
 import { assertCan, loadGroupActor } from '../permissions/context.js'
 import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
@@ -73,9 +74,12 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
     await assertEmailVerificado(userId)
     const groupId = newId()
 
-    // Quatro insercoes ou nenhuma. Um grupo sem dono, ou sem canal, seria um
+    // Tres insercoes ou nenhuma. Um grupo sem dono, ou sem canal, seria um
     // estado que nenhuma rota posterior sabe consertar.
     await db.transaction(async tx => {
+      // PRIMEIRA instrucao da transacao, sempre: ela trava a linha do usuario,
+      // e e esse lock que impede dois pedidos simultaneos de passarem os dois.
+      await assertPodeCriarGrupo(tx, userId)
       await tx.insert(groups).values({ id: groupId, name, iconUrl: icone ?? null, ownerId: userId })
       await tx.insert(groupMembers).values({ groupId, userId, role: 'owner' })
       await tx.insert(channels).values({ id: newId(), groupId, name: 'geral', position: 0 })
@@ -170,6 +174,12 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
     }
 
     if (novoPapel === 'owner') {
+      // O teto de tres grupos NAO e conferido aqui, de proposito: receber a
+      // titularidade pode empurrar alguem acima do teto, e tudo bem. Recusar a
+      // transferencia prenderia o grupo no dono que quer sair — e
+      // `owner_cannot_leave` ja faz da transferencia a unica saida dele. Quem
+      // passa do teto apenas nao cria grupos NOVOS ate voltar para baixo.
+      //
       // Rebaixar antes de promover. Na ordem inversa, group_one_owner_idx
       // recusaria a transacao — e esse e exatamente o papel dele: transformar
       // um erro de logica em erro de banco.

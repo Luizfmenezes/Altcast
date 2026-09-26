@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { FastifyInstance } from 'fastify'
 import { withTestDb } from './helpers/db.js'
 import { cenarioComAdmin, loginComo } from './helpers/fixtures.js'
-import { ateQue, comServidor, conectado, espere, esperarFrame } from './helpers/ws.js'
+import { ateQue, comServidor, conectado, conectarEscutando, espere, esperarFrame } from './helpers/ws.js'
 import { groupMembers } from '../src/db/schema.js'
 import { calls } from '../src/realtime/calls.js'
 
@@ -228,6 +228,126 @@ describe('chamada — presenca em tempo real', () => {
         }])
 
         primeiro.ws.close()
+      })
+    })
+  })
+
+  /**
+   * A lacuna que deixou o defeito passar.
+   *
+   * O caso acima prova que a rota de TOKEN entrega a sala povoada — e era a
+   * unica prova que existia. Ninguem afirmava que o `ready` faz o mesmo, e o
+   * cliente descartava o campo em silencio. Resultado: quem ja estava numa
+   * chamada ficava invisivel para quem chegava depois.
+   */
+  it('o ready traz a sala ja povoada', async () => {
+    await withTestDb(async db => {
+      await comServidor(async (app, url) => {
+        const base = await cenarioComAdmin(app, db)
+        const voz = await criarCanal(app, base.groupId, base.cookieDono,
+          { name: 'sala', type: 'voice' })
+
+        const primeiro = await conectado(url, base.cookieDono)
+        primeiro.ws.send(JSON.stringify({ t: 'voice.join', d: { channelId: voz } }))
+        await ateQue(() => calls.participantes(voz).length === 1)
+
+        // Quem chega DEPOIS, e sem nenhum evento ter sido emitido para ele.
+        const segundo = await conectarEscutando(url, base.cookieAdmin)
+        const pronto = await esperarFrame(segundo.frames, 'ready')
+
+        expect(pronto.d.calls).toEqual([{
+          channelId: voz,
+          participants: [{
+            userId: base.ownerId, microfone: false, camera: false, tela: false,
+          }],
+        }])
+
+        primeiro.ws.close()
+        segundo.ws.close()
+      })
+    })
+  })
+
+  it('o ready omite a sala de voz que esta vazia', async () => {
+    await withTestDb(async db => {
+      await comServidor(async (app, url) => {
+        const base = await cenarioComAdmin(app, db)
+        await criarCanal(app, base.groupId, base.cookieDono,
+          { name: 'sala', type: 'voice' })
+
+        const so = await conectarEscutando(url, base.cookieDono)
+        const pronto = await esperarFrame(so.frames, 'ready')
+
+        // Sala vazia nao vem. O cliente SUBSTITUI o mapa inteiro com esta
+        // lista, entao canal ausente vira lista vazia sozinho.
+        expect(pronto.d.calls).toEqual([])
+
+        so.ws.close()
+      })
+    })
+  })
+
+  /**
+   * O `ready` tem de ser o PRIMEIRO quadro, sempre.
+   *
+   * Antes, o socket entrava no fan-out e so depois o servidor gastava quatro
+   * idas ao banco montando a fotografia — e um evento emitido nesse intervalo
+   * chegava antes dela e era apagado por ela. Sem esta garantia o cliente nao
+   * poderia substituir o mapa, e teria de fundir; fundir faz quem saiu nunca
+   * mais sair da lista.
+   */
+  it('nenhum evento chega antes do ready', async () => {
+    await withTestDb(async db => {
+      await comServidor(async (app, url) => {
+        const base = await cenarioComAdmin(app, db)
+        const voz = await criarCanal(app, base.groupId, base.cookieDono,
+          { name: 'sala', type: 'voice' })
+
+        const ruidoso = await conectado(url, base.cookieDono)
+
+        // Entrar e sair da sala sem parar, para que algo esteja em voo
+        // enquanto a outra conexao monta a fotografia dela.
+        const barulho = setInterval(() => {
+          ruidoso.ws.send(JSON.stringify({ t: 'voice.join', d: { channelId: voz } }))
+          ruidoso.ws.send(JSON.stringify({ t: 'voice.leave', d: { channelId: voz } }))
+        }, 1)
+
+        const novo = await conectarEscutando(url, base.cookieAdmin)
+        // O orcamento de `esperarFrame` e generoso, e o comentario dele
+        // explica por que — este e justamente o caso que satura o servidor.
+        await esperarFrame(novo.frames, 'ready')
+        clearInterval(barulho)
+
+        expect(novo.frames[0]?.t).toBe('ready')
+
+        ruidoso.ws.close()
+        novo.ws.close()
+      })
+    })
+  })
+
+  it('voice.join repetido nao anuncia a mesma pessoa duas vezes', async () => {
+    await withTestDb(async db => {
+      await comServidor(async (app, url) => {
+        const base = await cenarioComAdmin(app, db)
+        const voz = await criarCanal(app, base.groupId, base.cookieDono,
+          { name: 'sala', type: 'voice' })
+
+        const espectador = await conectado(url, base.cookieAdmin)
+        const quemEntra = await conectado(url, base.cookieDono)
+
+        quemEntra.ws.send(JSON.stringify({ t: 'voice.join', d: { channelId: voz } }))
+        await esperarFrame(espectador.frames, 'voice.participant_joined')
+        // O reanuncio da volta do socket manda exatamente isto de novo. Ele so
+        // e seguro porque o servidor ignora quem ja esta na sala.
+        quemEntra.ws.send(JSON.stringify({ t: 'voice.join', d: { channelId: voz } }))
+        await espere(80)
+
+        const entradas = espectador.frames.filter(f => f.t === 'voice.participant_joined')
+        expect(entradas).toHaveLength(1)
+
+        espectador.ws.close()
+        quemEntra.ws.close()
       })
     })
   })

@@ -20,6 +20,8 @@ export async function criarUsuario(
      * que ele quer testar.
      */
     verificado?: boolean
+    /** Administrador da plataforma: sem teto de grupos criados. */
+    platformAdmin?: boolean
   },
 ): Promise<string> {
   const id = newId()
@@ -29,6 +31,7 @@ export async function criarUsuario(
     passwordHash: opts.senha ? await hashPassword(opts.senha) : 'sem-senha',
     displayName: opts.displayName ?? opts.email.split('@')[0] ?? 'Alguem',
     emailVerifiedAt: (opts.verificado ?? true) ? new Date() : null,
+    isPlatformAdmin: opts.platformAdmin ?? false,
   })
   return id
 }

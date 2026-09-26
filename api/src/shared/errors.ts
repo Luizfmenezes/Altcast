@@ -36,6 +36,15 @@ export const ERROR_CATALOG = {
   // seguro: quem recebe a mensagem ja provou ser o dono da sessao.
   no_password_set:     { status: 409, message: 'Esta conta entra pelo Google. Use "esqueci a senha" para criar uma senha.' },
   google_unavailable:  { status: 503, message: 'A entrada pelo Google nao esta configurada neste servidor.' },
+  // 409 e nao 403: o pedido esta bem formado e quem pede esta autorizado — o
+  // que ha e conflito com o estado do mundo, que e o que 409 significa. Mesma
+  // familia de `already_member` e `owner_cannot_leave`.
+  group_limit_reached: { status: 409, message: 'Voce ja criou o maximo de 3 grupos.' },
+  // Separado de `file_too_large`, cuja mensagem crava "25 MB" e aqui mentiria.
+  image_too_large:     { status: 413, message: 'A imagem passa do limite de 8 MB.' },
+  unsupported_image:   { status: 422, message: 'Envie uma imagem PNG, JPEG, GIF ou WebP.' },
+  username_taken:      { status: 409, message: 'Este nome de usuario ja esta em uso.' },
+  username_change_too_soon: { status: 409, message: 'Voce so pode trocar o nome de usuario uma vez por mes.' },
   internal_error:      { status: 500, message: 'Algo deu errado. Tente novamente.' },
 } as const
 

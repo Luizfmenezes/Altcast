@@ -20,6 +20,11 @@ import { requireAuth } from '../auth/middleware.js'
 import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
 import { normalizeInviteCode } from '../invites/code.js'
+import { cotaDeGrupos } from '../groups/limite.js'
+import {
+  INTERVALO_DE_TROCA_MS, normalizarUsername, problemaNoUsername,
+} from '../auth/username.js'
+import { parse } from './groups.routes.js'
 import { consumirConvite } from './invites.routes.js'
 import { resgatarConvites } from './invitations.routes.js'
 import { emit } from '../realtime/emit.js'
@@ -57,8 +62,38 @@ const trocaDeSenhaSchema = z.object({
 })
 const perfilSchema = z.object({
   displayName: z.string().trim().min(2).max(64).optional(),
-  avatarUrl: z.string().max(2048).nullable().optional(),
+  /**
+   * `z.url()`, e nao `z.string()` como antes.
+   *
+   * Texto livre aqui permitia apontar o proprio avatar para
+   * `/api/avatars/<id de outra pessoa>` — ou para um pixel de rastreio que
+   * todo membro de todo grupo compartilhado carregaria a cada abertura. Com
+   * endereco absoluto obrigatorio, o unico jeito de por um caminho nosso
+   * nessa coluna e pela rota de upload, que tambem grava a chave do objeto.
+   */
+  avatarUrl: z.url().max(2048).nullable().optional(),
 })
+
+const usernameSchema = z.object({ username: z.string().min(1).max(64) })
+
+/**
+ * Isto foi o indice unico de `username` reclamando?
+ *
+ * Sobe ate quatro niveis de `cause` porque o driver embrulha o erro do
+ * Postgres. Confere tambem o NOME do indice: `23505` sozinho diria apenas
+ * "alguma unicidade", e transformar uma violacao qualquer em "este nome ja
+ * esta em uso" mentiria — foi exatamente esse tipo de confusao que o commit
+ * e66bc28 corrigiu no convite.
+ */
+function ehUnicidadeDeUsername(erro: unknown): boolean {
+  let atual: unknown = erro
+  for (let i = 0; i < 4 && atual !== null && atual !== undefined; i++) {
+    const e = atual as { code?: unknown; constraint?: unknown; cause?: unknown }
+    if (e.code === '23505' && e.constraint === 'users_username_key') return true
+    atual = e.cause
+  }
+  return false
+}
 
 function cookieOptions() {
   return {
@@ -437,18 +472,103 @@ export async function authRoutes(app: FastifyInstance, opcoes?: {
 
     const mudancas: Record<string, unknown> = { updatedAt: new Date() }
     if (parsed.data.displayName !== undefined) mudancas['displayName'] = parsed.data.displayName
-    if (parsed.data.avatarUrl !== undefined) mudancas['avatarUrl'] = parsed.data.avatarUrl
+    if (parsed.data.avatarUrl !== undefined) {
+      mudancas['avatarUrl'] = parsed.data.avatarUrl
+      // Apontar a foto para outro lugar desliga a que estava hospedada aqui.
+      // Sem isto a chave continuaria apontando para um objeto que ninguem mais
+      // exibe e que ninguem mais saberia apagar.
+      mudancas['avatarKey'] = null
+    }
 
     const [u] = await db.update(users).set(mudancas)
       .where(eq(users.id, req.user!.id)).returning()
     if (!u) throw new AppError('unauthenticated')
 
+    // Sem isto, trocar o nome de exibicao era invisivel para todo mundo ate a
+    // proxima recarga — uma lacuna que existia antes deste trabalho.
+    void emit.toPeersOf(u.id, {
+      t: 'user.updated',
+      d: { userId: u.id, displayName: u.displayName, username: u.username, avatarUrl: u.avatarUrl },
+    })
+
     return {
       user: {
-        id: u.id, email: u.email, displayName: u.displayName,
+        id: u.id, email: u.email, displayName: u.displayName, username: u.username,
         avatarUrl: u.avatarUrl, emailVerifiedAt: u.emailVerifiedAt,
       },
     }
+  })
+
+  /**
+   * Trocar o nome de usuario.
+   *
+   * Rota propria, e nao um campo no PATCH geral: o limite de troca e o
+   * conflito de unicidade sao especificos deste campo, e junta-los faria uma
+   * troca de APELIDO poder falhar com "voce ja trocou o nome de usuario este
+   * mes" — uma mensagem sobre outra coisa.
+   */
+  app.patch('/api/auth/me/username', {
+    preHandler: requireAuth,
+    config: { rateLimit: { max: 10, timeWindow: '1 hour' } },
+  }, async req => {
+    const { username: bruto } = parse(usernameSchema, req.body)
+    const motivo = problemaNoUsername(bruto)
+    if (motivo !== null) throw new AppError('validation_failed', { username: [motivo] })
+
+    const username = normalizarUsername(bruto)
+    const userId = req.user!.id
+
+    const [atual] = await db
+      .select({ username: users.username, trocadoEm: users.usernameChangedAt })
+      .from(users).where(eq(users.id, userId)).limit(1)
+    if (!atual) throw new AppError('unauthenticated')
+
+    // Pedir o mesmo handle que ja se tem nao e uma troca, e nao gasta a cota.
+    if (atual.username === username) {
+      return { user: { id: userId, username } }
+    }
+    if (
+      atual.trocadoEm !== null
+      && Date.now() - atual.trocadoEm.getTime() < INTERVALO_DE_TROCA_MS
+    ) {
+      throw new AppError('username_change_too_soon')
+    }
+
+    try {
+      await db.update(users)
+        .set({ username, usernameChangedAt: new Date(), updatedAt: new Date() })
+        .where(eq(users.id, userId))
+    } catch (erro) {
+      // A unicidade vem do INDICE, e nao de um SELECT antes do UPDATE: dois
+      // pedidos simultaneos pelo mesmo handle leriam "livre" os dois, e o
+      // segundo sobrescreveria o primeiro sem ninguem notar.
+      if (ehUnicidadeDeUsername(erro)) throw new AppError('username_taken')
+      throw erro
+    }
+
+    void emit.toPeersOf(userId, { t: 'user.updated', d: { userId, username } })
+    return { user: { id: userId, username } }
+  })
+
+  /**
+   * Quem e esta pessoa, pelo handle.
+   *
+   * Limitada pela mesma razao que `GET /api/invites/:code`: sem limite, isto e
+   * um oraculo que diz quais handles existem, testavel em lote.
+   */
+  app.get('/api/users/lookup', {
+    preHandler: requireAuth,
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+  }, async req => {
+    const bruto = (req.query as { username?: unknown }).username
+    if (typeof bruto !== 'string') throw new AppError('validation_failed')
+
+    const [u] = await db
+      .select({ userId: users.id, displayName: users.displayName, avatarUrl: users.avatarUrl })
+      .from(users).where(eq(users.username, normalizarUsername(bruto))).limit(1)
+
+    if (!u) throw new AppError('not_found')
+    return u
   })
 
   app.get('/api/auth/me', { preHandler: requireAuth }, async req => {
@@ -466,10 +586,13 @@ export async function authRoutes(app: FastifyInstance, opcoes?: {
 
     return {
       user: {
-        id: u.id, email: u.email, displayName: u.displayName,
+        id: u.id, email: u.email, displayName: u.displayName, username: u.username,
         avatarUrl: u.avatarUrl, emailVerifiedAt: u.emailVerifiedAt,
       },
       groups: meus,
+      // Para a tela poder dizer "2 de 3" e desabilitar o botao com um motivo,
+      // em vez de deixar a pessoa clicar e levar um erro.
+      groupQuota: await cotaDeGrupos(id),
     }
   })
 }

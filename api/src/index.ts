@@ -19,6 +19,7 @@ import { channelsRoutes } from './routes/channels.routes.js'
 import { messagesRoutes } from './routes/messages.routes.js'
 import { chatRicoRoutes } from './routes/chatRico.routes.js'
 import { attachmentsRoutes } from './routes/attachments.routes.js'
+import { imagensRoutes } from './routes/imagens.routes.js'
 import { armazemPadrao, LIMITE_POR_ARQUIVO, type Armazem } from './media/armazenamento.js'
 import { gatewayRoutes } from './realtime/gateway.js'
 import { metricsRoutes } from './routes/metrics.routes.js'
@@ -157,6 +158,8 @@ export async function buildServer(opcoes: OpcoesDoServidor = {}): Promise<Fastif
   // A API sobe inteira assim mesmo e so a rota de anexo responde 503 — texto
   // que funciona vale mais que um processo que se recusa a arrancar.
   await app.register(attachmentsRoutes(opcoes.armazem ?? armazemPadrao()))
+  // O mesmo armazem, e portanto a mesma historia de 503 quando nao ha storage.
+  await app.register(imagensRoutes(opcoes.armazem ?? armazemPadrao()))
   await app.register(gatewayRoutes)
   await app.register(metricsRoutes)
 

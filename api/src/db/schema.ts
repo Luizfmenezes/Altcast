@@ -32,15 +32,36 @@ export const users = pgTable('users', {
    */
   passwordHash: text('password_hash'),
   displayName: text('display_name').notNull(),
+  /**
+   * O handle unico. Nulo e estado legitimo e permanente: conta antiga nunca
+   * escolheu um, e conta nascida pelo Google nunca teve a chance.
+   */
+  username: citext('username'),
+  usernameChangedAt: timestamp('username_changed_at', { withTimezone: true }),
   avatarUrl: text('avatar_url'),
+  /** So para saber qual objeto apagar quando a foto for trocada. Nunca sai. */
+  avatarKey: text('avatar_key'),
   /**
    * Nulo enquanto ninguem provou receber o endereco. Nao impede entrar — so
    * fecha o que abusaria de conta descartavel: criar grupo e emitir convite.
    */
   emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+  /**
+   * Administrador da PLATAFORMA — nao de um grupo. Serve a uma coisa so: nao
+   * ter teto de criacao de grupos.
+   *
+   * Nao se chama `role` de proposito: papel e por grupo e mora em `can.ts`,
+   * e confundir os dois e exatamente o que a regra de lint impede. Cota nao e
+   * permissao.
+   */
+  isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, t => [
+  // Parcial: em Postgres o UNIQUE comum ja tolera varios NULL, mas dizer isto
+  // documenta que ausencia de handle nao e um handle vazio.
+  uniqueIndex('users_username_key').on(t.username).where(sql`username IS NOT NULL`),
+])
 
 export const sessions = pgTable('sessions', {
   id: uuid('id').primaryKey(),
@@ -94,11 +115,16 @@ export const groups = pgTable('groups', {
   id: uuid('id').primaryKey(),
   name: text('name').notNull(),
   iconUrl: text('icon_url'),
+  /** Idem `users.avatar_key`. */
+  iconKey: text('icon_key'),
   // RESTRICT e deliberado: apagar um usuario nao pode apagar os grupos dele
   // em silencio. A titularidade precisa ser transferida antes.
   ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, t => [
+  // A contagem do teto de grupos passa por aqui a cada criacao.
+  index('groups_owner_idx').on(t.ownerId),
+])
 
 export const groupMembers = pgTable('group_members', {
   groupId: uuid('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),

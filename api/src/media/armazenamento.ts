@@ -21,6 +21,19 @@ export const LIMITE_POR_ARQUIVO = 25 * 1024 * 1024
 export const MAXIMO_POR_MENSAGEM = 10
 export const COTA_POR_CANAL = 5 * 1024 * 1024 * 1024
 
+/**
+ * Onde moram as imagens de perfil.
+ *
+ * Namespaces proprios, e a chave derivada de um UUIDv7 NOVO a cada upload —
+ * nunca do id do usuario ou do grupo. Duas consequencias, as duas
+ * deliberadas: a URL muda a cada troca, o que permite servi-la como imutavel e
+ * cacheavel para sempre; e a previa publica de convite pode devolver o icone
+ * sem entregar o id interno do grupo junto, que e uma defesa que
+ * `invites.routes.ts` gasta um paragrafo de comentario estabelecendo.
+ */
+export const chaveDoAvatar = (id: string): string => `avatares/${id.slice(0, 2)}/${id}`
+export const chaveDoIcone = (id: string): string => `icones/${id.slice(0, 2)}/${id}`
+
 export type ConfiguracaoDeArmazenamento = {
   endPoint: string
   port: number

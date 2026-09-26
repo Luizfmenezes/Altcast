@@ -41,6 +41,7 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:?defina PUBLIC_URL no .env}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-altcast_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      VOICE_RECONNECT_GRACE_MS: ${VOICE_RECONNECT_GRACE_MS:-15000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # Ha proxy na frente (o Caddy aqui, e o Nginx Proxy Manager fora). Sem
       # isto o limite de taxa por IP conta todos os visitantes como um so.

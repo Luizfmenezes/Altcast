@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
     "seed:owner": "node src/cli/seed-owner.ts",
+    "admin:promote": "node src/cli/promover-admin.ts",
     "lint": "eslint .",
     "email:teste": "node src/cli/enviar-teste.ts"
   },

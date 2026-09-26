@@ -20,6 +20,22 @@ export default defineConfig({
       PUBLIC_URL: 'http://localhost:5173',
       SESSION_COOKIE_NAME: 'altcast_session',
       SESSION_TTL_DAYS: '30',
+      // Quinze segundos de graca sao certos em producao e insuportaveis num
+      // teste: o caso que fecha o socket e espera o `voice.participant_left`
+      // esperaria quinze segundos por asserção. O que os testes provam e a
+      // ORDEM dos acontecimentos, nunca a duracao.
+      //
+      // Mas nao pode ser pequeno demais. Cinquenta milissegundos, o valor
+      // anterior, nao cabiam a reconexao: antes de cancelar a saida adiada o
+      // servidor monta a fotografia do `ready`, que sao quatro idas a um
+      // Postgres de verdade. Com a suite inteira carregando a maquina isso
+      // passava de 50ms, a graca expirava e o caso "voltar dentro da janela"
+      // falhava vendo um `participant_left` que o servidor tinha toda razao de
+      // emitir. Um segundo da folga de sobra e custa um segundo.
+      //
+      // `voice-reconexao.test.ts` LE este valor em vez de repeti-lo — as
+      // esperas dele sao "a janela mais uma margem", e nao um numero solto.
+      VOICE_RECONNECT_GRACE_MS: '1000',
       LOG_LEVEL: 'fatal',
       LIVEKIT_API_KEY: 'chave-de-teste',
       LIVEKIT_API_SECRET: 'segredo-de-teste-com-32-bytes-ou-mais',

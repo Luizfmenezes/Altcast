@@ -8,6 +8,7 @@ import { env } from '../env.js'
 import { registry } from './registry.js'
 import { presence } from './presence.js'
 import { calls } from './calls.js'
+import { cotaDeGrupos } from '../groups/limite.js'
 import { leiturasDe } from '../routes/chatRico.routes.js'
 import { audienceOfChannel } from './fanout.js'
 import { emit } from './emit.js'
@@ -29,8 +30,8 @@ const TAMANHO_MAXIMO_FRAME = 4 * 1024
  */
 async function montarReady(userId: string): Promise<Record<string, unknown>> {
   const [eu] = await db.select({
-    id: users.id, displayName: users.displayName, avatarUrl: users.avatarUrl,
-    emailVerifiedAt: users.emailVerifiedAt,
+    id: users.id, displayName: users.displayName, username: users.username,
+    avatarUrl: users.avatarUrl, emailVerifiedAt: users.emailVerifiedAt,
   }).from(users).where(eq(users.id, userId)).limit(1)
 
   const meusGrupos = await db.select({
@@ -62,12 +63,19 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
     groupId: groupMembers.groupId,
     userId: users.id,
     displayName: users.displayName,
+    username: users.username,
     avatarUrl: users.avatarUrl,
     role: groupMembers.role,
   })
     .from(groupMembers)
     .innerJoin(users, eq(users.id, groupMembers.userId))
     .where(inArray(groupMembers.groupId, ids))
+
+  // Lido ANTES do literal de proposito: assim `calls.participantes()` la
+  // embaixo e a ultima leitura antes de o quadro ser serializado, e nao uma
+  // que ainda espera um `await` do banco depois de si.
+  const leituras = await leiturasDe(userId)
+  const cota = await cotaDeGrupos(userId)
 
   return {
     user: eu ?? null,
@@ -94,7 +102,17 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
      * Mandar a contagem obrigaria o servidor a recalcula-la a cada mensagem
      * nova de cada canal, para cada pessoa conectada.
      */
-    reads: await leiturasDe(userId),
+    reads: leituras,
+    /**
+     * Quantos grupos esta pessoa ja criou, e qual o teto dela.
+     *
+     * Vem no `ready`, e nao numa chamada REST a parte, porque o botao `(+)` da
+     * barra lateral precisa nascer ja no estado certo. Buscar isso depois
+     * faria o botao aparecer habilitado e desabilitar sozinho um instante
+     * depois, que e o tipo de piscada que a fotografia inicial existe para
+     * evitar.
+     */
+    groupQuota: cota,
     serverTime: new Date().toISOString(),
   }
 }
@@ -203,12 +221,10 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
     },
   }, async (socket, req) => {
     const userId = req.user!.id
-    const connectionId = registry.add(userId, socket)
 
-    // A ordem importa: `add` pode derrubar a aba mais antiga do mesmo usuario,
-    // e o `close` dela chega depois. Contar a nova primeiro evita um `offline`
-    // espurio no meio de uma troca de aba.
-    const ficouOnline = presence.connect(userId)
+    // Nulo ate o socket entrar no fan-out, la embaixo. A conexao pode cair
+    // DURANTE o `montarReady`, e nesse caso nao ha registro nenhum a remover.
+    let connectionId: string | null = null
 
     let jaSaiu = false
     const encerrar = (): void => {
@@ -216,18 +232,22 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
       // trava o contador de presenca cairia duas vezes.
       if (jaSaiu) return
       jaSaiu = true
-      registry.remove(connectionId)
+      if (connectionId !== null) registry.remove(connectionId)
       if (presence.disconnect(userId)) {
         // Só quando cai a ULTIMA conexao: fechar uma aba de cinco nao pode
         // tirar ninguem da chamada que continua aberta na outra.
-        for (const channelId of calls.canaisDe(userId)) {
+        //
+        // E com atraso, nao na hora: a sala do LiveKit sobrevive a uma piscada
+        // de rede, entao tirar a pessoa do mapa imediatamente a deixava
+        // audivel e invisivel. Se ela voltar dentro da janela, a reconexao
+        // cancela isto e ninguem ve nada acontecer.
+        calls.agendarSaida(userId, env.VOICE_RECONNECT_GRACE_MS, channelId => {
           void sairDaChamada(userId, channelId)
-        }
+        })
         void emit.toPeersOf(userId, { t: 'presence.update', d: { userId, status: 'offline' } })
       }
     }
 
-    socket.on('pong', () => registry.markAlive(connectionId))
     socket.on('close', encerrar)
     socket.on('error', encerrar)
 
@@ -243,7 +263,9 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         return
       }
       const tipo = (quadro as { t?: unknown })?.t
-      if (tipo === 'pong') return registry.markAlive(connectionId)
+      if (tipo === 'pong') {
+        return connectionId === null ? undefined : registry.markAlive(connectionId)
+      }
       if (tipo === 'typing') return repassarTyping(userId, quadro)
       if (tipo === 'voice.join') return entrarNaChamada(userId, quadro)
       if (tipo === 'voice.leave') {
@@ -254,7 +276,35 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
       req.log.warn({ connectionId, tipo }, 'frame de tipo desconhecido descartado')
     })
 
-    socket.send(JSON.stringify({ t: 'ready', d: await montarReady(userId) }))
+    /**
+     * A fotografia e montada ANTES de o socket entrar no fan-out.
+     *
+     * Enquanto os `await` daqui correm, nenhum evento pode alcancar esta
+     * conexao — e e isso que da ao cliente o direito de SUBSTITUIR o mapa de
+     * chamadas em vez de funde-lo. Na ordem antiga o socket ja recebia eventos
+     * durante a montagem, entao um `voice.participant_joined` podia chegar
+     * antes do `ready` e ser apagado por ele; fundir consertaria esse caso e
+     * criaria outro pior, em que quem saiu da sala enquanto a pessoa estava
+     * fora nunca mais some da lista.
+     */
+    const fotografia = await montarReady(userId)
+    // A conexao pode ter morrido durante a montagem. Sem isto, `registry.add`
+    // guardaria um socket ja fechado e `presence` contaria alguem que saiu.
+    if (jaSaiu) return
+
+    // Voltou dentro da janela: a saida agendada morre aqui, e a lista de quem
+    // esta na chamada nunca chega a piscar para ninguem.
+    calls.cancelarSaida(userId)
+
+    connectionId = registry.add(userId, socket)
+    socket.on('pong', () => registry.markAlive(connectionId!))
+
+    // A ordem importa: `add` pode derrubar a aba mais antiga do mesmo usuario,
+    // e o `close` dela chega depois. Contar a nova primeiro evita um `offline`
+    // espurio no meio de uma troca de aba.
+    const ficouOnline = presence.connect(userId)
+
+    socket.send(JSON.stringify({ t: 'ready', d: fotografia }))
 
     if (ficouOnline) {
       void emit.toPeersOf(userId, { t: 'presence.update', d: { userId, status: 'online' } })
