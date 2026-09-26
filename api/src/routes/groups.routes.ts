@@ -2,15 +2,21 @@ import { and, count, eq, inArray } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { db } from '../db/client.js'
-import { channelMembers, channels, groupMembers, groups, users } from '../db/schema.js'
+import {
+  channelMembers, channels, groupMembers, groups, memberRoles, roles, users,
+} from '../db/schema.js'
 import { requireAuth } from '../auth/middleware.js'
 import { assertEmailVerificado } from '../auth/verificacao.js'
 import { assertPodeCriarGrupo } from '../groups/limite.js'
-import { assertCan, loadGroupActor } from '../permissions/context.js'
+import { cargosPadrao } from '../groups/cargosPadrao.js'
+import { alturaDe, assertCan, loadGroupActor } from '../permissions/context.js'
 import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
 import { emit } from '../realtime/emit.js'
 import { audienceOfGroup } from '../realtime/fanout.js'
+import {
+  emitirEntradaEmGrupo, emitirGrupoApagado, emitirGrupoAtualizado,
+} from '../groups/eventos.js'
 
 const nome = z.string().trim().min(2).max(64)
 const iconUrl = z.url().max(2048).nullable().optional()
@@ -76,6 +82,10 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
 
     // Tres insercoes ou nenhuma. Um grupo sem dono, ou sem canal, seria um
     // estado que nenhuma rota posterior sabe consertar.
+    // Quatro insercoes ou nenhuma. Um grupo sem dono, sem canal ou sem cargo
+    // padrao seria um estado que nenhuma rota posterior sabe consertar — e o
+    // cargo padrao entrou nessa lista porque `loadGroupActor` resolve as
+    // permissoes a partir dele: sem ele o grupo nasceria mudo.
     await db.transaction(async tx => {
       // PRIMEIRA instrucao da transacao, sempre: ela trava a linha do usuario,
       // e e esse lock que impede dois pedidos simultaneos de passarem os dois.
@@ -83,7 +93,16 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
       await tx.insert(groups).values({ id: groupId, name, iconUrl: icone ?? null, ownerId: userId })
       await tx.insert(groupMembers).values({ groupId, userId, role: 'owner' })
       await tx.insert(channels).values({ id: newId(), groupId, name: 'geral', position: 0 })
+      // Os mesmos dois cargos que a migracao 0013 semeou nos grupos que ja
+      // existiam, e os mesmos que o `seed-owner` cria. Grupo novo, grupo
+      // antigo e grupo de instalacao precisam nascer iguais — senao o
+      // comportamento passa a depender de por qual porta o grupo entrou.
+      await tx.insert(roles).values(cargosPadrao(groupId))
     })
+
+    // Sem isto o grupo so aparecia depois de recarregar a pagina: nada no
+    // sistema sabia avisar um cliente de que a lista de grupos DELE mudou.
+    await emitirEntradaEmGrupo('group.created', userId, groupId, 'owner')
 
     return reply.status(201).send({
       id: groupId, name, iconUrl: icone ?? null, role: 'owner', memberCount: 1,
@@ -100,7 +119,7 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
 
     return {
       id: g.id, name: g.name, iconUrl: g.iconUrl,
-      createdAt: g.createdAt, role: actor.role, memberCount: await contarMembros(groupId),
+      createdAt: g.createdAt, role: actor.papel, memberCount: await contarMembros(groupId),
     }
   })
 
@@ -118,9 +137,17 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(groups.id, groupId)).returning()
     if (!g) throw new AppError('not_found')
 
+    // O icone ja emitia isto desde sempre (imagens.routes.ts); o NOME nunca
+    // emitiu, e por isso renomear um grupo nao mudava nada na tela de
+    // ninguem — nem na de quem renomeou.
+    await emitirGrupoAtualizado(groupId, {
+      ...(campos.name !== undefined ? { name: g.name } : {}),
+      ...(campos.iconUrl !== undefined ? { iconUrl: g.iconUrl } : {}),
+    })
+
     return {
       id: g.id, name: g.name, iconUrl: g.iconUrl,
-      createdAt: g.createdAt, role: actor.role, memberCount: await contarMembros(groupId),
+      createdAt: g.createdAt, role: actor.papel, memberCount: await contarMembros(groupId),
     }
   })
 
@@ -129,8 +156,14 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
     const actor = await loadGroupActor(req.user!.id, groupId)
     assertCan(actor, 'group.delete', { kind: 'group' })
 
-    // Membros, canais, convites e mensagens caem por ON DELETE CASCADE.
+    // Antes da remocao: apagar o grupo destroi a propria audiencia, e
+    // perguntar depois devolveria lista vazia. Mesmo cuidado de `member.left`.
+    const audiencia = await audienceOfGroup(groupId)
+
+    // Membros, canais, convites, cargos e mensagens caem por ON DELETE CASCADE.
     await db.delete(groups).where(eq(groups.id, groupId))
+
+    emitirGrupoApagado(audiencia, groupId)
     return reply.status(204).send()
   })
 
@@ -157,7 +190,12 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
     const alvo = uuidOu404(p.userId)
 
     const actor = await loadGroupActor(req.user!.id, groupId)
-    assertCan(actor, 'group.change_role', { kind: 'group' })
+    // A hierarquia entra aqui: so se mexe em quem esta abaixo. O dono atravessa
+    // a comparacao, e `alturaDe` devolve Infinity para ele — e assim "ninguem
+    // rebaixa o dono" deixa de depender de uma guarda escrita a mao nesta rota.
+    assertCan(actor, 'group.change_role', {
+      kind: 'group', topoDoAlvo: await alturaDe(alvo, groupId),
+    })
 
     // Desestruturado de proposito: a regra de lint proibe comparar `.role`
     // fora de can.ts, e com razao. Aqui o valor nao e o papel de ninguem — e o
@@ -191,8 +229,36 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
         await tx.update(groups).set({ ownerId: alvo }).where(eq(groups.id, groupId))
       })
     } else {
-      await db.update(groupMembers).set({ role: novoPapel })
-        .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, alvo)))
+      // O papel e o cargo andam juntos, e precisam andar.
+      //
+      // Depois dos cargos, `group_members.role` deixou de ser a fonte das
+      // permissoes — quem decide e o conjunto resolvido em `context.ts`. Se
+      // esta rota so trocasse a coluna, promover alguem a administrador
+      // mudaria o ROTULO na lista de membros e nao mudaria poder nenhum: a
+      // interface mentindo sobre permissao, que e o defeito mais caro que uma
+      // tela de cargos pode ter.
+      await db.transaction(async tx => {
+        await tx.update(groupMembers).set({ role: novoPapel })
+          .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, alvo)))
+
+        const [cargoAdmin] = await tx.select({ id: roles.id }).from(roles)
+          .where(and(eq(roles.groupId, groupId), eq(roles.name, 'Administrador'))).limit(1)
+        // Grupo cujo cargo de administrador foi renomeado ou apagado: nada a
+        // sincronizar, e o certo e nao inventar um cargo novo por conta propria.
+        if (cargoAdmin === undefined) return
+
+        if (novoPapel === 'admin') {
+          await tx.insert(memberRoles)
+            .values({ groupId, userId: alvo, roleId: cargoAdmin.id })
+            .onConflictDoNothing()
+        } else {
+          await tx.delete(memberRoles).where(and(
+            eq(memberRoles.groupId, groupId),
+            eq(memberRoles.userId, alvo),
+            eq(memberRoles.roleId, cargoAdmin.id),
+          ))
+        }
+      })
     }
 
     const dados = { groupId, userId: alvo, role: novoPapel, joinedAt: atual.joinedAt }
@@ -209,6 +275,12 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
     const actor = await loadGroupActor(eu, groupId)
     // Sair e direito de qualquer membro; expulsar exige group.kick. Um member
     // que nao pertence ao grupo cai no group.view e leva 404 igual.
+    //
+    // A hierarquia NAO entra aqui, e sim tres linhas abaixo. A ordem importa:
+    // `assertCan` responde sempre 404, e deixar a altura barrar primeiro
+    // transformaria "voce nao pode expulsar o dono" — que e um 409 claro, com
+    // o caminho da transferencia na mensagem — num 404 que nao ensina nada a
+    // quem tem todo o direito de estar ali.
     assertCan(actor, alvo === eu ? 'group.view' : 'group.kick', { kind: 'group' })
 
     const g = await carregarGrupo(groupId)
@@ -217,6 +289,15 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
     // Vale para sair e para ser expulso: o dono nao e removivel. Transferir a
     // titularidade e o unico caminho.
     if (alvo === g.ownerId) throw new AppError('owner_cannot_leave')
+
+    // Agora sim a altura, e so quando ha outra pessoa envolvida: sair e uma
+    // acao sobre si mesmo, e comparar a propria altura com a propria recusaria
+    // a saida de quem tem cargo.
+    if (alvo !== eu) {
+      assertCan(actor, 'group.kick', {
+        kind: 'group', topoDoAlvo: await alturaDe(alvo, groupId),
+      })
+    }
 
     // Antes da remocao, para que quem saiu tambem receba o aviso e limpe o
     // grupo da propria barra lateral sem precisar recarregar.

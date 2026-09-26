@@ -328,3 +328,63 @@ export const groupInvitations = pgTable('group_invitations', {
   index('group_invitations_user_idx').on(t.targetUserId),
   index('group_invitations_email_idx').on(t.targetEmail),
 ])
+
+/**
+ * Cargo dentro de um grupo: nome, cor, hierarquia e permissoes.
+ *
+ * Substitui `group_members.role` como fonte das PERMISSOES, e nao como fonte
+ * de quem e o dono — essa continua sendo a coluna, com o indice unico parcial
+ * que garante um dono por grupo.
+ */
+export const roles = pgTable('roles', {
+  id: uuid('id').primaryKey(),
+  groupId: uuid('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  /** '#RRGGBB' ou nulo — e nulo significa "herda a cor do texto", que e um
+   *  resultado escolhido, e nao a ausencia de uma escolha. */
+  color: text('color'),
+  /** Maior manda mais. Sustenta a regra "so mexo em quem esta abaixo de mim". */
+  position: integer('position').notNull().default(0),
+  /** Os literais de `Action`. Texto, e nao bitfield: auditavel no psql, e uma
+   *  permissao nova nao cobra migracao perigosa. */
+  permissions: text('permissions').array().notNull().default(sql`'{}'`),
+  /** O cargo de todos. Linha de verdade, e nao valor implicito. */
+  isDefault: boolean('is_default').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  index('roles_group_pos_idx').on(t.groupId, t.position.desc()),
+])
+
+/**
+ * Quem tem qual cargo.
+ *
+ * A chave estrangeira composta aponta para `group_members`, jamais para
+ * `users`: e o que faz sair do grupo levar os cargos junto, no banco. Com uma
+ * FK para users, readmitir alguem devolveria em silencio a moderacao que ela
+ * tinha antes de sair.
+ */
+export const memberRoles = pgTable('member_roles', {
+  groupId: uuid('group_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
+}, t => [
+  primaryKey({ columns: [t.groupId, t.userId, t.roleId] }),
+  index('member_roles_role_idx').on(t.roleId),
+])
+
+/**
+ * A excecao de um canal: o que um cargo, ou uma pessoa, ganha ou perde ALI.
+ *
+ * Nunca concede acesso a canal privado do qual a pessoa nao participa — essa
+ * porta continua sendo `channel_members`, e so ela. A excecao ajusta o que se
+ * pode FAZER num canal que ja se enxerga.
+ */
+export const channelOverwrites = pgTable('channel_overwrites', {
+  channelId: uuid('channel_id').notNull().references(() => channels.id, { onDelete: 'cascade' }),
+  subjectType: text('subject_type').notNull(),
+  subjectId: uuid('subject_id').notNull(),
+  allow: text('allow').array().notNull().default(sql`'{}'`),
+  deny: text('deny').array().notNull().default(sql`'{}'`),
+}, t => [
+  primaryKey({ columns: [t.channelId, t.subjectType, t.subjectId] }),
+])

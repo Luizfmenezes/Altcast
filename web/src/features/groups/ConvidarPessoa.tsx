@@ -140,9 +140,23 @@ export function ConvidarPessoa({ groupId }: { groupId: string }): ReactNode {
         </Botao>
       </form>
 
-      {/* O seletor so aparece quando ha alguem para escolher. Um campo de
-          busca permanentemente vazio prometeria uma lista que nao existe para
-          quem esta no primeiro grupo. */}
+      {/*
+        O seletor so aparece quando ha alguem para escolher — mas o SILENCIO
+        anterior era um problema proprio.
+        
+        No primeiro grupo de alguem, `invitable` devolve lista vazia por
+        construcao: ele so conhece quem ja divide um grupo com voce, e ninguem
+        divide. A metade mais facil desta tela simplesmente sumia, sem dizer
+        nada, exatamente para quem mais precisava dela — e a impressao era a de
+        um pedaco faltando. A frase abaixo assume a ausencia em vez de escondê-la.
+      */}
+      {conhecidos.length === 0 && busca === '' && (
+        <p className="text-[13px] text-fg-muted">
+          Quando voce ja dividir algum grupo com alguem, essa pessoa aparece aqui para
+          ser convidada sem digitar o endereco.
+        </p>
+      )}
+
       {(conhecidos.length > 0 || busca !== '') && (
         <div className="flex flex-col gap-2">
           <Campo

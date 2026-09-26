@@ -4,7 +4,7 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import * as Dialog from '@radix-ui/react-dialog'
 import { ChevronDown, LogOut, Settings2, UserPlus, Users, X } from 'lucide-react'
 import { api } from '../../lib/api.js'
-import { useStore } from '../../lib/store.js'
+import { possoNoGrupo, useStore } from '../../lib/store.js'
 import { Botao } from '../../ui/Botao.js'
 import { ConfirmarAcao } from '../../ui/ConfirmarAcao.js'
 import { Convidar } from './Convidar.js'
@@ -57,11 +57,15 @@ export function MenuDoGrupo({ grupo, variante = 'linha' }: {
 }): ReactNode {
   const [painel, setPainel] = useState<Painel>(null)
   const escolherGrupo = useStore(e => e.escolherGrupo)
+  const podeConvidar = useStore(e => possoNoGrupo(e, grupo.id, 'group.invite'))
 
   // Presentacional, e so: quem decide de verdade e o servidor, a cada rota.
   // Esconder aqui evita oferecer uma acao que voltaria 404, e nada alem disso.
-  // `group.invite` exige cargo; ver a lista de membros, nao.
-  const podeConvidar = grupo.role === 'owner' || grupo.role === 'admin'
+  //
+  // Vem da PERMISSAO resolvida, e nao mais de `role === 'admin'`. Com cargos,
+  // convidar deixou de ser privilegio de administrador: um cargo qualquer pode
+  // conceder `group.invite`, e amarrar a tela ao papel antigo esconderia o
+  // botao justamente de quem o cargo acabou de habilitar.
   // O dono nao sai do proprio grupo: precisa transferir a titularidade antes,
   // e o servidor recusa com `owner_cannot_leave`.
   const podeSair = grupo.role !== 'owner'
@@ -151,7 +155,13 @@ export function MenuDoGrupo({ grupo, variante = 'linha' }: {
               engrenagem nao perde nada; quem nunca o encontrou agora tropeça
               nele a partir do proprio grupo, que e onde a duvida nasce.
             */}
-            {podeConvidar && (
+            {/*
+              Sem gate: a tela de configuracoes decide por si quais secoes
+              mostrar, e "Membros" vale para todo mundo que pertence ao grupo.
+              Esconder a porta inteira de quem nao administra escondia junto a
+              unica lista que responde "quem esta aqui?".
+            */}
+            {(
               <Menu.Item
                 onSelect={() => setPainel('grupo')}
                 className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-[13px]
@@ -205,7 +215,7 @@ export function MenuDoGrupo({ grupo, variante = 'linha' }: {
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-bg/70 backdrop-blur-sm" />
           <Dialog.Content
-            className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[min(92vw,40rem)]
+            className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[min(94vw,58rem)]
                        -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border
                        border-border-subtle bg-bg-raised p-4
                        shadow-[0_8px_16px_-8px_rgb(0_0_0/0.28),0_24px_48px_-12px_rgb(0_0_0/0.32)]"

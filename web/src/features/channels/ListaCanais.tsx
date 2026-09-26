@@ -8,6 +8,8 @@ import { Badge } from '../../ui/Badge.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { Contador } from '../../ui/bits/Contador.js'
 import { MenuDoGrupo } from '../groups/MenuDoGrupo.js'
+import { useChamadaAtiva } from '../voice/chamadaAtiva.js'
+import { ConfirmarAcao } from '../../ui/ConfirmarAcao.js'
 import { cn } from '../../lib/utils.js'
 
 /** "Ninguem na sala", com identidade estavel — um `[]` novo por render faria o
@@ -208,6 +210,23 @@ function Secao({ titulo, quantidade, children }: {
  * acesso", porque esse canal nao chegou - e inventar um cadeado aqui contaria
  * justamente o que a spec 03 secao 9 manda nao contar.
  */
+/**
+ * Clicar num canal de voz ENTRA nele.
+ *
+ * Era o gesto mais desalinhado da interface: clicar abria um painel que dizia
+ * "Entrar na chamada", e entrar exigia um segundo clique noutro canto da tela.
+ * Em toda ferramenta parecida — e na expectativa de quem chega — o canal de voz
+ * e a sala, e clicar nela e entrar.
+ *
+ * O unico caso que precisa de pergunta e trocar de sala estando dentro de
+ * outra: ali o clique nao acrescenta nada, ele DERRUBA uma conversa em
+ * andamento. Um clique errado na lista nao pode custar isso, e e a diferenca
+ * entre um atalho e uma armadilha.
+ *
+ * Voltar a clicar no canal em que voce JA esta nao faz nada — nem reentra, nem
+ * sai. Sair tem botao proprio, e transformar o mesmo gesto em entrar e sair
+ * conforme o estado e como se perde a chamada sem entender por que.
+ */
 export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactNode {
   const channels = useStore(e => e.channels)
   const grupoAtivo = useStore(e => e.grupoAtivo)
@@ -220,11 +239,23 @@ export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactN
   const chamadas = useStore(e => e.chamadas)
   const members = useStore(e => e.members)
 
+  const canalEmChamada = useChamadaAtiva(e => e.canal)
+  const entrarNaChamada = useChamadaAtiva(e => e.entrar)
+  const sairDaChamada = useChamadaAtiva(e => e.sair)
+  /** O canal que a pessoa clicou enquanto estava em outra chamada. Guardar o
+   *  canal inteiro, e nao o id, e o que permite a pergunta citar os dois nomes
+   *  — e "sair de #geral para entrar em #sala2?" e uma pergunta respondivel,
+   *  enquanto "trocar de sala?" nao e. */
+  const [trocarPara, setTrocarPara] = useState<Canal | null>(null)
+
   const doGrupo = useMemo(
     () => channels.filter(c => c.groupId === grupoAtivo),
     [channels, grupoAtivo],
   )
   const grupo = groups.find(g => g.id === grupoAtivo)
+  const nomeDoCanalEmChamada = canalEmChamada === null
+    ? null
+    : channels.find(c => c.id === canalEmChamada)?.name ?? null
 
   const texto = doGrupo.filter(c => c.type === 'text')
   const voz = doGrupo.filter(c => c.type === 'voice')
@@ -242,6 +273,12 @@ export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactN
         aoEscolher={() => {
           escolherCanal(canal.id)
           aoEscolher?.()
+          if (canal.type !== 'voice') return
+          // Ja estou nesta sala: abrir o canal e so abrir o canal.
+          if (canalEmChamada === canal.id) return
+          // Em outra chamada: a confirmacao abre, e quem decide e a pessoa.
+          if (canalEmChamada !== null) { setTrocarPara(canal); return }
+          void entrarNaChamada(canal.id)
         }}
       />
       {canal.type === 'voice' ? (
@@ -284,6 +321,33 @@ export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactN
           {voz.map(item)}
         </Secao>
       </div>
+
+      {/*
+        Controlado, e sem gatilho proprio: quem abre e o clique na lista. Um
+        gatilho visivel seria um segundo botao para a mesma acao, e e
+        exatamente o excesso de botoes que esta fatia foi reduzir.
+      */}
+      <ConfirmarAcao
+        aberto={trocarPara !== null}
+        aoMudarAberto={aberto => { if (!aberto) setTrocarPara(null) }}
+        titulo={`Trocar para ${trocarPara?.name ?? ''}?`}
+        descricao={
+          `Voce esta numa chamada em ${nomeDoCanalEmChamada ?? 'outro canal'} e vai sair dela `
+          + 'para entrar nesta.'
+        }
+        confirmar="Trocar de sala"
+        tom="padrao"
+        aoConfirmar={() => {
+          const destino = trocarPara
+          setTrocarPara(null)
+          if (destino === null) return
+          // Sair antes de entrar, e nao em paralelo: duas sessoes de midia
+          // vivas ao mesmo tempo disputariam o microfone, e o sintoma seria
+          // um audio que some ao trocar de sala.
+          sairDaChamada()
+          void entrarNaChamada(destino.id)
+        }}
+      />
     </div>
   )
 }

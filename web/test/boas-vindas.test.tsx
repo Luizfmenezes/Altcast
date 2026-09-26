@@ -78,7 +78,7 @@ describe('boas-vindas de quem nao tem grupo', () => {
       await screen.findByRole('link', { name: /Confirmar com o Google/ }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /Reenviar e-mail de confirmacao/ }),
+      screen.getByRole('button', { name: /Reenviar e-mail/ }),
     ).toBeEnabled()
   })
 

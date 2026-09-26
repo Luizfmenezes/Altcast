@@ -41,7 +41,6 @@ export function CriarGrupo({ gatilho }: { gatilho?: ReactNode }): ReactNode {
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [copiado, setCopiado] = useState(false)
-  const escolherGrupo = useStore(e => e.escolherGrupo)
   const cota = useStore(e => e.cotaDeGrupos)
 
   // `max: null` e o administrador da plataforma: sem teto. Cota ausente e um
@@ -80,9 +79,17 @@ export function CriarGrupo({ gatilho }: { gatilho?: ReactNode }): ReactNode {
     setEnviando(true)
     try {
       const grupo = await api.post<Grupo & { id: string }>('/groups', { name: nome })
-      // O `ready` do socket traz o grupo e os canais; aqui basta apontar para
-      // ele. Inserir na store a mao criaria uma segunda fonte da verdade.
-      escolherGrupo(grupo.id)
+      // Nada de apontar a tela daqui.
+      //
+      // Este trecho chamava `escolherGrupo(grupo.id)` confiando num `ready`
+      // que nao vinha: o `ready` e a fotografia da CONEXAO, e nao chega de
+      // novo porque um grupo nasceu. O resultado era `grupoAtivo` apontando
+      // para um grupo fora de `groups[]`, sem canal nenhum — a tela em branco
+      // que so o refresh resolvia.
+      //
+      // Agora quem poe o grupo na store e aponta a tela para ele e o
+      // `group.created` do socket, que chega com os canais junto. Uma fonte da
+      // verdade, e ela e o servidor.
 
       // O convite e um segundo pedido, e ele pode falhar sozinho — por
       // exemplo, com e-mail nao confirmado, que barra os dois. Falhar aqui NAO

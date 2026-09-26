@@ -1,6 +1,10 @@
+import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Database } from '../../src/db/client.js'
-import { channelMembers, channels, groupMembers, groups, users } from '../../src/db/schema.js'
+import {
+  channelMembers, channels, groupMembers, groups, memberRoles, roles, users,
+} from '../../src/db/schema.js'
+import { PERMISSOES_DE_ADMIN, PERMISSOES_DE_TODOS } from '../../src/permissions/acoes.js'
 import { hashPassword } from '../../src/auth/password.js'
 import { newId } from '../../src/shared/ids.js'
 
@@ -34,6 +38,47 @@ export async function criarUsuario(
     isPlatformAdmin: opts.platformAdmin ?? false,
   })
   return id
+}
+
+/**
+ * Semeia num grupo os mesmos dois cargos que a rota de criacao cria e que a
+ * migracao 0013 semeou nos grupos que ja existiam.
+ *
+ * Os cenarios inserem grupos direto no banco, sem passar pela rota. Sem esta
+ * funcao eles cairiam no fallback de `loadGroupActor` — o caminho que resolve
+ * permissao pelo papel antigo — e a suite inteira passaria sem nunca exercitar
+ * a resolucao por cargo, que e justamente o que mudou. Com ela, cada teste que
+ * ja existia vira tambem um teste de que os cargos reproduzem o
+ * comportamento antigo.
+ */
+export async function semearCargos(db: Database, grupo: string): Promise<{
+  todos: string; administrador: string
+}> {
+  const todos = newId()
+  const administrador = newId()
+  await db.insert(roles).values([
+    {
+      id: todos, groupId: grupo, name: 'todos', color: null, position: 0,
+      permissions: [...PERMISSOES_DE_TODOS], isDefault: true,
+    },
+    {
+      id: administrador, groupId: grupo, name: 'Administrador', color: '#5865F2',
+      position: 10, permissions: [...PERMISSOES_DE_ADMIN], isDefault: false,
+    },
+  ])
+  // Quem e `admin` em group_members recebe o cargo, como na migracao. O dono
+  // nao: ele atravessa a concessao pelo `ehDono`.
+  const admins = await db.select({ userId: groupMembers.userId }).from(groupMembers)
+    .where(eq(groupMembers.groupId, grupo))
+  for (const a of admins) {
+    const [linha] = await db.select({ role: groupMembers.role }).from(groupMembers)
+      .where(and(eq(groupMembers.groupId, grupo), eq(groupMembers.userId, a.userId)))
+    const { role: papel } = linha!
+    if (papel === 'admin') {
+      await db.insert(memberRoles).values({ groupId: grupo, userId: a.userId, roleId: administrador })
+    }
+  }
+  return { todos, administrador }
 }
 
 export type CenarioPrivado = {
@@ -80,6 +125,10 @@ export async function cenarioPrivado(db: Database): Promise<CenarioPrivado> {
   await db.insert(channels).values({
     id: canalPublico, groupId: grupo, name: 'geral', visibility: 'public', position: 0,
   })
+
+  // Os cargos entram aqui para que TODO teste que usa este cenario passe pela
+  // resolucao por cargo, e nao pelo fallback do papel antigo.
+  await semearCargos(db, grupo)
 
   return { grupo, canal, canalPublico, owner, admin, membroDentro, membroFora, estranho }
 }
@@ -128,6 +177,15 @@ export async function cenarioComAdmin(
 
   const admin = await loginComo(app, db, 'admin@x.com')
   await db.insert(groupMembers).values({ groupId, userId: admin.userId, role: 'admin' })
+  // O cargo, e nao so a coluna. Depois dos cargos, `group_members.role` e o
+  // rotulo e a titularidade; o poder vem do conjunto resolvido. Inserir a
+  // linha sem o cargo criaria um "administrador" sem nenhuma permissao de
+  // administrador — um cenario que nao existe pela rota, e que so faria os
+  // testes medirem o fallback.
+  const [cargoAdmin] = await db.select({ id: roles.id }).from(roles)
+    .where(and(eq(roles.groupId, groupId), eq(roles.name, 'Administrador'))).limit(1)
+  await db.insert(memberRoles)
+    .values({ groupId, userId: admin.userId, roleId: cargoAdmin!.id })
 
   return {
     groupId,

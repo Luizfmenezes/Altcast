@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../../lib/api.js'
+import { cn } from '../../lib/utils.js'
 
 /**
  * O botao de entrar pelo Google.
@@ -15,7 +16,31 @@ import { api } from '../../lib/api.js'
  * sessao voltar para DENTRO da janela do Electron e a navegacao acontecer na
  * propria janela.
  */
-export function EntrarComGoogle({ rotulo }: { rotulo: string }): ReactNode {
+/**
+ * ## Por que existe a variante
+ *
+ * Este componente nasceu para o rodape do formulario de entrar, e trazia isso
+ * embutido: `mt-6`, uma regua "ou" de largura total e `w-full`. Enquanto ele
+ * so morou ali, ninguem notou.
+ *
+ * Em `BoasVindas` ele foi colocado numa LINHA, ao lado do botao de reenviar
+ * e-mail. O `w-full` brigou com a linha, o `mt-6` o desalinhou da altura do
+ * irmao e a regua de largura total empurrou o botao contra a borda do cartao:
+ * o resultado era um "ou" solto no meio do nada e um botao cortado.
+ *
+ * Um componente que carrega a propria margem e a propria largura nao e
+ * reutilizavel — ele so funciona no lugar em que foi escrito. A variante nao e
+ * uma opcao de estilo: e a correcao do defeito.
+ */
+export function EntrarComGoogle({ rotulo, variante = 'bloco' }: {
+  rotulo: string
+  /**
+   * `bloco` e o rodape de formulario: separador "ou" acima, largura total.
+   * `linha` e o botao sozinho, do tamanho do conteudo, sem margem propria —
+   * para quando ele e UMA das opcoes numa fileira, e nao o fim de um caminho.
+   */
+  variante?: 'bloco' | 'linha'
+}): ReactNode {
   const [disponivel, setDisponivel] = useState(false)
 
   // Perguntado ao servidor, e nao assumido: as credenciais sao opcionais no
@@ -31,6 +56,27 @@ export function EntrarComGoogle({ rotulo }: { rotulo: string }): ReactNode {
 
   if (!disponivel) return null
 
+  const botao = (
+    <a
+      href="/api/auth/google/start"
+      className={cn(
+        `inline-flex items-center justify-center gap-3 rounded-md border border-border
+         bg-bg-raised text-sm font-medium text-fg transition-colors hover:bg-bg-hover
+         focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+         focus-visible:outline-accent`,
+        variante === 'bloco' ? 'h-11 w-full' : 'h-9 px-3',
+      )}
+    >
+      <MarcaGoogle />
+      {rotulo}
+    </a>
+  )
+
+  // Sem embrulho nenhum na variante de linha: quem a usa decide o espacamento,
+  // e um `div` a mais aqui ja seria uma decisao de layout tomada no lugar
+  // errado.
+  if (variante === 'linha') return botao
+
   return (
     <div className="mt-6">
       <div className="mb-4 flex items-center gap-3" aria-hidden="true">
@@ -38,18 +84,7 @@ export function EntrarComGoogle({ rotulo }: { rotulo: string }): ReactNode {
         <span className="text-xs uppercase tracking-wider text-fg-muted">ou</span>
         <span className="h-px flex-1 bg-border-subtle" />
       </div>
-
-      <a
-        href="/api/auth/google/start"
-        className="flex h-11 w-full items-center justify-center gap-3 rounded-md
-                   border border-border bg-bg-raised text-sm font-medium text-fg
-                   transition-colors hover:bg-bg-hover
-                   focus-visible:outline focus-visible:outline-2
-                   focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
-        <MarcaGoogle />
-        {rotulo}
-      </a>
+      {botao}
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { ConfiguracoesUsuario } from './ConfiguracoesUsuario.js'
 import { Perfil } from './Perfil.js'
 import { PreferenciasDeMidia } from '../voice/ConfiguracaoDeMidia.js'
 import { Abas, PainelDeAba } from '../../ui/Abas.js'
+import { cn } from '../../lib/utils.js'
 import type { Aba as DescricaoDeAba } from '../../ui/Abas.js'
 import { Botao } from '../../ui/Botao.js'
 import { usaLarguraMinima } from '../../lib/pontosDeQuebra.js'
@@ -69,10 +70,22 @@ export function Configuracoes({ groupId, podeAdministrar }: {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-bg/70 backdrop-blur-sm" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[min(92vw,46rem)]
-                     -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl
-                     border border-border-subtle bg-bg-raised text-fg
-                     shadow-[0_8px_16px_-8px_rgb(0_0_0/0.28),0_24px_48px_-12px_rgb(0_0_0/0.32)]"
+          className={cn(
+            `fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] -translate-x-1/2 -translate-y-1/2
+             flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised
+             text-fg
+             shadow-[0_8px_16px_-8px_rgb(0_0_0/0.28),0_24px_48px_-12px_rgb(0_0_0/0.32)]`,
+            // A aba de grupo carrega a propria barra de secoes, e dentro dela
+            // os cargos ainda abrem lista mais editor. Em 46rem isso virava
+            // tres colunas de navegacao espremendo o conteudo em uns 330px, e
+            // o editor de permissoes saia cortado pela borda do dialogo.
+            //
+            // A largura e condicional, e nao simplesmente maior: as outras
+            // abas sao formularios de uma coluna so, e estica-las por causa
+            // desta deixaria linhas de texto longas demais para ler com
+            // conforto.
+            atual === 'grupo' ? 'w-[min(95vw,66rem)]' : 'w-[min(92vw,46rem)]',
+          )}
         >
           <div className="flex items-start justify-between gap-4 px-4 pt-3">
             <div>

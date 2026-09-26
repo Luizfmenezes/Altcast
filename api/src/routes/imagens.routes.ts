@@ -7,6 +7,7 @@ import { assertCan, loadGroupActor } from '../permissions/context.js'
 import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
 import { emit } from '../realtime/emit.js'
+import { emitirGrupoAtualizado } from '../groups/eventos.js'
 import { uuidOu404 } from './groups.routes.js'
 import {
   chaveDoAvatar, chaveDoIcone, type Armazem,
@@ -178,7 +179,7 @@ export function imagensRoutes(armazem: Armazem | null) {
       await apagarAntigo(g?.chave ?? null)
 
       // Sem isto o icone novo so apareceria para os outros ao recarregar.
-      await emit.toGroup(groupId, { t: 'group.updated', d: { id: groupId, iconUrl } })
+      await emitirGrupoAtualizado(groupId, { iconUrl })
       return reply.status(201).send({ iconUrl })
     })
 
@@ -194,7 +195,7 @@ export function imagensRoutes(armazem: Armazem | null) {
         .where(eq(groups.id, groupId))
       await apagarAntigo(g?.chave ?? null)
 
-      await emit.toGroup(groupId, { t: 'group.updated', d: { id: groupId, iconUrl: null } })
+      await emitirGrupoAtualizado(groupId, { iconUrl: null })
       return reply.status(204).send()
     })
 

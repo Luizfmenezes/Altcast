@@ -1,8 +1,10 @@
-import { and, asc, eq, isNotNull, or, getTableColumns, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, isNotNull, or, getTableColumns, inArray } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import websocket from '@fastify/websocket'
 import { db } from '../db/client.js'
-import { channelMembers, channels, groupMembers, groups, users } from '../db/schema.js'
+import {
+  channelMembers, channels, groupMembers, groups, memberRoles, roles, users,
+} from '../db/schema.js'
 import { validateSession } from '../auth/session.js'
 import { env } from '../env.js'
 import { registry } from './registry.js'
@@ -71,6 +73,27 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
     .innerJoin(users, eq(users.id, groupMembers.userId))
     .where(inArray(groupMembers.groupId, ids))
 
+  /**
+   * Os cargos dos meus grupos, e quem tem cada um.
+   *
+   * Vem na fotografia, e nao por REST quando a tela de membros abre, porque
+   * nome colorido aparece na LISTA DE MEMBROS e no autor de cada mensagem —
+   * isto e, em toda a interface, o tempo todo. Buscar depois faria a primeira
+   * tela desenhar todo mundo em cinza e repintar um instante depois.
+   *
+   * As PERMISSOES de cada cargo vao junto de proposito: o cliente esconde
+   * botao que o servidor recusaria, e sem elas ele so poderia adivinhar. Isso
+   * nao vaza nada — sao as regras do grupo, visiveis a quem pertence a ele, e
+   * a autorizacao de verdade continua acontecendo em `can` a cada rota.
+   */
+  const meusCargos = ids.length === 0 ? [] : await db.select().from(roles)
+    .where(inArray(roles.groupId, ids))
+    .orderBy(desc(roles.position), asc(roles.name))
+
+  const vinculos = ids.length === 0 ? [] : await db.select({
+    groupId: memberRoles.groupId, userId: memberRoles.userId, roleId: memberRoles.roleId,
+  }).from(memberRoles).where(inArray(memberRoles.groupId, ids))
+
   // Lido ANTES do literal de proposito: assim `calls.participantes()` la
   // embaixo e a ultima leitura antes de o quadro ser serializado, e nao uma
   // que ainda espera um `await` do banco depois de si.
@@ -113,6 +136,11 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
      * evitar.
      */
     groupQuota: cota,
+    roles: meusCargos.map(r => ({
+      id: r.id, groupId: r.groupId, name: r.name, color: r.color,
+      position: r.position, permissions: r.permissions, isDefault: r.isDefault,
+    })),
+    memberRoles: vinculos,
     serverTime: new Date().toISOString(),
   }
 }

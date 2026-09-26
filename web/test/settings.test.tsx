@@ -69,6 +69,20 @@ function servidorFalso(sobrescritas: Record<string, unknown> = {}) {
   })
 }
 
+/**
+ * Abre uma secao da tela de grupo.
+ *
+ * As configuracoes do grupo deixaram de ser um scroll unico com canais,
+ * convites e membros empilhados: com identidade e cargos entrando viraram
+ * cinco assuntos, e cada um mora atras do proprio item de menu. Os testes
+ * passam pela mesma porta que uma pessoa passaria, em vez de alcancar o
+ * conteudo por dentro.
+ */
+async function abrirSecao(nome: string): Promise<void> {
+  const menu = await screen.findByRole('navigation', { name: 'Secoes das configuracoes' })
+  await userEvent.click(within(menu).getByRole('button', { name: nome }))
+}
+
 describe('configuracoes', () => {
   beforeEach(() => {
     useStore.getState().limpar()
@@ -82,6 +96,7 @@ describe('configuracoes', () => {
 
   it('admin ve o nome do canal privado, mas nao consegue abri-lo', async () => {
     render(<ConfiguracoesGrupo groupId={GRUPO} />)
+    await abrirSecao('Canais')
 
     // A unica excecao a invisibilidade, e ela vem com o rotulo que a explica.
     expect(await screen.findByText('diretoria')).toBeInTheDocument()
@@ -95,6 +110,7 @@ describe('configuracoes', () => {
     const fetchFalso = servidorFalso()
     vi.stubGlobal('fetch', fetchFalso)
     render(<ConfiguracoesGrupo groupId={GRUPO} />)
+    await abrirSecao('Canais')
 
     const formulario = await screen.findByRole('form', { name: 'Novo canal' })
     await userEvent.type(within(formulario).getByLabelText('Nome do canal'), 'reuniao')
@@ -116,6 +132,7 @@ describe('configuracoes', () => {
     const fetchFalso = servidorFalso()
     vi.stubGlobal('fetch', fetchFalso)
     render(<ConfiguracoesGrupo groupId={GRUPO} />)
+    await abrirSecao('Canais')
 
     await userEvent.click(await screen.findByRole('button', { name: 'Editar geral' }))
     const edicao = screen.getByRole('form', { name: 'Editar geral' })
@@ -137,6 +154,7 @@ describe('configuracoes', () => {
     const fetchFalso = servidorFalso()
     vi.stubGlobal('fetch', fetchFalso)
     render(<ConfiguracoesGrupo groupId={GRUPO} />)
+    await abrirSecao('Canais')
 
     await userEvent.click(await screen.findByRole('button', { name: 'Apagar geral' }))
     // Antes de confirmar, nada saiu: apagar canal leva as mensagens junto.
@@ -157,6 +175,7 @@ describe('configuracoes', () => {
     }))
     const usuario = userEvent.setup()
     render(<ConfiguracoesGrupo groupId={GRUPO} />)
+    await abrirSecao('Convites')
 
     await usuario.click(await screen.findByRole('button', { name: 'Gerar link' }))
 
@@ -173,6 +192,7 @@ describe('configuracoes', () => {
     }))
     const usuario = userEvent.setup()
     render(<ConfiguracoesGrupo groupId={GRUPO} />)
+    await abrirSecao('Convites')
 
     await usuario.click(await screen.findByRole('button', { name: 'Revogar o convite K7M2P9XQ' }))
 
@@ -191,6 +211,7 @@ describe('configuracoes', () => {
     }))
     const usuario = userEvent.setup()
     render(<ConfiguracoesGrupo groupId={GRUPO} />)
+    await abrirSecao('Convites')
 
     const gatilho = await screen.findByRole('button', { name: 'Revogar o convite K7M2P9XQ' })
     await usuario.click(gatilho)
@@ -232,6 +253,12 @@ describe('configuracoes', () => {
 
   it('axe nao encontra violacao nas duas telas', async () => {
     const grupo = render(<ConfiguracoesGrupo groupId={GRUPO} />)
+    // A primeira secao, que e a que abre sozinha: nome, imagem e zona de
+    // perigo do grupo.
+    expect(await violacoes(grupo.container)).toEqual([])
+    // E a de canais, que e onde mora a lista com o rotulo de conteudo
+    // inacessivel — o unico lugar da interface que nomeia um canal privado.
+    await abrirSecao('Canais')
     await screen.findByText('diretoria')
     expect(await violacoes(grupo.container)).toEqual([])
     grupo.unmount()

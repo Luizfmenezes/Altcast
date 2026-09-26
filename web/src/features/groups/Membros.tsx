@@ -1,12 +1,51 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Crown, ShieldCheck, UserMinus, UserPlus } from 'lucide-react'
+import * as Menu from '@radix-ui/react-dropdown-menu'
+import { Check, Crown, ShieldCheck, Tags, UserMinus, UserPlus } from 'lucide-react'
 import { ApiError, api } from '../../lib/api.js'
-import { useStore } from '../../lib/store.js'
+import { chaveDoMembro, possoNoGrupo, useStore } from '../../lib/store.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { Botao } from '../../ui/Botao.js'
 import { ConfirmarAcao } from '../../ui/ConfirmarAcao.js'
-import type { Papel } from '../../lib/tipos.js'
+import type { Cargo, Papel } from '../../lib/tipos.js'
+
+/**
+ * Os cargos de uma pessoa, como chips coloridos.
+ *
+ * Esta e a metade do sistema de cargos que nao tem nada a ver com permissao, e
+ * e a metade que se ve o tempo todo: um cargo comunica quem e quem antes de
+ * qualquer regra entrar em jogo. O cargo de todos nunca aparece — ele vale
+ * para o grupo inteiro, e pintar todo mundo igual nao distingue ninguem.
+ *
+ * A cor entra como texto SOBRE um fundo da mesma cor a baixa opacidade, e
+ * nunca como texto direto no fundo do tema. Cor de cargo e escolhida por
+ * gente, e gente escolhe cinza-claro: sem o fundo proprio, a primeira escolha
+ * infeliz derrubaria o contraste abaixo do minimo — e WCAG AA e requisito
+ * deste projeto, nao revisao final.
+ */
+function ChipsDeCargo({ cargos }: { cargos: Cargo[] }): ReactNode {
+  if (cargos.length === 0) return null
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {cargos.map(c => (
+        <span
+          key={c.id}
+          className="inline-flex items-center gap-1 rounded px-1.5 py-px text-[11px] font-medium"
+          style={c.color === null
+            ? undefined
+            : { color: c.color, backgroundColor: `${c.color}1f` }}
+        >
+          <span
+            aria-hidden="true"
+            className="size-1.5 rounded-full"
+            style={{ backgroundColor: c.color ?? 'currentColor' }}
+          />
+          {c.name}
+        </span>
+      ))}
+    </span>
+  )
+}
 
 type MembroDoGrupo = {
   userId: string
@@ -36,9 +75,42 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
   const [ocupado, setOcupado] = useState<string | null>(null)
   const eu = useStore(e => e.user)
   const grupo = useStore(e => e.groups.find(g => g.id === groupId))
+  const todosOsCargos = useStore(e => e.cargos)
+  const cargosDoMembro = useStore(e => e.cargosDoMembro)
+  const podeAtribuir = useStore(e => possoNoGrupo(e, groupId, 'group.change_role'))
+  const podeRemover = useStore(e => possoNoGrupo(e, groupId, 'group.kick'))
 
   const souDono = grupo?.role === 'owner'
-  const administro = souDono || grupo?.role === 'admin'
+
+  /** Os cargos atribuiveis do grupo, do mais alto para o mais baixo. O de
+   *  todos fica de fora: ele ja vale para todo mundo, e o servidor recusa
+   *  atribui-lo. */
+  const atribuiveis = Object.values(todosOsCargos)
+    .filter(c => c.groupId === groupId && !c.isDefault)
+    .sort((a, b) => b.position - a.position || a.name.localeCompare(b.name))
+
+  const cargosDe = (userId: string): Cargo[] =>
+    (cargosDoMembro[chaveDoMembro(groupId, userId)] ?? [])
+      .map(id => todosOsCargos[id])
+      .filter((c): c is Cargo => c !== undefined && !c.isDefault)
+      .sort((a, b) => b.position - a.position)
+
+  async function alternarCargo(userId: string, roleId: string, ligado: boolean): Promise<void> {
+    setErro(null)
+    const atuais = cargosDoMembro[chaveDoMembro(groupId, userId)] ?? []
+    const proximos = ligado
+      ? [...new Set([...atuais, roleId])]
+      : atuais.filter(i => i !== roleId)
+    try {
+      // O estado FINAL, e nao "acrescente" ou "remova": a tela mostra caixas
+      // marcadas, e mandar o conjunto inteiro e o que faz duas edicoes
+      // simultaneas terminarem num estado que alguem escolheu, em vez de na
+      // soma acidental das duas. O `member.roles_updated` atualiza a store.
+      await api.put(`/groups/${groupId}/members/${userId}/roles`, { roleIds: proximos })
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel mudar os cargos.')
+    }
+  }
 
   async function recarregar(): Promise<void> {
     const lista = await api.get<MembroDoGrupo[]>(`/groups/${groupId}/members`)
@@ -85,11 +157,15 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
   return (
     <section className="flex flex-col gap-4">
       <div>
-        <h3 className="text-[15px] font-semibold text-fg">
-          Membros <span className="numerico text-fg-muted">({membros.length})</span>
-        </h3>
+        {/* A contagem fica, o titulo sai: a secao ja se chama "Membros" na
+            tela de configuracoes, e o numero e a unica informacao nova. */}
+        <p className="text-[13px] font-medium text-fg">
+          <span className="numerico">{membros.length}</span>
+          {membros.length === 1 ? ' pessoa' : ' pessoas'}
+        </p>
         <p className="mt-1 text-[13px] text-fg-muted">
-          Administradores gerenciam canais e convites. So o dono muda cargos.
+          O que cada pessoa pode fazer vem dos cargos dela. Quem tem mais de um soma o
+          que cada um permite.
         </p>
       </div>
 
@@ -118,14 +194,69 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
                   {membro.displayName}
                   {souEu && <span className="ml-1.5 text-fg-muted">(voce)</span>}
                 </p>
-                <p className="flex items-center gap-1 text-[11px] text-fg-muted">
+                <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-fg-muted">
                   {ehDono && <Crown aria-hidden="true" className="size-3" />}
                   {membro.role === 'admin' && <ShieldCheck aria-hidden="true" className="size-3" />}
                   {PAPEL_POR_EXTENSO[membro.role]}
+                  <ChipsDeCargo cargos={cargosDe(membro.userId)} />
                 </p>
               </div>
 
               <div className="flex items-center gap-1">
+                {/*
+                  Cargos por ultimo na leitura e primeiro na acao: depois dos
+                  cargos, e daqui que sai quase todo o poder de alguem. O
+                  dono nao entra — ele atravessa toda permissao, e oferecer
+                  cargos a ele sugeriria que tira-los mudaria algo.
+                */}
+                {podeAtribuir && !ehDono && atribuiveis.length > 0 && (
+                  <Menu.Root>
+                    <Menu.Trigger asChild>
+                      <Botao variante="discreto" tamanho="sm" disabled={trabalhando}>
+                        <Tags aria-hidden="true" />
+                        Cargos
+                      </Botao>
+                    </Menu.Trigger>
+                    <Menu.Portal>
+                      <Menu.Content
+                        align="end"
+                        sideOffset={6}
+                        className="z-[60] max-h-64 min-w-48 overflow-y-auto rounded-lg border
+                                   border-border-subtle bg-bg-raised p-1 shadow-lg"
+                      >
+                        {atribuiveis.map(cargo => {
+                          const tem = cargosDe(membro.userId).some(c => c.id === cargo.id)
+                          return (
+                            <Menu.CheckboxItem
+                              key={cargo.id}
+                              checked={tem}
+                              // O menu nao fecha a cada marcacao: dar tres
+                              // cargos a alguem sao tres cliques, e reabrir o
+                              // menu entre eles e trabalho que a tela cria.
+                              onSelect={e => e.preventDefault()}
+                              onCheckedChange={marcado => {
+                                void alternarCargo(membro.userId, cargo.id, marcado)
+                              }}
+                              className="flex min-h-8 cursor-pointer items-center gap-2 rounded px-2
+                                         text-[13px] text-fg outline-none
+                                         data-[highlighted]:bg-bg-hover"
+                            >
+                              <span
+                                aria-hidden="true"
+                                className="size-2.5 shrink-0 rounded-full border border-border-subtle"
+                                style={{ backgroundColor: cargo.color ?? 'transparent' }}
+                              />
+                              <span className="min-w-0 flex-1 truncate">{cargo.name}</span>
+                              <Menu.ItemIndicator>
+                                <Check aria-hidden="true" className="size-3.5 text-accent" />
+                              </Menu.ItemIndicator>
+                            </Menu.CheckboxItem>
+                          )
+                        })}
+                      </Menu.Content>
+                    </Menu.Portal>
+                  </Menu.Root>
+                )}
                 {/* So o dono muda cargos, e o cargo do proprio dono nao muda
                     por aqui: rebaixa-lo sem promover ninguem deixaria o grupo
                     sem dono, e o banco recusa. Transferir titularidade e um
@@ -167,7 +298,7 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
                   />
                 )}
 
-                {administro && !ehDono && !souEu && (
+                {podeRemover && !ehDono && !souEu && (
                   <ConfirmarAcao
                     titulo={`Remover ${membro.displayName} do grupo?`}
                     descricao="A pessoa perde acesso aos canais. Pode voltar com um convite novo."

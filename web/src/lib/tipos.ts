@@ -3,6 +3,48 @@
 export type Papel = 'owner' | 'admin' | 'member'
 export type Visibilidade = 'public' | 'private'
 
+/**
+ * Um literal de permissao, como o servidor os nomeia.
+ *
+ * Deliberadamente `string`, e nao uma uniao copiada de `acoes.ts`: manter aqui
+ * uma segunda lista das acoes criaria duas listas para envelhecer separadas, e
+ * a do cliente envelheceria mais rapido. O catalogo com rotulo e descricao vem
+ * de `GET /api/permissions/catalog`, e e ele que a tela desenha — o cliente
+ * nunca precisa CONHECER uma acao, so exibir e reenviar a que recebeu.
+ */
+export type Acao = string
+
+/** Um cargo do grupo. */
+export type Cargo = {
+  id: string
+  groupId: string
+  name: string
+  /** '#RRGGBB', ou nulo para herdar a cor do texto. */
+  color: string | null
+  /** Maior manda mais. */
+  position: number
+  permissions: Acao[]
+  /** O cargo de todos: nao se renomeia, nao se apaga, nao se atribui. */
+  isDefault: boolean
+}
+
+/** Quem tem qual cargo. Achatado de proposito: a lista de membros cruza os
+ *  dois por `userId`, e aninhar obrigaria a store a remontar o membro inteiro
+ *  a cada `member.roles_updated`. */
+export type VinculoDeCargo = { groupId: string; userId: string; roleId: string }
+
+/** Uma permissao como a tela de cargos a apresenta. Vem do servidor: quem
+ *  acrescenta uma acao mexe num arquivo so, e nunca existe o estado em que ela
+ *  vale e nenhuma tela sabe explicar o que faz. */
+export type DescricaoDeAcao = {
+  acao: Acao
+  secao: 'Grupo' | 'Canais' | 'Mensagens' | 'Voz'
+  rotulo: string
+  descricao: string
+  /** Concede poder sobre outras pessoas: a tela avisa antes de marcar. */
+  sensivel?: boolean
+}
+
 export type Usuario = {
   id: string
   displayName: string
@@ -152,6 +194,20 @@ export type Ready = {
    * simplesmente nao promete nenhum.
    */
   groupQuota?: CotaDeGrupos
+  /**
+   * Os cargos dos meus grupos, e quem tem cada um.
+   *
+   * Vem na fotografia inicial, e nao por REST quando a tela de cargos abre,
+   * porque nome colorido aparece na lista de membros e no autor de cada
+   * mensagem — isto e, na interface inteira, o tempo todo. Buscar depois faria
+   * a primeira tela desenhar todo mundo em cinza e repintar um instante
+   * depois.
+   *
+   * Opcionais pelo mesmo motivo de `reads` e `calls`: servidor anterior a esta
+   * versao nao manda os campos, e o cliente novo nao pode quebrar por isso.
+   */
+  roles?: Cargo[]
+  memberRoles?: VinculoDeCargo[]
   serverTime: string
 }
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type {
-  Canal, ConviteRecebido, CotaDeGrupos, Grupo, Membro, Mensagem, Papel, Ready, Usuario,
+  Acao, Canal, Cargo, ConviteRecebido, CotaDeGrupos, Grupo, Membro, Mensagem, Papel,
+  Ready, Usuario, VinculoDeCargo,
 } from './tipos.js'
 import type { QuadroCliente, ServerEvent, SocketStatus } from './socket.js'
 
@@ -52,6 +53,16 @@ type Estado = {
    * nao promete teto nenhum, em vez de inventar um.
    */
   cotaDeGrupos: CotaDeGrupos | null
+  /**
+   * Os cargos de todos os meus grupos, num mapa unico por id.
+   *
+   * Um mapa, e nao uma lista por grupo: pintar o autor de uma mensagem exige
+   * achar o cargo mais alto de uma pessoa, e isso acontece uma vez por linha
+   * de conversa. Varrer uma lista a cada linha seria trabalho por quadro.
+   */
+  cargos: Record<string, Cargo>
+  /** Os cargos de cada pessoa, por `groupId:userId`. */
+  cargosDoMembro: Record<string, string[]>
   definirConvites: (lista: ConviteRecebido[]) => void
   removerConvite: (id: string) => void
 
@@ -119,6 +130,81 @@ function mexerNaReacao(
   return { ...mapa, [channelId]: lista.map(m => m.id === messageId ? mexer(m) : m) }
 }
 
+/** A chave do mapa de vinculos. Uma string, e nao um mapa aninhado: o cliente
+ *  so pergunta "os cargos desta pessoa neste grupo", nunca "todo mundo deste
+ *  grupo", e a chave composta responde isso em um acesso. */
+export const chaveDoMembro = (groupId: string, userId: string): string =>
+  `${groupId}:${userId}`
+
+function porId(cargos: readonly Cargo[]): Record<string, Cargo> {
+  return Object.fromEntries(cargos.map(c => [c.id, c]))
+}
+
+function agrupar(vinculos: readonly VinculoDeCargo[]): Record<string, string[]> {
+  const mapa: Record<string, string[]> = {}
+  for (const v of vinculos) {
+    const chave = chaveDoMembro(v.groupId, v.userId)
+    ;(mapa[chave] ??= []).push(v.roleId)
+  }
+  return mapa
+}
+
+/**
+ * O cargo mais alto de alguem que TENHA cor, para pintar o nome.
+ *
+ * O mais alto com cor, e nao simplesmente o mais alto: um cargo sem cor herda
+ * a cor do texto, e deixa-lo vencer apagaria a cor de um cargo mais baixo que
+ * a pessoa escolheu justamente para aparecer. E a mesma regra do Discord, e e
+ * a que as pessoas esperam ao pintar um cargo.
+ *
+ * O cargo de todos nunca entra: ele vale para o grupo inteiro, e pintar todo
+ * mundo da mesma cor nao distingue ninguem.
+ */
+export function corDoMembro(
+  estado: Pick<Estado, 'cargos' | 'cargosDoMembro'>,
+  groupId: string,
+  userId: string,
+): string | null {
+  const ids = estado.cargosDoMembro[chaveDoMembro(groupId, userId)] ?? []
+  let melhor: Cargo | null = null
+  for (const id of ids) {
+    const c = estado.cargos[id]
+    if (c === undefined || c.isDefault || c.color === null) continue
+    if (melhor === null || c.position > melhor.position) melhor = c
+  }
+  return melhor?.color ?? null
+}
+
+/**
+ * O que EU posso neste grupo, como o cliente enxerga.
+ *
+ * Existe para esconder botao que o servidor recusaria — e para nada alem
+ * disso. A autorizacao de verdade acontece em `can()` a cada rota, e continua
+ * acontecendo mesmo que alguem burle isto aqui: esconder e cortesia, nunca
+ * defesa. O dono atravessa, como em `can.ts`.
+ */
+export function possoNoGrupo(
+  estado: Pick<Estado, 'cargos' | 'cargosDoMembro' | 'groups' | 'user'>,
+  groupId: string,
+  acao: Acao,
+): boolean {
+  const grupo = estado.groups.find(g => g.id === groupId)
+  if (grupo === undefined) return false
+  if (grupo.role === 'owner') return true
+
+  const eu = estado.user?.id
+  if (eu === undefined) return false
+  const meus = estado.cargosDoMembro[chaveDoMembro(groupId, eu)] ?? []
+
+  for (const c of Object.values(estado.cargos)) {
+    if (c.groupId !== groupId) continue
+    // O cargo de todos vale sem estar vinculado: e o que ele significa.
+    if (!c.isDefault && !meus.includes(c.id)) continue
+    if (c.permissions.includes(acao)) return true
+  }
+  return false
+}
+
 /** Ordem estavel: posicao e, no empate, o ID - que e UUIDv7, portanto criacao. */
 const porPosicao = (a: Canal, b: Canal): number =>
   a.position - b.position || a.id.localeCompare(b.id)
@@ -155,6 +241,8 @@ export const useStore = create<Estado>(set => ({
   leituras: {},
   convites: [],
   cotaDeGrupos: null,
+  cargos: {},
+  cargosDoMembro: {},
   enviarQuadro: () => false,
 
   aplicarReady: ready => set(estado => {
@@ -197,6 +285,11 @@ export const useStore = create<Estado>(set => ({
       // Mesma politica: ausente significa "este servidor nao fala de cota", e
       // nao "a cota zerou".
       ...(ready.groupQuota === undefined ? {} : { cotaDeGrupos: ready.groupQuota }),
+      // Ausente significa "este servidor nao fala de cargos", e nao "os cargos
+      // sumiram": nesse caso o mapa fica como estava, e a interface segue sem
+      // cor nenhuma em vez de apagar a que ja desenhou.
+      ...(ready.roles === undefined ? {} : { cargos: porId(ready.roles) }),
+      ...(ready.memberRoles === undefined ? {} : { cargosDoMembro: agrupar(ready.memberRoles) }),
       channels: [...ready.channels].sort(porPosicao),
       members: ready.members,
       grupoAtivo,
@@ -230,6 +323,127 @@ export const useStore = create<Estado>(set => ({
           },
         }))
       }
+      /**
+       * O grupo entrou para a MINHA lista.
+       *
+       * Este `case` e a correcao de raiz de tres sintomas que pareciam
+       * separados: criar um grupo e nao ve-lo, aceitar um convite e nao
+       * entrar, e a tela em branco logo depois dos dois. Os canais sempre
+       * tiveram os seus eventos; os grupos nao tinham nenhum, e o `ready`
+       * respondia "quais sao os meus grupos" uma unica vez, na conexao. Dai o
+       * refresh.
+       *
+       * `group.created` PUXA a tela para o grupo novo, e `group.joined` nao:
+       * quem acabou de criar um grupo quer entrar nele, e quem aceita um
+       * convite no meio de uma conversa nao pode ser arrastado para fora dela.
+       */
+      case 'group.created':
+      case 'group.joined': {
+        const { group, channels } = d as unknown as { group: Grupo; channels: Canal[] }
+        const puxarParaCa = evento.t === 'group.created'
+        return set(estado => {
+          const grupos = [...estado.groups.filter(g => g.id !== group.id), group]
+            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+          const canais = [
+            ...estado.channels.filter(c => c.groupId !== group.id), ...channels,
+          ].sort(porPosicao)
+          return {
+            groups: grupos,
+            channels: canais,
+            ...(puxarParaCa
+              ? {
+                grupoAtivo: group.id,
+                canalAtivo: primeiroCanalDoGrupo(canais, group.id),
+              }
+              : {}),
+          }
+        })
+      }
+
+      /**
+       * O nome ou a imagem mudaram.
+       *
+       * Os campos chegam separados de proposito, e a mesclagem distingue "veio
+       * nulo" de "nao veio" — remover a imagem manda `iconUrl: null`, que e um
+       * valor legitimo. Mesma regra que `user.updated` ja aplica ao avatar.
+       *
+       * O servidor emitia isto desde sempre na troca de icone, e o cliente
+       * vinha descartando no `default`: era por isso que trocar a foto do
+       * grupo nao mudava nada na tela de ninguem, nem na de quem trocou.
+       */
+      case 'group.updated': {
+        const alteracao = d as { id: string; name?: string; iconUrl?: string | null }
+        return set(estado => ({
+          groups: estado.groups.map(g => g.id !== alteracao.id ? g : {
+            ...g,
+            ...(alteracao.name === undefined ? {} : { name: alteracao.name }),
+            ...('iconUrl' in alteracao ? { iconUrl: alteracao.iconUrl ?? null } : {}),
+          }),
+        }))
+      }
+
+      case 'group.deleted': {
+        const { id } = d as { id: string }
+        return set(estado => {
+          const grupos = estado.groups.filter(g => g.id !== id)
+          const canaisQueSaem = new Set(
+            estado.channels.filter(c => c.groupId === id).map(c => c.id),
+          )
+          const canais = estado.channels.filter(c => c.groupId !== id)
+          // As mensagens dos canais daquele grupo saem da memoria junto: o
+          // acesso acabou, e o cache nao pode sobreviver a ele. Mesma regra
+          // que `channel.deleted` ja aplica a um canal.
+          const mensagens = Object.fromEntries(
+            Object.entries(estado.mensagens).filter(([canal]) => !canaisQueSaem.has(canal)),
+          )
+          const grupoAtivo = estado.grupoAtivo === id
+            ? grupos[0]?.id ?? null
+            : estado.grupoAtivo
+          return {
+            groups: grupos,
+            channels: canais,
+            mensagens,
+            members: estado.members.filter(m => m.groupId !== id),
+            grupoAtivo,
+            canalAtivo: estado.grupoAtivo === id
+              ? (grupoAtivo === null ? null : primeiroCanalDoGrupo(canais, grupoAtivo))
+              : estado.canalAtivo,
+          }
+        })
+      }
+
+      case 'role.created':
+      case 'role.updated': {
+        const cargo = d as unknown as Cargo
+        return set(estado => ({ cargos: { ...estado.cargos, [cargo.id]: cargo } }))
+      }
+
+      case 'role.deleted': {
+        const { id } = d as { id: string }
+        return set(estado => {
+          const { [id]: _foiEmbora, ...cargos } = estado.cargos
+          // O vinculo tambem sai: o banco o apagou por CASCADE, e deixa-lo aqui
+          // faria a lista de membros procurar um cargo que nao existe mais.
+          const cargosDoMembro = Object.fromEntries(
+            Object.entries(estado.cargosDoMembro)
+              .map(([chave, ids]) => [chave, ids.filter(i => i !== id)]),
+          )
+          return { cargos, cargosDoMembro }
+        })
+      }
+
+      case 'member.roles_updated': {
+        const { groupId, userId, roleIds } = d as {
+          groupId: string; userId: string; roleIds: string[]
+        }
+        return set(estado => ({
+          cargosDoMembro: {
+            ...estado.cargosDoMembro,
+            [chaveDoMembro(groupId, userId)]: roleIds,
+          },
+        }))
+      }
+
       case 'channel.created':
       case 'channel.updated': {
         const canal = d as unknown as Canal
@@ -265,11 +479,40 @@ export const useStore = create<Estado>(set => ({
       }
       case 'member.left': {
         const { groupId, userId } = d as { groupId: string; userId: string }
-        return set(estado => ({
-          members: estado.members.filter(
+        return set(estado => {
+          const membros = estado.members.filter(
             m => !(m.groupId === groupId && m.userId === userId),
-          ),
-        }))
+          )
+          // Quem saiu fui EU: o grupo tem de sair da minha barra agora.
+          //
+          // O servidor ja mandava este evento para quem saiu — a audiencia e
+          // capturada antes da remocao justamente para isso —, e o cliente so
+          // tirava a linha da lista de membros. O grupo continuava ali,
+          // clicavel, ate alguem recarregar. E o mesmo defeito de `group.*`,
+          // com o sinal trocado.
+          if (userId !== estado.user?.id) return { members: membros }
+
+          const grupos = estado.groups.filter(g => g.id !== groupId)
+          const canaisQueSaem = new Set(
+            estado.channels.filter(c => c.groupId === groupId).map(c => c.id),
+          )
+          const canais = estado.channels.filter(c => c.groupId !== groupId)
+          const grupoAtivo = estado.grupoAtivo === groupId
+            ? grupos[0]?.id ?? null
+            : estado.grupoAtivo
+          return {
+            members: membros.filter(m => m.groupId !== groupId),
+            groups: grupos,
+            channels: canais,
+            mensagens: Object.fromEntries(
+              Object.entries(estado.mensagens).filter(([c]) => !canaisQueSaem.has(c)),
+            ),
+            grupoAtivo,
+            canalAtivo: estado.grupoAtivo === groupId
+              ? (grupoAtivo === null ? null : primeiroCanalDoGrupo(canais, grupoAtivo))
+              : estado.canalAtivo,
+          }
+        })
       }
       case 'member.updated': {
         const alvo = d as { groupId: string; userId: string; role: Membro['role'] }
@@ -493,7 +736,7 @@ export const useStore = create<Estado>(set => ({
   limpar: () => set({
     user: null, groups: [], channels: [], members: [], mensagens: {},
     grupoAtivo: null, canalAtivo: null, chamadas: {}, leituras: {}, convites: [],
-    cotaDeGrupos: null,
+    cotaDeGrupos: null, cargos: {}, cargosDoMembro: {},
   }),
 }))
 

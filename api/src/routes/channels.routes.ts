@@ -8,6 +8,11 @@ import { assertCan, loadChannelActor, loadGroupActor } from '../permissions/cont
 import { can, type Actor, type Resource } from '../permissions/can.js'
 import type { Database } from '../db/client.js'
 import { AppError } from '../shared/errors.js'
+import { serializeChannel } from '../channels/serializar.js'
+
+// Reexportado: a funcao mudou de casa para nao fechar um ciclo de import com
+// groups.routes.ts, e quem ja a importava daqui nao precisa saber disso.
+export { serializeChannel }
 import { newId } from '../shared/ids.js'
 import { emit } from '../realtime/emit.js'
 import { audienceOfChannel } from '../realtime/fanout.js'
@@ -77,12 +82,7 @@ function eNomeDuplicado(erro: unknown): boolean {
   return false
 }
 
-export function serializeChannel(c: Channel): Record<string, unknown> {
-  return {
-    id: c.id, groupId: c.groupId, name: c.name, type: c.type,
-    visibility: c.visibility, topic: c.topic, position: c.position, createdAt: c.createdAt,
-  }
-}
+
 
 /**
  * A lista de acesso so existe para canal privado. Canal publico tira o acesso

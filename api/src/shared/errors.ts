@@ -45,6 +45,22 @@ export const ERROR_CATALOG = {
   unsupported_image:   { status: 422, message: 'Envie uma imagem PNG, JPEG, GIF ou WebP.' },
   username_taken:      { status: 409, message: 'Este nome de usuario ja esta em uso.' },
   username_change_too_soon: { status: 409, message: 'Voce so pode trocar o nome de usuario uma vez por mes.' },
+  role_name_taken:     { status: 409, message: 'Ja existe um cargo com esse nome.' },
+  role_limit_reached:  { status: 409, message: 'Este grupo atingiu o limite de 25 cargos.' },
+  // O cargo de todos e a base de permissoes do grupo: apaga-lo deixaria todo
+  // mundo sem nada, e renomea-lo tiraria da tela a unica linha que explica o
+  // que vale para quem nao tem cargo nenhum. As PERMISSOES dele sao editaveis,
+  // e e justamente para isso que ele existe.
+  default_role_locked: { status: 409, message: 'O cargo de todos nao pode ser renomeado nem apagado.' },
+  // Hierarquia. 409, e nao 403: quem pede TEM a permissao de gerenciar cargos
+  // — o que falta e altura, e isso e conflito com o estado, nao falta de
+  // autorizacao. Dizer "sem permissao" mandaria a pessoa procurar no lugar
+  // errado.
+  role_above_you:      { status: 409, message: 'Este cargo esta acima do seu. Voce so mexe no que esta abaixo.' },
+  member_above_you:    { status: 409, message: 'Esta pessoa esta acima de voce na hierarquia.' },
+  // A trava que impede escalar privilegio por cargo: ninguem concede o que
+  // nao tem. Sem ela, quem pudesse gerenciar cargos se daria qualquer coisa.
+  cannot_grant_unheld: { status: 409, message: 'Voce nao pode conceder uma permissao que voce mesmo nao tem.' },
   internal_error:      { status: 500, message: 'Algo deu errado. Tente novamente.' },
 } as const
 

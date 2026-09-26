@@ -58,6 +58,12 @@ test.describe('fluxos da Fatia 1', () => {
 
     await dono.getByRole('button', { name: 'Configuracoes' }).click()
     await dono.getByRole('tab', { name: 'Grupo' }).click()
+    // A tela de grupo deixou de ser um scroll unico com tudo empilhado e virou
+    // um menu de secoes: com cargos e identidade entrando, viraram cinco
+    // assuntos, e cargos sozinho precisa de duas colunas. O convite agora tem
+    // nome proprio no menu — que e justamente o que o scroll nao dava.
+    await dono.getByRole('navigation', { name: 'Secoes das configuracoes' })
+      .getByRole('button', { name: 'Convites' }).click()
     await dono.getByRole('button', { name: 'Gerar link' }).click()
 
     const codigo = (await dono.getByRole('dialog').locator('code').first().textContent())?.trim()

@@ -18,10 +18,10 @@ describe('contexto de autorizacao', () => {
   it('carrega o papel do grupo', async () => {
     await withTestDb(async db => {
       const { owner, admin, membroFora, estranho, grupo } = await cenarioPrivado(db)
-      expect((await loadGroupActor(owner, grupo)).role).toBe('owner')
-      expect((await loadGroupActor(admin, grupo)).role).toBe('admin')
-      expect((await loadGroupActor(membroFora, grupo)).role).toBe('member')
-      expect((await loadGroupActor(estranho, grupo)).role).toBeNull()
+      expect((await loadGroupActor(owner, grupo)).papel).toBe('owner')
+      expect((await loadGroupActor(admin, grupo)).papel).toBe('admin')
+      expect((await loadGroupActor(membroFora, grupo)).papel).toBe('member')
+      expect((await loadGroupActor(estranho, grupo)).papel).toBeNull()
     })
   })
 

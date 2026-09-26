@@ -10,6 +10,7 @@ import { AppError } from '../shared/errors.js'
 import { newId } from '../shared/ids.js'
 import { emit } from '../realtime/emit.js'
 import { audienceOfUser } from '../realtime/fanout.js'
+import { emitirEntradaEmGrupo } from '../groups/eventos.js'
 import { correioPadrao } from '../email/index.js'
 import { emailDeConvite } from '../email/modelos.js'
 import type { Correio } from '../email/tipos.js'
@@ -401,6 +402,10 @@ export async function invitationsRoutes(app: FastifyInstance, opcoes?: {
         displayName: eu?.displayName ?? 'usuario', avatarUrl: eu?.avatarUrl ?? null,
       },
     })
+
+    // Pelo mesmo motivo de `invites.routes.ts`: o grupo precisa entrar na
+    // lista de quem aceitou, e o `member.joined` acima nao faz isso.
+    await emitirEntradaEmGrupo('group.joined', userId, groupId, role)
 
     return { group: { id: g!.id, name: g!.name, iconUrl: g!.iconUrl, role } }
   })

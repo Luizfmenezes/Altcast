@@ -1,8 +1,19 @@
 import { describe, it, expect } from 'vitest'
 import { can, type Action, type Actor, type Resource } from '../src/permissions/can.js'
+import { atorDePapel } from '../src/permissions/papeis.js'
 
-const ator = (role: Actor['role'], inChannel = false): Actor =>
-  ({ userId: 'u1', role, inChannel })
+/**
+ * A matriz abaixo e a MESMA de antes dos cargos, celula por celula, e e por
+ * isso que ela nao foi reescrita: ela virou o teste de equivalencia da
+ * migracao. `atorDePapel` monta o ator com o conjunto de permissoes que
+ * reproduz o papel antigo, e o que se verifica aqui e que trocar o formato da
+ * entrada de `can` nao mudou uma unica resposta.
+ *
+ * Os casos especificos de CARGO — hierarquia, uniao de conjuntos, excecao de
+ * canal — vivem em `cargos.test.ts`, contra um banco de verdade.
+ */
+const ator = (papel: Actor['papel'], inChannel = false): Actor =>
+  atorDePapel('u1', papel, inChannel)
 
 const canalPublico: Resource = { kind: 'channel', visibility: 'public' }
 const canalPrivado: Resource = { kind: 'channel', visibility: 'private' }

@@ -12,6 +12,7 @@ import { newId } from './shared/ids.js'
 import { authRoutes } from './routes/auth.routes.js'
 import type { Correio } from './email/tipos.js'
 import { groupsRoutes } from './routes/groups.routes.js'
+import { rolesRoutes } from './routes/roles.routes.js'
 import { invitesRoutes } from './routes/invites.routes.js'
 import { invitationsRoutes } from './routes/invitations.routes.js'
 import { googleRoutes } from './routes/google.routes.js'
@@ -143,6 +144,7 @@ export async function buildServer(opcoes: OpcoesDoServidor = {}): Promise<Fastif
 
   await app.register(authRoutes, opcoes.correio === undefined ? {} : { correio: opcoes.correio })
   await app.register(groupsRoutes)
+  await app.register(rolesRoutes)
   await app.register(invitesRoutes)
   // Mesmo correio injetavel do `authRoutes`, e pela mesma razao: o convite por
   // endereco manda e-mail, e um teste que precisasse de rede para verificar

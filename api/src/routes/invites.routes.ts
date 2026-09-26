@@ -9,6 +9,7 @@ import { assertCan, loadGroupActor } from '../permissions/context.js'
 import { AppError } from '../shared/errors.js'
 import { generateInviteCode, normalizeInviteCode } from '../invites/code.js'
 import { emit } from '../realtime/emit.js'
+import { emitirEntradaEmGrupo } from '../groups/eventos.js'
 import { contarMembros, parse, uuidOu404 } from './groups.routes.js'
 
 type Invite = typeof invites.$inferSelect
@@ -178,6 +179,13 @@ export async function invitesRoutes(app: FastifyInstance): Promise<void> {
         displayName: quemEntrou?.displayName ?? 'usuario', avatarUrl: quemEntrou?.avatarUrl ?? null,
       },
     })
+
+    // `member.joined` conta ao GRUPO que chegou gente; nao conta a quem chegou
+    // que ele ganhou um grupo. Sem este segundo evento, aceitar um convite
+    // acrescentava um membro a uma lista que o recem-chegado nem tinha — e a
+    // barra lateral dele so mostrava o grupo depois de recarregar.
+    await emitirEntradaEmGrupo('group.joined', userId, groupId, 'member')
+
     return { group: { id: g!.id, name: g!.name, iconUrl: g!.iconUrl, role: 'member' } }
   })
 

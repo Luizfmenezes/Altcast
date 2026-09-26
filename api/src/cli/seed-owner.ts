@@ -1,4 +1,5 @@
-import { channels, groupMembers, groups, users } from '../db/schema.js'
+import { channels, groupMembers, groups, roles, users } from '../db/schema.js'
+import { cargosPadrao } from '../groups/cargosPadrao.js'
 import { db } from '../db/client.js'
 import { assertPasswordAcceptable, hashPassword } from '../auth/password.js'
 import { newId } from '../shared/ids.js'
@@ -48,6 +49,12 @@ export async function seedOwner(): Promise<void> {
   await db.insert(channels).values({
     id: channelId, groupId, name: 'geral', type: 'text', visibility: 'public', position: 0,
   })
+  // O grupo inicial nascia SEM cargo nenhum, porque este arquivo insere direto
+  // no banco em vez de passar pela rota. Na pratica isso deixava o primeiro
+  // grupo de toda instalacao no caminho de fallback de `loadGroupActor` — o
+  // que resolve permissao pelo papel antigo — e a tela de cargos dele abriria
+  // vazia, sem nada explicando por que.
+  await db.insert(roles).values(cargosPadrao(groupId))
 
   console.log('Usuario inicial criado:', email)
   console.log('Grupo "Anticorp" criado com o canal #geral.')

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { AppShell } from './AppShell.js'
 import { TelaAuth } from './features/auth/TelaAuth.js'
+import { AceitarConvite } from './features/groups/AceitarConvite.js'
+import { usarRota } from './lib/rota.js'
 import { api, SESSAO_EXPIROU } from './lib/api.js'
 import { conectarSocket, type Conexao } from './lib/socket.js'
 import { canaisComHistorico, useStore } from './lib/store.js'
@@ -20,6 +22,11 @@ type Sessao = 'verificando' | 'fora' | 'dentro'
  */
 export function App(): ReactNode {
   const [sessao, setSessao] = useState<Sessao>('verificando')
+  // A rota e lida DENTRO da sessao tambem, e nao so fora dela. Ate aqui apenas
+  // `TelaAuth` a consultava, e por isso um link de convite aberto por quem ja
+  // tinha sessao era descartado em silencio: a pessoa caia no aplicativo e o
+  // codigo sumia.
+  const rota = usarRota()
   const [latencia, setLatencia] = useState<number | null>(null)
 
   const canalAtivo = useStore(e => e.canalAtivo)
@@ -121,5 +128,10 @@ export function App(): ReactNode {
     return <TelaAuth aoEntrar={entrou} />
   }
 
-  return <AppShell latenciaMs={latencia} />
+  return (
+    <>
+      <AppShell latenciaMs={latencia} />
+      {rota.nome === 'convite' && <AceitarConvite codigo={rota.codigo} />}
+    </>
+  )
 }

@@ -1,82 +1,113 @@
-export type Role = 'owner' | 'admin' | 'member'
+import {
+  DEPENDEM_DO_CANAL, POR_AUTORIA, SOBRE_OUTRO_MEMBRO, ehAcao, type Action,
+} from './acoes.js'
+
+export type { Action } from './acoes.js'
 export type Visibility = 'public' | 'private'
 
-export type Action =
-  | 'group.view' | 'group.update' | 'group.delete'
-  | 'group.invite' | 'group.kick' | 'group.change_role'
-  | 'channel.create' | 'channel.update' | 'channel.delete'
-  | 'channel.read' | 'channel.write' | 'channel.manage_members'
-  | 'message.create' | 'message.edit_own' | 'message.delete_own' | 'message.delete_any'
-  | 'message.attach' | 'attachment.read' | 'message.react'
-  | 'channel.join_call' | 'channel.publish' | 'channel.moderate_call'
-
-export type Actor = { userId: string; role: Role | null; inChannel: boolean }
-export type Resource = { kind: 'group' | 'channel' | 'message'; visibility?: Visibility; authorId?: string }
-
-const GERE_O_GRUPO: Action[] = ['group.update', 'group.invite', 'group.kick']
-const SO_DO_OWNER: Action[] = ['group.delete', 'group.change_role']
-const ADMINISTRA_CANAL: Action[] = [
-  'channel.create', 'channel.update', 'channel.delete', 'channel.manage_members',
-  // Moderar chamada e administrar, nao participar: quem silencia ou desconecta
-  // alguem exerce papel, e por isso pode faze-lo sem estar na sala.
-  'channel.moderate_call',
-]
 /**
- * Chamada segue os mesmos dois eixos do texto: entrar e transmitir vem do
- * pertencimento ao canal, nunca do papel no grupo. Qualquer participante
- * transmite — nao existe palco, e e essa a diferenca deliberada em relacao ao
- * modelo do Discord.
+ * O ator, com as permissoes JA RESOLVIDAS.
+ *
+ * Esta e a unica mudanca que os cargos trouxeram a este arquivo, e ela foi
+ * escolhida justamente para nao trazer outras: `can` continua pura, continua a
+ * unica a decidir, e ficou MENOR — as listas de papel viraram dado, em
+ * `acoes.ts`, e quem monta o conjunto e `context.ts`, num lugar so.
+ *
+ * O que sobrou aqui e exatamente o que nunca foi sobre cargo: pertencimento ao
+ * canal, autoria da mensagem, hierarquia entre pessoas, e a negacao por
+ * omissao no fim.
  */
-const PARTICIPA_DA_CHAMADA: Action[] = ['channel.join_call', 'channel.publish']
+export type Actor = {
+  userId: string
+  /**
+   * `null` significa NAO PERTENCE ao grupo, e continua sendo o primeiro
+   * portao. Conjunto vazio e outra coisa: pertence e nao pode nada.
+   */
+  permissoes: ReadonlySet<Action> | null
+  /**
+   * O dono atravessa toda permissao concedivel — e so ela.
+   *
+   * Nao e conveniencia: sem esta saida, um cargo mal configurado tranca o
+   * grupo para sempre e nao existe suporte para chamar. O que ela NAO
+   * atravessa esta logo abaixo, e e o que importa: nem o pertencimento a canal
+   * privado, nem a autoria de mensagem alheia, nem acao que o sistema nao
+   * conhece.
+   */
+  ehDono: boolean
+  inChannel: boolean
+  /**
+   * A posicao do cargo mais alto desta pessoa. Zero para quem nao tem cargo
+   * nenhum; o dono nao usa este campo, porque atravessa a comparacao.
+   */
+  topo: number
+  /**
+   * O vinculo em `group_members`, para EXIBIR — nunca para decidir.
+   *
+   * `can` nao le este campo, e isso e verificavel: ele nao aparece uma vez
+   * sequer no corpo da funcao. Ele existe porque as respostas da API sempre
+   * carregaram o papel da pessoa no grupo, e o cliente desenha o rotulo
+   * "Dono / Administrador / Membro" com ele. Resolver permissao a partir daqui
+   * seria voltar ao que os cargos vieram substituir.
+   */
+  papel: 'owner' | 'admin' | 'member' | null
+}
+
+export type Resource = {
+  kind: 'group' | 'channel' | 'message'
+  visibility?: Visibility
+  authorId?: string
+  /**
+   * A posicao do cargo mais alto de QUEM SOFRE a acao.
+   *
+   * Ausente vale zero — o alvo sem cargo. E o padrao seguro: na duvida o alvo
+   * esta no chao da hierarquia, e quem age precisa de pelo menos um cargo para
+   * alcanca-lo.
+   */
+  topoDoAlvo?: number
+}
 
 /**
- * Unica fonte de autorizacao do sistema. Funcao pura: quem chama ja carregou o
- * papel e o pertencimento, e `can` apenas decide. E o que a torna testavel por
- * matriz exaustiva sem banco.
+ * Unica fonte de autorizacao do sistema. Funcao pura: quem chama ja resolveu
+ * as permissoes e o pertencimento, e `can` apenas decide. E o que a torna
+ * testavel por matriz exaustiva sem banco.
  */
 export function can(actor: Actor, action: Action, resource: Resource): boolean {
   // Fora do grupo, nada.
-  if (actor.role === null) return false
+  if (actor.permissoes === null) return false
 
-  const isOwner = actor.role === 'owner'
-  const isAdmin = actor.role === 'admin' || isOwner
+  // Acao que o sistema nao conhece nasce NEGADA — inclusive para o dono. E o
+  // que garante que uma permissao nova, acrescentada ao tipo e esquecida na
+  // resolucao, seja recusada em vez de liberada por omissao.
+  if (!ehAcao(action)) return false
 
+  // Pertencer ao grupo ja e ver o grupo. Nenhum cargo precisa conceder isto, e
+  // nenhum pode negar: a pessoa esta la dentro.
   if (action === 'group.view') return true
-  if (SO_DO_OWNER.includes(action)) return isOwner
-  if (GERE_O_GRUPO.includes(action)) return isAdmin
 
-  // Eixo ADMINISTRAR: vem do papel, independe de pertencer ao canal.
-  // E o que deixa um admin apagar canal privado abandonado sem poder le-lo.
-  if (ADMINISTRA_CANAL.includes(action)) return isAdmin
+  // Autoria nao e cargo. Marcar isto num cargo nao concede nada sobre a
+  // mensagem de terceiro, e por isso a tela de permissoes nem as mostra.
+  if (POR_AUTORIA.includes(action)) return resource.authorId === actor.userId
 
-  // Eixo LER e ESCREVER: vem do pertencimento, jamais do papel.
-  // Se o admin enxergasse tudo por ser admin, "privado" perderia o sentido.
-  // `message.attach` acompanha escrever, e `attachment.read` acompanha ler:
-  // o arquivo herda o segredo do canal. Se o admin de fora lesse o anexo por
-  // ser admin, "privado" valeria para o texto e nao para o que vai junto —
-  // que e a mesma porta com duas fechaduras diferentes.
-  //
-  // `message.react` acompanha ESCREVER, e nao ler: uma reacao e visivel para
-  // a sala inteira e leva o nome de quem reagiu junto. Quem so pode ler um
-  // canal nao pode deixar rastro nele.
-  if (
-    action === 'channel.read' || action === 'channel.write' || action === 'message.create'
-    || action === 'message.attach' || action === 'attachment.read'
-    || action === 'message.react'
-    || PARTICIPA_DA_CHAMADA.includes(action)
-  ) {
+  // A propria mensagem sempre cede a quem a escreveu, com ou sem moderacao.
+  if (action === 'message.delete_any' && resource.authorId === actor.userId) return true
+
+  const concedida = actor.ehDono || actor.permissoes.has(action)
+  if (!concedida) return false
+
+  // Eixo PERTENCIMENTO, e o unico que o dono tambem respeita. Se administrar
+  // enxergasse tudo, "privado" perderia o sentido exatamente onde mais importa.
+  // O arquivo herda o segredo do canal junto com o texto, e a voz junto com os
+  // dois: e a mesma porta, e ela nao pode ter tres fechaduras diferentes.
+  if (DEPENDEM_DO_CANAL.includes(action)) {
     return resource.visibility === 'private' ? actor.inChannel : true
   }
 
-  if (action === 'message.edit_own' || action === 'message.delete_own') {
-    return resource.authorId === actor.userId
+  // Eixo HIERARQUIA: so se mexe em quem esta abaixo. Sem isto, um cargo de
+  // moderacao criado por engano expulsa quem o criou, e a volta seria por
+  // `psql`.
+  if (SOBRE_OUTRO_MEMBRO.includes(action)) {
+    return actor.ehDono || actor.topo > (resource.topoDoAlvo ?? 0)
   }
 
-  if (action === 'message.delete_any') {
-    return resource.authorId === actor.userId || isAdmin
-  }
-
-  // Nao e defensivo por habito: garante que uma acao nova acrescentada ao tipo
-  // Action nasca negada, em vez de liberada por esquecimento.
-  return false
+  return true
 }

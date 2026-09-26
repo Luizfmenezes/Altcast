@@ -25,19 +25,46 @@ import { Botao } from './Botao.js'
  * dialogo hospedeiro de proposito: uma confirmacao que nao se pode confirmar
  * e pior do que nenhuma.
  */
-export function ConfirmarAcao({ gatilho, titulo, descricao, confirmar, aoConfirmar }: {
-  gatilho: ReactNode
+export function ConfirmarAcao({
+  gatilho, titulo, descricao, confirmar, aoConfirmar,
+  aberto: abertoControlado, aoMudarAberto, tom = 'perigo',
+}: {
+  /**
+   * Opcional desde que a confirmacao passou a existir sem botao proprio.
+   *
+   * Trocar de sala de voz e pedido por um clique na LISTA DE CANAIS, e nao por
+   * um botao ao lado da pergunta. Exigir um gatilho ali obrigaria a inventar um
+   * segundo botao para a mesma acao — que e exatamente o excesso que a mudanca
+   * veio remover.
+   */
+  gatilho?: ReactNode
   titulo: string
   descricao: string
   /** Rotulo do botao que consuma: diz o que vai acontecer, nunca apenas "OK". */
   confirmar: string
   aoConfirmar: () => void | Promise<void>
+  /** Quando presente, quem manda no aberto/fechado e quem chamou. */
+  aberto?: boolean
+  aoMudarAberto?: (aberto: boolean) => void
+  /**
+   * Vermelho e a cor de "isto destroi algo".
+   *
+   * Nem toda confirmacao e destrutiva: trocar de sala de voz interrompe uma
+   * chamada, o que merece a pergunta, mas nao apaga nada. Pintar as duas
+   * iguais gasta o sinal — se tudo e alarme, nada e.
+   */
+  tom?: 'perigo' | 'padrao'
 }): ReactNode {
-  const [aberto, setAberto] = useState(false)
+  const [abertoLocal, setAbertoLocal] = useState(false)
+  const aberto = abertoControlado ?? abertoLocal
+  const setAberto = (v: boolean): void => {
+    if (abertoControlado === undefined) setAbertoLocal(v)
+    aoMudarAberto?.(v)
+  }
 
   return (
     <AlertDialog.Root open={aberto} onOpenChange={setAberto}>
-      <AlertDialog.Trigger asChild>{gatilho}</AlertDialog.Trigger>
+      {gatilho !== undefined && <AlertDialog.Trigger asChild>{gatilho}</AlertDialog.Trigger>}
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-[60] bg-black/50" />
         <AlertDialog.Content
@@ -55,7 +82,7 @@ export function ConfirmarAcao({ gatilho, titulo, descricao, confirmar, aoConfirm
               <Botao variante="discreto">Cancelar</Botao>
             </AlertDialog.Cancel>
             <AlertDialog.Action asChild>
-              <Botao variante="perigo" onClick={() => void aoConfirmar()}>
+              <Botao variante={tom === 'perigo' ? 'perigo' : 'primario'} onClick={() => void aoConfirmar()}>
                 {confirmar}
               </Botao>
             </AlertDialog.Action>
