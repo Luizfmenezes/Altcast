@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { MailWarning, Plus } from 'lucide-react'
 import { CriarGrupo } from './CriarGrupo.js'
@@ -8,6 +8,10 @@ import { EntrarComGoogle } from '../auth/EntrarComGoogle.js'
 import { useReenviarVerificacao } from '../auth/useReenviarVerificacao.js'
 import { normalizarCodigoDeConvite } from '../../lib/convite.js'
 import { irPara } from '../../lib/rota.js'
+import { TituloFatiado } from '../../ui/bits/TituloFatiado.js'
+
+/** `ogl` so entra no pacote de quem chega a esta tela. */
+const Aurora = lazy(async () => ({ default: (await import('../../ui/bits/Aurora.js')).Aurora }))
 
 /**
  * O que aparece para quem entrou e nao participa de grupo nenhum.
@@ -34,9 +38,22 @@ export function BoasVindas(): ReactNode {
   }
 
   return (
-    <main className="mx-auto flex h-full w-full max-w-2xl flex-col justify-center gap-8 px-6 py-10">
+    <main className="relative mx-auto flex h-full w-full max-w-2xl flex-col justify-center gap-8 overflow-y-auto px-6 py-10">
+      {/*
+        O unico lugar do app com fundo em WebGL, e de proposito.
+
+        Esta tela nao tem video, nao tem audio e nao tem lista que role: e o
+        unico momento em que a GPU esta inteiramente livre. Dentro de um canal
+        ela estaria disputando com o encode da camera e o decode de quem
+        transmite — por isso `Aurora` entra por `lazy`, e o pacote inicial de
+        quem so quer conversar nao carrega uma linha de `ogl`.
+      */}
+      <Suspense fallback={null}><Aurora /></Suspense>
+
       <div>
-        <h1 className="text-xl font-semibold text-fg">Voce ainda nao tem grupos</h1>
+        <h1 className="text-xl font-semibold text-fg">
+          <TituloFatiado texto="Voce ainda nao tem grupos" />
+        </h1>
         <p className="mt-2 max-w-prose text-sm leading-relaxed text-fg-muted">
           Um grupo e onde as conversas acontecem — canais de texto, chamadas de
           voz e as pessoas que voce convidar.

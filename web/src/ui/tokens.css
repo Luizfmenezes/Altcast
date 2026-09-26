@@ -83,6 +83,23 @@
 
 html, body, #root { height: 100%; }
 
+/**
+ * O documento nao rola. Nunca.
+ *
+ * O shell tem altura de viewport e cada coluna rola por dentro; uma barra de
+ * rolagem no documento so pode significar que alguma coisa vazou. E vazava: um
+ * filho direto de `Panel` com `height:auto` crescia ate 1852px dentro de uma
+ * coluna de 948px, e os `.sr-only` do composer — `position:absolute` sem
+ * ancestral posicionado — escapavam do recorte do painel e esticavam o
+ * documento para 1928px. O resultado eram 848px de fundo preto rolavel.
+ *
+ * So `overflow-y`, e nao `overflow`. Travar os dois eixos faria o teste de
+ * refluxo a 400% de zoom (SC 1.4.10, e2e/acessibilidade.spec.ts) passar por
+ * omissao: ele existe justamente para acusar estouro HORIZONTAL, e um
+ * `overflow-x: hidden` esconderia o estouro em vez de reprova-lo.
+ */
+html, body { overflow-y: hidden; }
+
 body {
   background: var(--color-bg);
   color: var(--color-fg);

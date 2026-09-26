@@ -2,13 +2,14 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import * as Dialog from '@radix-ui/react-dialog'
-import { ChevronDown, LogOut, UserPlus, Users, X } from 'lucide-react'
+import { ChevronDown, LogOut, Settings2, UserPlus, Users, X } from 'lucide-react'
 import { api } from '../../lib/api.js'
 import { useStore } from '../../lib/store.js'
 import { Botao } from '../../ui/Botao.js'
 import { ConfirmarAcao } from '../../ui/ConfirmarAcao.js'
 import { Convidar } from './Convidar.js'
 import { Membros } from './Membros.js'
+import { ConfiguracoesGrupo } from '../settings/ConfiguracoesGrupo.js'
 import type { Grupo } from '../../lib/tipos.js'
 
 /**
@@ -27,9 +28,33 @@ import type { Grupo } from '../../lib/tipos.js'
  * unico importador. Este e o uso dele.
  */
 
-type Painel = 'convidar' | 'membros' | null
+type Painel = 'convidar' | 'membros' | 'grupo' | null
 
-export function MenuDoGrupo({ grupo }: { grupo: Grupo }): ReactNode {
+const TITULO: Record<Exclude<Painel, null>, (nome: string) => string> = {
+  convidar: nome => `Convidar para ${nome}`,
+  membros: nome => `Membros de ${nome}`,
+  grupo: nome => `Configuracoes de ${nome}`,
+}
+
+const PAPEL_POR_EXTENSO = {
+  owner: 'Dono',
+  admin: 'Administrador',
+  member: 'Membro',
+} as const
+
+export function MenuDoGrupo({ grupo, variante = 'linha' }: {
+  grupo: Grupo
+  /**
+   * `linha` e o chip curto que cabia na barra do topo. `cabecalho` e a barra
+   * larga no alto da coluna de canais — mesma sala, porta muito maior.
+   *
+   * A porta existia e quase ninguem achava: era um nome truncado com um chevron
+   * de 14px no meio de uma barra que atravessava a tela inteira. Alvo grande
+   * nao e enfeite aqui; e a diferenca entre a funcionalidade existir e a pessoa
+   * saber que ela existe.
+   */
+  variante?: 'linha' | 'cabecalho'
+}): ReactNode {
   const [painel, setPainel] = useState<Painel>(null)
   const escolherGrupo = useStore(e => e.escolherGrupo)
 
@@ -55,15 +80,41 @@ export function MenuDoGrupo({ grupo }: { grupo: Grupo }): ReactNode {
     <>
       <Menu.Root>
         <Menu.Trigger asChild>
-          <button
-            type="button"
-            className="flex min-w-0 items-center gap-1 rounded px-1.5 py-1 text-[13px]
-                       text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg"
-          >
-            <span className="truncate">{grupo.name}</span>
-            <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="sr-only">Abrir menu do grupo</span>
-          </button>
+          {variante === 'cabecalho' ? (
+            <button
+              type="button"
+              className="group/grupo flex w-full min-w-0 items-center gap-2 border-b
+                         border-border-subtle px-3 py-2.5 text-left transition-colors
+                         hover:bg-bg-hover data-[state=open]:bg-bg-hover"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-semibold leading-tight text-fg">
+                  {grupo.name}
+                </span>
+                <span className="block truncate text-[11px] leading-tight text-fg-muted">
+                  {PAPEL_POR_EXTENSO[grupo.role]}
+                </span>
+              </span>
+              <ChevronDown
+                aria-hidden="true"
+                strokeWidth={2.5}
+                className="size-4 shrink-0 text-fg-muted transition-transform duration-200
+                           group-hover/grupo:text-fg
+                           group-data-[state=open]/grupo:rotate-180"
+              />
+              <span className="sr-only">Abrir menu do grupo</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="flex min-w-0 items-center gap-1 rounded px-1.5 py-1 text-[13px]
+                         text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg"
+            >
+              <span className="truncate">{grupo.name}</span>
+              <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
+              <span className="sr-only">Abrir menu do grupo</span>
+            </button>
+          )}
         </Menu.Trigger>
 
         <Menu.Portal>
@@ -92,6 +143,24 @@ export function MenuDoGrupo({ grupo }: { grupo: Grupo }): ReactNode {
               <Users aria-hidden="true" className="size-4" />
               Membros
             </Menu.Item>
+
+            {/*
+              A MESMA tela da aba "Grupo" das configuracoes, e nao uma copia
+              dela: `ConfiguracoesGrupo` monta canais, convite e membros de uma
+              vez so. A aba continua existindo — quem ja aprendeu o caminho pela
+              engrenagem nao perde nada; quem nunca o encontrou agora tropeça
+              nele a partir do proprio grupo, que e onde a duvida nasce.
+            */}
+            {podeConvidar && (
+              <Menu.Item
+                onSelect={() => setPainel('grupo')}
+                className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-[13px]
+                           text-fg outline-none data-[highlighted]:bg-bg-hover"
+              >
+                <Settings2 aria-hidden="true" className="size-4" />
+                Configuracoes do grupo
+              </Menu.Item>
+            )}
 
             {podeSair && (
               <>
@@ -143,7 +212,7 @@ export function MenuDoGrupo({ grupo }: { grupo: Grupo }): ReactNode {
           >
             <div className="mb-3 flex items-start justify-between gap-4">
               <Dialog.Title className="text-[15px] font-semibold text-fg">
-                {painel === 'convidar' ? `Convidar para ${grupo.name}` : `Membros de ${grupo.name}`}
+                {painel === null ? '' : TITULO[painel](grupo.name)}
               </Dialog.Title>
               <Dialog.Close asChild>
                 <Botao variante="fantasma" tamanho="iconeSm">
@@ -153,8 +222,9 @@ export function MenuDoGrupo({ grupo }: { grupo: Grupo }): ReactNode {
               </Dialog.Close>
             </div>
 
-            {painel === 'convidar' && <Convidar groupId={grupo.id} />}
-            {painel === 'membros' && <Membros groupId={grupo.id} />}
+            {painel === 'convidar' ? <Convidar groupId={grupo.id} /> : null}
+            {painel === 'membros' ? <Membros groupId={grupo.id} /> : null}
+            {painel === 'grupo' ? <ConfiguracoesGrupo groupId={grupo.id} /> : null}
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

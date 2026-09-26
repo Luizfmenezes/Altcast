@@ -46,7 +46,10 @@ function Imagem({ anexo }: { anexo: Anexo }): ReactNode {
         {...(anexo.width !== null && anexo.height !== null
           ? { width: anexo.width, height: anexo.height }
           : {})}
-        className="h-auto w-full max-w-sm bg-bg-raised object-cover"
+        // Teto de altura, e nao so de largura. Uma captura de tela de 400x3000
+        // respeitava o `max-w-sm` e ainda assim empurrava tres telas de
+        // conversa para baixo — a proporcao nao e um limite.
+        className="h-auto max-h-80 w-full max-w-sm bg-bg-raised object-contain object-left"
       />
     </a>
   )

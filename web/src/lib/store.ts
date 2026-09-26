@@ -316,6 +316,35 @@ export const useStore = create<Estado>(set => ({
           members: estado.members.map(m => m.userId === userId ? { ...m, status } : m),
         }))
       }
+      /**
+       * A pessoa trocou a foto, o apelido ou o nome de usuario.
+       *
+       * O servidor emite isto desde sempre — na troca de avatar, na remocao do
+       * avatar e no PATCH de perfil — e o cliente vinha descartando no
+       * `default`. Passava despercebido enquanto a lista de membros so mostrava
+       * texto: quem trocava a foto via o proprio cabecalho mudar, porque aquele
+       * caminho passa por `aplicarUsuario`, e a lista de TODO MUNDO continuava
+       * com a foto velha ate alguem reconectar.
+       *
+       * Os campos chegam separados de proposito: a remocao de avatar manda
+       * `avatarUrl: null`, que e um valor legitimo, entao a mesclagem tem de
+       * distinguir "veio nulo" de "nao veio".
+       */
+      case 'user.updated': {
+        const alteracao = d as {
+          userId: string
+          displayName?: string
+          username?: string | null
+          avatarUrl?: string | null
+        }
+        return set(estado => ({
+          members: estado.members.map(m => m.userId !== alteracao.userId ? m : {
+            ...m,
+            ...(alteracao.displayName === undefined ? {} : { displayName: alteracao.displayName }),
+            ...('avatarUrl' in alteracao ? { avatarUrl: alteracao.avatarUrl ?? null } : {}),
+          }),
+        }))
+      }
       case 'voice.participant_joined':
       case 'voice.track_published': {
         // Os dois eventos carregam o mesmo formato e a mesma verdade: o estado

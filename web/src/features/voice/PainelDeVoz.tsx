@@ -15,6 +15,7 @@ import {
 import { chaveDeVolume } from '../../lib/midia.js'
 import { nativo } from '../../lib/nativo.js'
 import { SeletorDeFonte } from './SeletorDeFonte.js'
+import { TextoDecifrado } from '../../ui/bits/TextoDecifrado.js'
 import type { SomDaTela } from '../../lib/nativo.js'
 import type { ModoDaChamada } from './palco.js'
 import type { ParticipanteDeVoz } from '../../lib/store.js'
@@ -233,6 +234,29 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
           : dentro ? `Na chamada, ${participantes.length} participantes`
             : 'Fora da chamada'}
       </p>
+
+      {/*
+        O nome do canal, decifrando-se na entrada.
+
+        Um canal de voz aberto era uma tela preta sem cabecalho nenhum — quem
+        entrava nao tinha como confirmar em qual sala caiu, e "teste" e
+        "teste2" sao dois cliques vizinhos. O efeito dura menos de meio segundo
+        e acontece uma vez por troca de canal; o texto real esta no `sr-only`
+        do proprio componente desde o primeiro quadro.
+      */}
+      <h2 className="flex items-center gap-2 text-[13px] font-semibold text-fg">
+        <Volume2 aria-hidden="true" className="size-4 shrink-0 text-accent" />
+        <TextoDecifrado texto={nomeDoCanal} />
+        {dentro ? (
+          <span
+            className="ml-auto rounded-full border border-presence-online/40
+                       bg-presence-online/10 px-2 py-0.5 font-mono text-[10px]
+                       uppercase tracking-wider text-presence-online"
+          >
+            na chamada
+          </span>
+        ) : null}
+      </h2>
 
       {/*
         O navegador segurou a reproducao. Isto e um BOTAO, e nao um aviso, por
@@ -461,7 +485,23 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
         aoRestaurarVolumes={restaurarVolumes}
       />
 
-      <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
+      {/*
+        Grudada no rodape do proprio rolador, e nao apenas empurrada por
+        `mt-auto`.
+
+        `mt-auto` sozinho depende de SOBRAR espaco. Numa chamada com seis
+        pessoas, um palco aberto e a configuracao de midia expandida nao sobra
+        — a margem resolve para zero e a barra desce junto com o conteudo ate
+        sair de vista. Sair da chamada e justamente o controle que nunca pode
+        exigir que alguem role ate o fim para encontrar.
+
+        O `-mx-4 px-4` devolve o respiro que o `p-4` da secao dava, e o fundo
+        solido e o que impede o conteudo de aparecer por baixo enquanto rola.
+      */}
+      <div
+        className="sticky bottom-0 -mx-4 mt-auto flex flex-wrap items-center gap-2
+                   border-t border-border-subtle bg-bg px-4 pb-1 pt-3"
+      >
         {!dentro ? (
           <Botao onClick={entrar} disabled={estado.fase === 'entrando'}>
             {estado.fase === 'entrando' ? 'Entrando...' : 'Entrar na chamada'}

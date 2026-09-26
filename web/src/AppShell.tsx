@@ -14,12 +14,12 @@ import {
   LARGURA_CANAIS_FIXOS, LARGURA_MEMBROS_FIXOS, usaLarguraMinima,
 } from './lib/pontosDeQuebra.js'
 import { BarraGrupos } from './features/groups/BarraGrupos.js'
-import { MenuDoGrupo } from './features/groups/MenuDoGrupo.js'
 import { ListaCanais } from './features/channels/ListaCanais.js'
 import { Conversa } from './features/channels/Conversa.js'
 import { PainelMembros } from './features/presence/PainelMembros.js'
 import { BarraConexao } from './features/presence/BarraConexao.js'
 import { BarraDeChamada } from './features/voice/BarraDeChamada.js'
+import { PainelDoUsuario } from './features/settings/PainelDoUsuario.js'
 import {
   registrarSaidaDaAba, registrarReanuncioDaChamada,
 } from './features/voice/chamadaAtiva.js'
@@ -32,7 +32,6 @@ import { FaixaDeInstalacao } from './features/voice/FaixaDeInstalacao.js'
 import { BoasVindas } from './features/groups/BoasVindas.js'
 import { Botao } from './ui/Botao.js'
 import { Kbd } from './ui/Kbd.js'
-import { Avatar } from './ui/Avatar.js'
 
 /**
  * Quatro colunas: 64px fixos, e as outras tres negociaveis.
@@ -63,7 +62,6 @@ export function AppShell({ aoDigitar, latenciaMs }: {
   const [gavetaCanais, setGavetaCanais] = useState(false)
   const [membrosVisiveis, setMembrosVisiveis] = useState(false)
   const [buscaAberta, setBuscaAberta] = useState(false)
-  const user = useStore(e => e.user)
   const groups = useStore(e => e.groups)
   const campoEscrita = useRef<HTMLTextAreaElement>(null)
 
@@ -164,7 +162,99 @@ export function AppShell({ aoDigitar, latenciaMs }: {
   const membrosAbertos = membrosFixos ? !layout.membrosRecolhido : membrosVisiveis
 
   const doGrupo = channels.filter(c => c.groupId === grupoAtivo)
-  const grupoDaVez = groups.find(g => g.id === grupoAtivo)
+
+  /**
+   * Os controles do cabecalho do canal, montados aqui e emprestados a
+   * `Conversa`.
+   *
+   * Moram no shell porque o ESTADO mora no shell: recolher a coluna de canais
+   * e mostrar os membros mudam o layout inteiro, nao a conversa. A conversa so
+   * empresta o espaco — e e o espaco certo, porque e onde a pessoa esta
+   * olhando quando decide abrir ou fechar uma coluna.
+   *
+   * `aria-expanded` e `aria-controls` seguem junto: e a alternativa ao arrasto
+   * que a WCAG 2.5.7 exige, e quem nao arrasta a divisoria continua recolhendo
+   * e reabrindo a coluna daqui.
+   */
+  const aberturaDeCanais = (
+    <Dica texto={canaisAbertos ? 'Fechar canais' : 'Abrir canais'} lado="bottom">
+      <Botao
+        variante="fantasma"
+        tamanho="iconeSm"
+        onClick={alternarCanais}
+        aria-expanded={canaisAbertos}
+        aria-controls="canais"
+      >
+        {canaisAbertos
+          ? <PanelLeftClose aria-hidden="true" strokeWidth={1.75} />
+          : <PanelLeftOpen aria-hidden="true" strokeWidth={1.75} />}
+        <span className="sr-only">{canaisAbertos ? 'Fechar canais' : 'Abrir canais'}</span>
+      </Botao>
+    </Dica>
+  )
+
+  /**
+   * A chamada em curso e a identidade, que andam juntas.
+   *
+   * Uma so instancia, em dois lugares possiveis. No rodape da coluna de canais
+   * quando ela existe e esta aberta; no rodape da JANELA quando nao. A
+   * alternativa — deixa-las so na coluna — apagaria o estado do microfone
+   * exatamente para quem recolheu a coluna ou esta numa janela estreita, e
+   * esta barra existe justamente para que ninguem fique com o microfone aberto
+   * sem saber. Escondida, ela seria pior do que inexistente.
+   */
+  const rodapeDePresenca = (
+    <>
+      <BarraDeChamada />
+      <PainelDoUsuario />
+    </>
+  )
+  const rodapeNaColuna = canaisFixos && canaisAbertos
+
+  const acoesDoCanal = (
+    <>
+      <button
+        type="button"
+        onClick={() => setBuscaAberta(true)}
+        className="hidden h-8 w-48 shrink-0 items-center gap-2 rounded-md border
+                   border-border-subtle bg-bg px-2.5 text-[13px] text-fg-muted
+                   transition-colors hover:border-border hover:text-fg lg:flex"
+      >
+        <Search aria-hidden="true" strokeWidth={1.75} className="size-4 shrink-0" />
+        <span className="flex-1 text-left">Buscar</span>
+        <Kbd>Ctrl K</Kbd>
+      </button>
+
+      {/* Abaixo de lg a caixa de busca vira so o icone: a barra inteira nao
+          cabe em 320px sem empurrar o resto para fora da tela. */}
+      <Dica texto="Buscar" atalho="Ctrl K" lado="bottom">
+        <Botao
+          variante="fantasma"
+          tamanho="iconeSm"
+          onClick={() => setBuscaAberta(true)}
+          className="lg:hidden"
+        >
+          <Search aria-hidden="true" strokeWidth={1.75} />
+          <span className="sr-only">Buscar</span>
+        </Botao>
+      </Dica>
+
+      <Dica texto={membrosAbertos ? 'Ocultar membros' : 'Mostrar membros'} lado="bottom">
+        <Botao
+          variante="fantasma"
+          tamanho="iconeSm"
+          onClick={alternarMembros}
+          aria-expanded={membrosAbertos}
+          aria-controls="membros"
+        >
+          <Users aria-hidden="true" strokeWidth={1.75} />
+          <span className="sr-only">
+            {membrosAbertos ? 'Ocultar membros' : 'Mostrar membros'}
+          </span>
+        </Botao>
+      </Dica>
+    </>
+  )
 
   /**
    * Trocar de canal leva o foco ao campo de escrita. CHEGAR nao leva.
@@ -245,7 +335,7 @@ export function AppShell({ aoDigitar, latenciaMs }: {
   if (groups.length === 0) {
     return (
       <ProvedorDeDicas>
-        <div className="flex h-full flex-col">
+        <div className="relative flex h-full flex-col overflow-hidden">
           <FaixaDeInstalacao />
           <FaixaDeVerificacao />
           <BoasVindas />
@@ -260,111 +350,14 @@ export function AppShell({ aoDigitar, latenciaMs }: {
     // dentro da aplicacao inteira — um componente que nao se sustenta sozinho
     // e um componente que nao da para testar isolado.
     <ProvedorDeDicas>
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col overflow-hidden">
       {/* Primeiro elemento focavel da aplicacao. */}
       <a href="#conversa" className="pular-para-conversa">Pular para a conversa</a>
 
       <FaixaDeInstalacao />
       <FaixaDeVerificacao />
 
-      {/* A barra do topo. Ela existe para dar um lugar fixo ao que antes eram
-          dois botoes soltos por cima do conteudo, e para responder de relance
-          "onde eu estou": grupo, barra, canal. Trunca em vez de empurrar —
-          o teste de refluxo em 320px proibe qualquer largura que estoure. */}
-      <header
-        className="flex h-14 shrink-0 items-center gap-2 border-b border-border-subtle
-                   bg-bg-raised px-2 sm:px-3"
-      >
-        {/*
-          Sempre presente, e nao so em tela estreita. Recolher a coluna de
-          canais para ler uma conversa larga era impossivel no monitor grande,
-          que e justamente onde alguem quer isso.
-
-          E e tambem a alternativa ao arrasto que a WCAG 2.5.7 exige: quem nao
-          arrasta a divisoria ainda consegue recolher e reabrir a coluna daqui.
-        */}
-        <Dica texto={canaisAbertos ? 'Fechar canais' : 'Abrir canais'} lado="bottom">
-          <Botao
-            variante="fantasma"
-            tamanho="icone"
-            onClick={alternarCanais}
-            aria-expanded={canaisAbertos}
-            aria-controls="canais"
-          >
-            {canaisAbertos
-              ? <PanelLeftClose aria-hidden="true" strokeWidth={1.75} />
-              : <PanelLeftOpen aria-hidden="true" strokeWidth={1.75} />}
-            <span className="sr-only">{canaisAbertos ? 'Fechar canais' : 'Abrir canais'}</span>
-          </Botao>
-        </Dica>
-
-        <nav aria-label="Onde voce esta" className="flex min-w-0 flex-1 items-center gap-1.5">
-          {/*
-            O nome do grupo virou botao: convidar alguem e ver os membros
-            moravam dois cliques adiante, dentro das configuracoes, e sao das
-            acoes mais frequentes que existem.
-          */}
-          {grupoDaVez === undefined ? (
-            <span className="truncate text-[13px] text-fg-muted">Altcast</span>
-          ) : (
-            <MenuDoGrupo grupo={grupoDaVez} />
-          )}
-          <span aria-hidden="true" className="text-fg-muted/50">/</span>
-          <span className="truncate text-[13px] font-medium text-fg">
-            {doGrupo.find(c => c.id === canalAtivo)?.name ?? 'Nenhum canal'}
-          </span>
-        </nav>
-
-        <button
-          type="button"
-          onClick={() => setBuscaAberta(true)}
-          className="hidden h-8 w-56 shrink-0 items-center gap-2 rounded-md border
-                     border-border-subtle bg-bg px-2.5 text-[13px] text-fg-muted
-                     transition-colors hover:border-border hover:text-fg md:flex"
-        >
-          <Search aria-hidden="true" strokeWidth={1.75} className="size-4 shrink-0" />
-          <span className="flex-1 text-left">Buscar</span>
-          <Kbd>Ctrl K</Kbd>
-        </button>
-
-        {/* Abaixo de md a caixa de busca vira so o icone: a barra inteira nao
-            cabe em 320px sem empurrar o resto para fora da tela. */}
-        <Dica texto="Buscar" atalho="Ctrl K" lado="bottom">
-          <Botao
-            variante="fantasma"
-            tamanho="icone"
-            onClick={() => setBuscaAberta(true)}
-            className="md:hidden"
-          >
-            <Search aria-hidden="true" strokeWidth={1.75} />
-            <span className="sr-only">Buscar</span>
-          </Botao>
-        </Dica>
-
-        <Dica texto={membrosAbertos ? 'Ocultar membros' : 'Mostrar membros'} lado="bottom">
-          <Botao
-            variante="fantasma"
-            tamanho="icone"
-            onClick={alternarMembros}
-            aria-expanded={membrosAbertos}
-            aria-controls="membros"
-          >
-            <Users aria-hidden="true" strokeWidth={1.75} />
-            <span className="sr-only">
-              {membrosAbertos ? 'Ocultar membros' : 'Mostrar membros'}
-            </span>
-          </Botao>
-        </Dica>
-
-        {user && (
-          <span className="flex shrink-0 items-center">
-            <Avatar nome={user.displayName} url={user.avatarUrl} tamanho="md" />
-            <span className="sr-only">Voce esta como {user.displayName}</span>
-          </span>
-        )}
-      </header>
-
-      <div ref={areaDosPaineis} className="flex min-h-0 flex-1">
+      <div ref={areaDosPaineis} className="relative flex min-h-0 flex-1 overflow-hidden">
         {/*
           A barra de grupos fica FORA do grupo de paineis, e isso nao e
           arrumacao. A biblioteca dimensiona em porcentagem; 64px viraria um
@@ -376,6 +369,21 @@ export function AppShell({ aoDigitar, latenciaMs }: {
         */}
         <BarraGrupos />
 
+        {/*
+          Cada painel leva `flex min-h-0 flex-col`, e isso nao e enfeite.
+
+          A biblioteca cria o `Panel` com `flexBasis/flexGrow/flexShrink` e
+          `overflow: hidden`, e NUNCA declara `display`. Ou seja: o painel e um
+          bloco. Um filho direto com `flex-1` nao e item flex de ninguem, o
+          `flex-1` morre em silencio, e a altura do filho vira `auto` — ele
+          cresce ate o conteudo, o `overflow-y-auto` dele nunca gera barra
+          (porque `scrollHeight === clientHeight`), o `mt-auto` de uma barra de
+          acoes resolve para zero, e o excedente e recortado pelo painel. Foi
+          exatamente assim que os botoes de sair da chamada sumiram.
+
+          Declarar o `display` aqui, e nao espalhar `h-full` nos filhos, e o que
+          protege tambem o proximo componente que alguem puser dentro.
+        */}
         <PanelGroup direction="horizontal" className="min-w-0 flex-1">
           {canaisFixos && (
             <>
@@ -391,7 +399,7 @@ export function AppShell({ aoDigitar, latenciaMs }: {
                 onCollapse={() => guardar({ canaisRecolhido: true })}
                 onExpand={() => guardar({ canaisRecolhido: false })}
                 onResize={pct => guardar({ canaisPx: pxDe(pct, largura) })}
-                className="border-r border-border-subtle bg-bg-raised"
+                className="flex min-h-0 flex-col border-r border-border-subtle bg-bg-raised"
               >
                 {/*
                   Recolhido NAO e "largura zero": o conteudo sai da arvore. Um
@@ -402,9 +410,25 @@ export function AppShell({ aoDigitar, latenciaMs }: {
                   dela para calcular o grupo.
                 */}
                 {!layout.canaisRecolhido && (
-                  <nav aria-label="Canais do grupo" className="h-full overflow-y-auto">
-                    <ListaCanais />
-                  </nav>
+                  <>
+                    <nav
+                      aria-label="Canais do grupo"
+                      className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+                    >
+                      <ListaCanais />
+                    </nav>
+                    {/*
+                      A chamada e a identidade no RODAPE desta coluna, e nao
+                      numa faixa que atravessa a janela.
+
+                      Elas pertencem a mesma pergunta que a coluna inteira
+                      responde — "onde eu estou e com quem" —, e uma faixa
+                      largura-total no pe da tela pagava esse contexto com uma
+                      linha inteira de altura roubada da conversa. Aqui a
+                      chamada fica a um palmo do canal de voz que a originou.
+                    */}
+                    {rodapeNaColuna ? rodapeDePresenca : null}
+                  </>
                 )}
               </Panel>
               <ManipuladorDePainel
@@ -417,13 +441,25 @@ export function AppShell({ aoDigitar, latenciaMs }: {
             </>
           )}
 
+          {/*
+            `conversa` sem prefixo colidia com o id da secao la dentro: a
+            biblioteca escreve o id do painel no DOM, e o link "pular para a
+            conversa" acabava aterrissando na casca do painel em vez de na
+            regiao de conversa.
+          */}
           <Panel
-            id="conversa"
+            id="painel-conversa"
             order={2}
             defaultSize={conversaPct}
             minSize={pctDe(CONVERSA_MIN, largura)}
+            className="flex min-h-0 flex-col"
           >
-            <Conversa campoEscrita={campoEscrita} {...(aoDigitar === undefined ? {} : { aoDigitar })} />
+            <Conversa
+              campoEscrita={campoEscrita}
+              {...(aoDigitar === undefined ? {} : { aoDigitar })}
+              antes={aberturaDeCanais}
+              depois={acoesDoCanal}
+            />
           </Panel>
 
           {membrosFixos && (
@@ -447,6 +483,7 @@ export function AppShell({ aoDigitar, latenciaMs }: {
                 onCollapse={() => guardar({ membrosRecolhido: true })}
                 onExpand={() => guardar({ membrosRecolhido: false })}
                 onResize={pct => guardar({ membrosPx: pxDe(pct, largura) })}
+                className="flex min-h-0 flex-col"
               >
                 {!layout.membrosRecolhido && <PainelMembros />}
               </Panel>
@@ -462,7 +499,7 @@ export function AppShell({ aoDigitar, latenciaMs }: {
         {!canaisFixos && gavetaCanais && (
           <nav
             aria-label="Canais do grupo"
-            className="absolute inset-y-14 left-16 z-20 overflow-y-auto border-r
+            className="absolute inset-y-0 left-16 z-20 overflow-y-auto border-r
                        border-border bg-bg-raised
                        shadow-[8px_0_16px_-8px_rgb(0_0_0/0.30)]"
             style={{ width: 'var(--w-channels)' }}
@@ -471,10 +508,15 @@ export function AppShell({ aoDigitar, latenciaMs }: {
           </nav>
         )}
 
-        {!membrosFixos && membrosVisiveis && <PainelMembros />}
+        {!membrosFixos && membrosVisiveis && <PainelMembros sobreposicao />}
       </div>
 
-      <BarraDeChamada />
+      {/*
+        Quando a coluna de canais nao esta na tela, a chamada e a identidade
+        voltam para o rodape da janela. E o mesmo par de componentes, nunca
+        montado duas vezes.
+      */}
+      {rodapeNaColuna ? null : rodapeDePresenca}
       <BarraConexao latenciaMs={latenciaMs ?? null} />
 
       <PaletaDeComandos aberta={buscaAberta} aoFechar={() => setBuscaAberta(false)} />

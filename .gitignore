@@ -36,3 +36,4 @@ id_rsa*
 baixar/*
 !baixar/.gitkeep
 *.tsbuildinfo
+react-bits-main/

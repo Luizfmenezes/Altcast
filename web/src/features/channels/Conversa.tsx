@@ -18,9 +18,20 @@ const ABAS = ['chamada', 'conversa'] as const
  * anunciado - quem navega por teclado nao ve o destaque na barra lateral, e sem
  * o anuncio a troca acontece em silencio.
  */
-export function Conversa({ campoEscrita, aoDigitar }: {
+export function Conversa({ campoEscrita, aoDigitar, antes, depois }: {
   campoEscrita: RefObject<HTMLTextAreaElement | null>
   aoDigitar?: () => void
+  /**
+   * Os controles do cabecalho, entregues pelo shell — quem recolhe a coluna de
+   * canais antes do titulo, quem busca e quem mostra os membros depois dele.
+   *
+   * Sao fatias, e nao propriedades soltas, porque o ESTADO e do shell: ele
+   * sabe se a coluna esta recolhida, se virou gaveta e qual ponto de quebra
+   * vale agora. Passar cinco booleanos e cinco callbacks para ca duplicaria
+   * essa decisao em dois lugares, e um dia os dois discordariam.
+   */
+  antes?: ReactNode
+  depois?: ReactNode
 }): ReactNode {
   const canalAtivo = useStore(e => e.canalAtivo)
   const canal = useStore(e => e.channels.find(c => c.id === e.canalAtivo) ?? null)
@@ -63,12 +74,37 @@ export function Conversa({ campoEscrita, aoDigitar }: {
     <section
       id="conversa"
       aria-label="Conversa"
-      className="flex min-w-0 flex-1 flex-col"
+      /*
+        `h-full min-h-0` nao e redundante com `flex-1`.
+
+        Esta secao e filha direta de um `Panel`, que a biblioteca cria SEM
+        declarar `display` — logo, um bloco. Um `flex-1` ali dentro nao governa
+        nada, e a secao crescia ate o conteudo: 1852px dentro de uma coluna de
+        948px. Tudo abaixo herdava a altura errada, o painel de voz parava de
+        rolar e os botoes da chamada caiam fora do recorte.
+
+        `h-full` e quem da a altura de verdade; `min-h-0` e quem permite que os
+        filhos encolham em vez de estourar. O `flex-1` fica para quando esta
+        secao for usada dentro de um pai flex de verdade.
+      */
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col"
     >
+      {/*
+        O cabecalho do CANAL, e nao mais uma barra global.
+
+        Antes havia uma unica faixa de 56px no topo da janela servindo as
+        quatro colunas ao mesmo tempo: ela carregava o botao de recolher
+        canais, o nome do grupo, o nome do canal, a busca, os membros e o
+        avatar. Uma barra que fala por todo mundo nao pertence a ninguem — e o
+        nome do grupo, em particular, ficava longe da coluna de canais que ele
+        nomeia. Agora cada coluna tem o proprio topo, e este aqui responde
+        apenas "qual canal e este, e o que posso fazer nele".
+      */}
       <header
-        className="flex shrink-0 items-baseline gap-3 border-b border-border-subtle px-4 py-2"
+        className="flex h-12 shrink-0 items-center gap-2 border-b border-border-subtle px-2"
       >
-        <h1 className="text-sm font-semibold text-fg">
+        {antes}
+        <h1 className="min-w-0 truncate text-sm font-semibold text-fg">
           {/*
             O cerquilha e o alto-falante sao decorativos: o rotulo de status
             abaixo ja diz "Canal de voz X" por extenso, e repetir o simbolo no
@@ -88,8 +124,14 @@ export function Conversa({ campoEscrita, aoDigitar }: {
           {canal === null ? 'Nenhum canal selecionado'
             : `Canal ${canal.type === 'voice' ? 'de voz ' : ''}${canal.name}`}
         </p>
-        {canal?.topic !== null && canal !== null && (
-          <p className="truncate text-xs text-fg-muted">{canal.topic}</p>
+        {canal?.topic !== null && canal !== null ? (
+          <p className="min-w-0 flex-1 truncate border-l border-border-subtle pl-3 text-xs text-fg-muted">
+            {canal.topic}
+          </p>
+        ) : <span className="flex-1" />}
+
+        {depois === undefined ? null : (
+          <span className="flex shrink-0 items-center gap-1">{depois}</span>
         )}
       </header>
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
+import { motion } from 'motion/react'
 import { useStore, naoLidasDoCanal } from '../../lib/store.js'
-import { Configuracoes } from '../settings/Configuracoes.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { Dica } from '../../ui/Tooltip.js'
 import { Separador } from '../../ui/Separador.js'
@@ -21,14 +21,6 @@ export function BarraGrupos(): ReactNode {
   const mensagens = useStore(e => e.mensagens)
   const leituras = useStore(e => e.leituras)
   const user = useStore(e => e.user)
-  const grupoAtual = groups.find(g => g.id === grupoAtivo)
-  /**
-   * Comparacao de papel no cliente e decisao de APRESENTACAO, nunca de
-   * autorizacao: esconder a aba poupa um caminho sem saida, e quem forcar a
-   * rota mesmo assim recebe 404 da API. A autorizacao continua inteira em
-   * can.ts, do outro lado.
-   */
-  const administra = grupoAtual?.role === 'owner' || grupoAtual?.role === 'admin'
 
   const temNovidade = (groupId: string): boolean => channels
     .filter(c => c.groupId === groupId)
@@ -56,17 +48,42 @@ export function BarraGrupos(): ReactNode {
               data-grupo={grupo.id}
               className="group/grupo relative flex size-12 items-center justify-center"
             >
-              {/* A pilula a esquerda e a leitura de relance: alta no grupo
-                  aberto, curta onde ha novidade, ausente no resto. Ela nunca e
-                  a unica pista — o aria-current e o texto do sr-only dizem a
-                  mesma coisa para quem nao ve a coluna. */}
-              <span
-                aria-hidden="true"
-                className={cn(
-                  `absolute left-0 w-1 rounded-r-full bg-fg transition-all duration-200 ease-out`,
-                  ativo ? 'h-6' : novidade ? 'h-2' : 'h-0',
-                )}
-              />
+              {/*
+                A pilula a esquerda e a leitura de relance: alta no grupo
+                aberto, curta onde ha novidade, ausente no resto. Ela nunca e a
+                unica pista — o `aria-current` e o texto do `sr-only` dizem a
+                mesma coisa para quem nao ve a coluna.
+
+                A do grupo ABERTO desliza de um grupo para o outro, em
+                vez de sumir aqui e reaparecer ali. `layoutId` e o unico jeito
+                honesto de fazer isso: a `motion` mede as duas posicoes e
+                interpola, e nenhuma delas precisa saber da outra.
+
+                E vale a pena porque e a unica coisa nesta coluna que diz onde
+                voce esta: vista sumir e aparecer, a troca de grupo parece um
+                recarregamento; vista deslizar, parece movimento.
+
+                A de NOVIDADE continua sendo um `<span>` comum — ela pode
+                existir em varios grupos ao mesmo tempo, e `layoutId` exige
+                unicidade. O `MotionConfig` da raiz desliga a animacao inteira
+                para quem pediu menos movimento.
+              */}
+              {ativo ? (
+                <motion.span
+                  layoutId="pilula-do-grupo-ativo"
+                  aria-hidden="true"
+                  transition={{ type: 'spring', stiffness: 520, damping: 40 }}
+                  className="absolute left-0 h-6 w-1 rounded-r-full bg-fg"
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'absolute left-0 w-1 rounded-r-full bg-fg transition-all duration-200 ease-out',
+                    novidade ? 'h-2' : 'h-0',
+                  )}
+                />
+              )}
               <Avatar
                 nome={grupo.name}
                 url={grupo.iconUrl}
@@ -92,15 +109,18 @@ export function BarraGrupos(): ReactNode {
           cima, e o que se abre de vez em quando fica fora do caminho. */}
       <CriarGrupo />
 
+      {/*
+        A engrenagem saiu daqui e foi para o painel do usuario, no rodape da
+        coluna de canais. Configuracao e um assunto da PESSOA — perfil, conta,
+        audio, aparencia —, e morava na coluna dos GRUPOS; o que e do grupo
+        agora tem porta propria, no cabecalho do grupo. Sobrou nesta coluna
+        exatamente o que pertence a ela.
+      */}
       <div className="mt-auto flex flex-col items-center gap-2">
         <Separador className="w-8" />
-        {/* Acima das configuracoes: um convite pendente e a unica coisa nesta
-            coluna que pede resposta, e aparece so quando existe. */}
+        {/* Um convite pendente e a unica coisa nesta coluna que pede resposta,
+            e aparece so quando existe. */}
         <Convites />
-        <Configuracoes
-          groupId={grupoAtivo}
-          podeAdministrar={administra}
-        />
       </div>
     </nav>
   )
