@@ -19,6 +19,38 @@ export MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-fumaca_local_minio}"
 
 falhar() { echo "FALHA: $1" >&2; exit 1; }
 
+# ---------------------------------------------------------------------------
+# A trava que faltava.
+#
+# Este script e de maquina descartavel: ele derruba os volumes na entrada e no
+# `trap … EXIT`. Em 2026-09-26 ele foi rodado numa instancia de producao —
+# porque o RUNBOOK o sugeria como "verificar que esta de pe" — e apagou o
+# Postgres e o MinIO. O dump do Postgres, tirado um minuto antes, salvou o
+# banco; os objetos do MinIO nao tinham copia e se perderam.
+#
+# A verificacao e "existe volume de dados nesta maquina?". Num runner de CI,
+# que e onde este script pertence, nao existe: o disco nasce limpo a cada
+# execucao. Onde existe, existe alguem para perguntar primeiro.
+# ---------------------------------------------------------------------------
+if [ "${SMOKE_DESCARTAVEL:-0}" != '1' ]; then
+  # O nome do projeto do compose, que prefixa os volumes. Sem variavel, o
+  # compose usa o nome do diretorio — daqui, a raiz do repositorio.
+  projeto="${COMPOSE_PROJECT_NAME:-$(basename "$PWD")}"
+  padrao="^${projeto}_(pgdata|minio_data)$"
+  volumes="$(docker volume ls -q 2>/dev/null | grep -E "$padrao" || true)"
+  if [ -n "$volumes" ]; then
+    echo 'FALHA: ha volume de dados nesta maquina, e este script apaga volumes.' >&2
+    echo >&2
+    echo "$volumes" | sed 's/^/  /' >&2
+    echo >&2
+    echo 'Para verificar uma instancia VIVA use, em vez disto:' >&2
+    echo '  curl -fsS http://localhost/api/health && docker compose ps' >&2
+    echo >&2
+    echo 'Se esta maquina e mesmo descartavel: SMOKE_DESCARTAVEL=1 bash test/smoke.sh' >&2
+    exit 1
+  fi
+fi
+
 echo '==> subindo o stack'
 # Estado limpo antes de subir: reconstruir por cima de um stack vivo faz o
 # container novo disputar com o antigo e o `depends_on: service_healthy`

@@ -78,8 +78,16 @@ As portas do LiveKit aparecem em **dois** arquivos que precisam concordar:
 ```bash
 curl -fsS https://seu.dominio/api/health          # {"status":"ok"}
 docker compose ps                                  # tudo Up (healthy)
-bash test/smoke.sh                                 # o essencial, ponta a ponta
 ```
+
+> **NUNCA rode `test/smoke.sh` numa instância com dados.** Este runbook o
+> sugeria aqui, e a sugestão apagou o banco e o MinIO de produção em
+> 2026-09-26. O script é de máquina descartável: ele começa com
+> `docker compose down -v --remove-orphans` e repete o mesmo comando num
+> `trap … EXIT`, ou seja, destrói os volumes na entrada **e** na saída. O que
+> ele prova é que as imagens funcionam montadas — pergunta de CI, não de
+> instância viva. Ele hoje se recusa a rodar onde já existe volume com dados,
+> mas a recusa é a segunda linha de defesa; a primeira é não digitar o comando.
 
 Métricas, com sessão válida:
 
