@@ -12,7 +12,8 @@
     "empacotar": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
     "typecheck": "tsc -b --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "electron-updater": "^6.8.9"

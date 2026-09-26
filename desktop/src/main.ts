@@ -2,6 +2,7 @@ import { app, BrowserWindow, session, shell } from 'electron'
 import { join } from 'node:path'
 import { origemDoAltcast, urlDoAltcast } from './config'
 import { registrarCaptura } from './captura'
+import { guardarEstado, lerEstado } from './estadoDaJanela'
 
 /**
  * O processo principal.
@@ -123,9 +124,16 @@ function ehEntradaPeloGoogle(url: string): boolean {
 }
 
 function criarJanela(): void {
+  // O tamanho e a posicao de ontem, ja conferidos contra os monitores que
+  // existem hoje — restaurar numa tela que foi desconectada nao produz uma
+  // janela "fora do lugar": produz uma janela INVISIVEL, com o audio tocando e
+  // sem jeito de ser trazida de volta.
+  const guardado = lerEstado()
+
   janela = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...(guardado.x === undefined ? {} : { x: guardado.x, y: guardado.y }),
+    width: guardado.width,
+    height: guardado.height,
     // Uma janela pequena demais nao "fica apertada": ela esconde controles da
     // chamada atras de rolagem, e o botao de sair e um dos que desaparece.
     minWidth: 760,
@@ -152,7 +160,21 @@ function criarJanela(): void {
     },
   })
 
+  if (guardado.maximizada) janela.maximize()
+
   janela.once('ready-to-show', () => { janela?.show() })
+
+  const alvo = janela
+  // Um a um, e nao num laco: as sobrecargas de `on` sao por nome de evento, e
+  // uma uniao delas nao resolve para nenhuma.
+  const anotar = (): void => { guardarEstado(alvo) }
+  alvo.on('resize', anotar)
+  alvo.on('move', anotar)
+  alvo.on('maximize', anotar)
+  alvo.on('unmaximize', anotar)
+  // `close`, e nao `closed`: em `closed` a janela ja morreu e perguntar o
+  // tamanho dela lanca.
+  alvo.on('close', () => { guardarEstado(alvo, { agora: true }) })
 
   /**
    * Navegar para fora do Altcast nao acontece DENTRO do app.

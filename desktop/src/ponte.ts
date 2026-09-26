@@ -16,7 +16,28 @@ export const CANAIS = {
   fontes: 'altcast:fontes',
   /** Renderer -> principal: guarda a escolha para a captura que vem a seguir. */
   escolherFonte: 'altcast:escolher-fonte',
+  /** Renderer -> principal: registra (ou solta) a tecla global de microfone. */
+  registrarFala: 'altcast:registrar-fala',
+  /** Principal -> renderer: a tecla global de microfone foi acionada. */
+  fala: 'altcast:fala',
+  /** Renderer -> principal: peca atencao na barra de tarefas. */
+  atencao: 'altcast:atencao',
+  /** Renderer -> principal: ha chamada em curso? Muda o icone da bandeja. */
+  emChamada: 'altcast:em-chamada',
+  /** Principal -> renderer: a bandeja pediu para sair da chamada. */
+  sairDaChamada: 'altcast:sair-da-chamada',
 } as const
+
+/**
+ * O que a barra de tarefas deve mostrar.
+ *
+ * `chamada` pisca o icone uma vez; `nao-lidos` poe o contador sobreposto;
+ * `nenhum` limpa os dois.
+ */
+export type PedidoDeAtencao =
+  | { tipo: 'chamada' }
+  | { tipo: 'nao-lidos'; quantidade: number }
+  | { tipo: 'nenhum' }
 
 /** Uma tela ou uma janela que pode ser transmitida. */
 export type FonteDeTela = {

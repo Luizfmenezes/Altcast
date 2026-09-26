@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { CANAIS } from './ponte'
-import type { FonteDeTela, SomDaTela } from './ponte'
+import type { FonteDeTela, PedidoDeAtencao, SomDaTela } from './ponte'
 
 /**
  * Este arquivo e EMPACOTADO por esbuild antes de virar `dist/preload.js`, e nao
@@ -36,7 +36,7 @@ const ponte = {
    * por ela qual dos dois caminhos seguir, e e o que mantem um unico produto
    * em vez de dois.
    */
-  versao: '1' as const,
+  versao: '2' as const,
 
   /** As telas e janelas que existem AGORA. Nunca em cache: janela abre e fecha. */
   listarFontes: (): Promise<FonteDeTela[]> =>
@@ -51,6 +51,52 @@ const ponte = {
    */
   escolherFonte: async (id: string, som: SomDaTela): Promise<void> => {
     await ipcRenderer.invoke(CANAIS.escolherFonte, id, som)
+  },
+
+  /**
+   * A tecla de microfone que funciona com a janela em segundo plano.
+   *
+   * `null` solta a tecla registrada. Devolve `false` quando o sistema recusa —
+   * em geral porque outro programa ja tomou o atalho —, e e por isso que
+   * devolve algo: sem resposta, a tela nao teria como dizer "essa tecla ja
+   * esta em uso" e pareceria quebrada.
+   */
+  registrarFala: (acelerador: string | null): Promise<boolean> =>
+    ipcRenderer.invoke(CANAIS.registrarFala, acelerador) as Promise<boolean>,
+
+  /**
+   * Avisa quando a tecla global e acionada.
+   *
+   * Devolve o proprio cancelador. `ipcRenderer.on` sem um `off` exposto vaza
+   * um ouvinte por montagem, e o componente que consome isto remonta a cada
+   * entrada e saida de chamada.
+   */
+  aoFalar: (ouvinte: (ligado: boolean) => void): (() => void) => {
+    const fn = (_e: unknown, ligado: boolean): void => { ouvinte(ligado) }
+    ipcRenderer.on(CANAIS.fala, fn)
+    return () => { ipcRenderer.off(CANAIS.fala, fn) }
+  },
+
+  /** Pisca o icone, ou poe o contador de nao-lidos sobre ele. */
+  pedirAtencao: async (pedido: PedidoDeAtencao): Promise<void> => {
+    await ipcRenderer.invoke(CANAIS.atencao, pedido)
+  },
+
+  /**
+   * Diz a bandeja se ha chamada em curso.
+   *
+   * Nao e enfeite: com "fechar" passando a esconder a janela, o icone da
+   * bandeja vira a UNICA indicacao de que o microfone continua aberto.
+   */
+  informarChamada: async (emChamada: boolean): Promise<void> => {
+    await ipcRenderer.invoke(CANAIS.emChamada, emChamada)
+  },
+
+  /** A bandeja pediu para encerrar a chamada. Mesmo contrato de `aoFalar`. */
+  aoPedirSaidaDaChamada: (ouvinte: () => void): (() => void) => {
+    const fn = (): void => { ouvinte() }
+    ipcRenderer.on(CANAIS.sairDaChamada, fn)
+    return () => { ipcRenderer.off(CANAIS.sairDaChamada, fn) }
   },
 }
 
