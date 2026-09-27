@@ -134,7 +134,7 @@ export const CATALOGO: readonly DescricaoDeAcao[] = [
   {
     acao: 'group.invite', secao: 'Grupo',
     rotulo: 'Convidar pessoas',
-    descricao: 'Criar links de convite e convidar alguem diretamente.',
+    descricao: 'Criar links de convite e convidar alguém diretamente.',
   },
   {
     acao: 'group.kick', secao: 'Grupo',
@@ -157,7 +157,7 @@ export const CATALOGO: readonly DescricaoDeAcao[] = [
   {
     acao: 'group.delete', secao: 'Grupo',
     rotulo: 'Apagar o grupo',
-    descricao: 'Apaga o grupo, os canais e todas as conversas. Nao tem volta.',
+    descricao: 'Apaga o grupo, os canais e todas as conversas. Não tem volta.',
     sensivel: true,
   },
   {
@@ -179,28 +179,28 @@ export const CATALOGO: readonly DescricaoDeAcao[] = [
   {
     acao: 'channel.manage_members', secao: 'Canais',
     rotulo: 'Gerenciar acesso a canal privado',
-    descricao: 'Decidir quem entra num canal privado. Nao concede ler o canal.',
+    descricao: 'Decidir quem entra num canal privado. Não concede ler o canal.',
     sensivel: true,
   },
   {
     acao: 'channel.read', secao: 'Mensagens',
     rotulo: 'Ler mensagens',
-    descricao: 'Ver o que foi escrito nos canais a que a pessoa ja tem acesso.',
+    descricao: 'Ver o que foi escrito nos canais a que a pessoa já tem acesso.',
   },
   {
     acao: 'channel.write', secao: 'Mensagens',
     rotulo: 'Escrever mensagens',
-    descricao: 'Enviar mensagens nos canais a que a pessoa ja tem acesso.',
+    descricao: 'Enviar mensagens nos canais a que a pessoa já tem acesso.',
   },
   {
     acao: 'message.create', secao: 'Mensagens',
     rotulo: 'Criar mensagens',
-    descricao: 'Necessaria junto com escrever. Separada para poder suspender alguem sem tirar a leitura.',
+    descricao: 'Necessária junto com escrever. Separada para poder suspender alguém sem tirar a leitura.',
   },
   {
     acao: 'message.attach', secao: 'Mensagens',
     rotulo: 'Enviar arquivos',
-    descricao: 'Anexar imagens e arquivos as mensagens.',
+    descricao: 'Anexar imagens e arquivos às mensagens.',
   },
   {
     acao: 'attachment.read', secao: 'Mensagens',
@@ -210,28 +210,28 @@ export const CATALOGO: readonly DescricaoDeAcao[] = [
   {
     acao: 'message.react', secao: 'Mensagens',
     rotulo: 'Reagir',
-    descricao: 'Responder com emoji. Deixa o nome de quem reagiu visivel na sala.',
+    descricao: 'Responder com emoji. Deixa o nome de quem reagiu visível na sala.',
   },
   {
     acao: 'message.delete_any', secao: 'Mensagens',
     rotulo: 'Apagar mensagem de qualquer um',
-    descricao: 'Moderacao. Apagar a propria mensagem nao depende disto.',
+    descricao: 'Moderação. Apagar a própria mensagem não depende disto.',
     sensivel: true,
   },
   {
     acao: 'channel.join_call', secao: 'Voz',
     rotulo: 'Entrar em chamadas',
-    descricao: 'Entrar nos canais de voz a que a pessoa ja tem acesso.',
+    descricao: 'Entrar nos canais de voz a que a pessoa já tem acesso.',
   },
   {
     acao: 'channel.publish', secao: 'Voz',
-    rotulo: 'Falar, mostrar camera e tela',
-    descricao: 'Transmitir na chamada. Sem isto, a pessoa entra e so escuta.',
+    rotulo: 'Falar, mostrar câmera e tela',
+    descricao: 'Transmitir na chamada. Sem isto, a pessoa entra e só escuta.',
   },
   {
     acao: 'channel.moderate_call', secao: 'Voz',
     rotulo: 'Moderar chamadas',
-    descricao: 'Silenciar e desconectar quem esta na sala, mesmo sem estar nela.',
+    descricao: 'Silenciar e desconectar quem está na sala, mesmo sem estar nela.',
     sensivel: true,
   },
 ]

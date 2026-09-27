@@ -67,7 +67,7 @@ describe('paineis redimensionaveis', () => {
 
   afterEach(() => { vi.unstubAllGlobals() })
 
-  it('a divisoria e um separador anunciado e alcancavel pelo teclado', () => {
+  it('a divisoria e um separador anunciado e alcancável pelo teclado', () => {
     render(<AppShell />)
 
     const divisoria = screen.getByRole('separator', { name: /Redimensionar a lista de canais/ })
@@ -84,7 +84,7 @@ describe('paineis redimensionaveis', () => {
    * o botao do cabecalho nao existisse em tela larga, a coluna seria
    * intocavel para essa pessoa.
    */
-  it('o botao do cabecalho recolhe a coluna em tela larga', async () => {
+  it('o botão do cabecalho recolhe a coluna em tela larga', async () => {
     render(<AppShell />)
 
     expect(screen.getByRole('navigation', { name: 'Canais do grupo' })).toBeInTheDocument()
@@ -102,7 +102,7 @@ describe('paineis redimensionaveis', () => {
     expect(screen.getByRole('navigation', { name: 'Canais do grupo' })).toBeInTheDocument()
   })
 
-  it('o painel de membros recolhe e volta pelo mesmo botao', async () => {
+  it('o painel de membros recolhe e volta pelo mesmo botão', async () => {
     render(<AppShell />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Ocultar membros' }))
@@ -132,11 +132,11 @@ describe('paineis redimensionaveis', () => {
 describe('a largura guardada', () => {
   beforeEach(() => { window.localStorage.clear() })
 
-  it('sem nada guardado, vale o padrao da spec', () => {
+  it('sem nada guardado, vale o padrão da spec', () => {
     expect(lerLayout()).toEqual(LAYOUT_PADRAO)
   })
 
-  it('guarda em pixel, e nao em porcentagem', () => {
+  it('guarda em pixel, e não em porcentagem', () => {
     window.localStorage.setItem('altcast:layout', JSON.stringify({
       ...LAYOUT_PADRAO, canaisPx: 300,
     }))
@@ -154,12 +154,12 @@ describe('a largura guardada', () => {
     expect(lerLayout().canaisPx).toBe(CANAIS_MIN)
   })
 
-  it('JSON corrompido nao derruba a tela', () => {
+  it('JSON corrompido não derruba a tela', () => {
     window.localStorage.setItem('altcast:layout', 'isto nao e json')
     expect(lerLayout()).toEqual(LAYOUT_PADRAO)
   })
 
-  it('largura zero cai numa referencia em vez de dividir por zero', () => {
+  it('largura zero cai numa referência em vez de dividir por zero', () => {
     // Acontece no jsdom e no primeiro quadro, antes de medir.
     expect(Number.isFinite(pctDe(240, 0))).toBe(true)
     expect(pctDe(240, 0)).toBeGreaterThan(0)

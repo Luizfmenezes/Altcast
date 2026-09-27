@@ -14,16 +14,37 @@ import { useEffect, useState } from 'react'
  * um `switch`. O que existe aqui e o que o problema pede, e cabe num arquivo.
  */
 export type Rota =
-  | { nome: 'entrar' }
-  | { nome: 'criar-conta' }
+  /** A raiz: o aplicativo com sessao, o login sem ela. */
+  | { nome: 'app' }
+  /**
+   * `convite` e o codigo que a pessoa trouxe de um link e ainda nao aceitou.
+   *
+   * Ele viaja na URL entre as portas — convite, login, cadastro, Google — e
+   * nao num estado da tela: era um estado da tela, e "Ja tenho conta" o
+   * perdia. A pessoa entrava e caia no aplicativo sem o grupo que tinha ido
+   * buscar.
+   */
+  | { nome: 'entrar'; convite?: string }
+  | { nome: 'criar-conta'; convite?: string }
   | { nome: 'esqueci-a-senha' }
   | { nome: 'redefinir'; token: string }
   | { nome: 'verificar'; token: string }
   | { nome: 'convite'; codigo: string }
 
-const PADROES: Array<[RegExp, (m: RegExpExecArray) => Rota]> = [
-  [/^\/entrar\/?$/, () => ({ nome: 'entrar' })],
-  [/^\/criar-conta\/?$/, () => ({ nome: 'criar-conta' })],
+/** O `?convite=` da busca, quando ha um codigo plausivel. */
+function conviteDaBusca(search: string): { convite?: string } {
+  const bruto = new URLSearchParams(search).get('convite')
+  return bruto !== null && /^[0-9A-Za-z-]+$/.test(bruto) ? { convite: bruto } : {}
+}
+
+const PADROES: Array<[RegExp, (m: RegExpExecArray, search: string) => Rota]> = [
+  [/^\/$/, (_m, q) => {
+    const c = conviteDaBusca(q).convite
+    // `/?convite=CODIGO` e a forma antiga do link, e continua valendo.
+    return c === undefined ? { nome: 'app' } : { nome: 'convite', codigo: c }
+  }],
+  [/^\/entrar\/?$/, (_m, q) => ({ nome: 'entrar', ...conviteDaBusca(q) })],
+  [/^\/criar-conta\/?$/, (_m, q) => ({ nome: 'criar-conta', ...conviteDaBusca(q) })],
   [/^\/esqueci-a-senha\/?$/, () => ({ nome: 'esqueci-a-senha' })],
   [/^\/redefinir\/([A-Za-z0-9_-]+)\/?$/, m => ({ nome: 'redefinir', token: m[1]! })],
   [/^\/verificar\/([A-Za-z0-9_-]+)\/?$/, m => ({ nome: 'verificar', token: m[1]! })],
@@ -33,7 +54,7 @@ const PADROES: Array<[RegExp, (m: RegExpExecArray) => Rota]> = [
 export function lerRota(url: { pathname: string; search: string } = window.location): Rota {
   for (const [padrao, montar] of PADROES) {
     const achado = padrao.exec(url.pathname)
-    if (achado) return montar(achado)
+    if (achado) return montar(achado, url.search)
   }
   // `?convite=CODIGO` continua valendo: e a forma que circulou antes de
   // existir a rota com barra, e links ja compartilhados nao podem quebrar.
@@ -42,10 +63,15 @@ export function lerRota(url: { pathname: string; search: string } = window.locat
   return { nome: 'entrar' }
 }
 
+function comConvite(caminho: string, convite: string | undefined): string {
+  return convite === undefined ? caminho : `${caminho}?convite=${encodeURIComponent(convite)}`
+}
+
 export function caminhoDe(rota: Rota): string {
   switch (rota.nome) {
-    case 'entrar': return '/entrar'
-    case 'criar-conta': return '/criar-conta'
+    case 'app': return '/'
+    case 'entrar': return comConvite('/entrar', rota.convite)
+    case 'criar-conta': return comConvite('/criar-conta', rota.convite)
     case 'esqueci-a-senha': return '/esqueci-a-senha'
     case 'redefinir': return `/redefinir/${rota.token}`
     case 'verificar': return `/verificar/${rota.token}`
@@ -76,6 +102,22 @@ export function irPara(rota: Rota): void {
 export function trocarPor(rota: Rota): void {
   history.replaceState(null, '', caminhoDe(rota))
   window.dispatchEvent(new Event(EVENTO))
+}
+
+/**
+ * Tira o endereco da barra SEM mudar a tela.
+ *
+ * `trocarPor` avisa quem escuta, e a tela troca junto — era exatamente por isso
+ * que "E-mail confirmado" e "Senha trocada" nunca apareciam: o sucesso chamava
+ * `trocarPor({ nome: 'entrar' })`, a rota virava `entrar` no mesmo instante e o
+ * login tomava o lugar da mensagem antes de alguem conseguir le-la.
+ *
+ * Aqui o token sai da barra (e do historico) na hora, e a tela de sucesso
+ * continua de pe ate a pessoa decidir seguir. O "Continuar" dela e que chama
+ * `trocarPor`, e so entao a tela muda.
+ */
+export function apagarDoEndereco(rota: Rota): void {
+  history.replaceState(null, '', caminhoDe(rota))
 }
 
 export function usarRota(): Rota {

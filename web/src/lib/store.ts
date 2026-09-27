@@ -347,10 +347,16 @@ export const useStore = create<Estado>(set => ({
           const canais = [
             ...estado.channels.filter(c => c.groupId !== group.id), ...channels,
           ].sort(porPosicao)
+          // A tela ja aponta para este grupo sem canal nenhum: o aceite do
+          // convite escolheu o grupo pelo id da resposta HTTP, que chega antes
+          // deste evento. Sem este ramo a conversa ficava em "Nenhum canal"
+          // ate a pessoa clicar em algum.
+          const esperandoCanais = estado.grupoAtivo === group.id
+            && !canais.some(c => c.id === estado.canalAtivo && c.groupId === group.id)
           return {
             groups: grupos,
             channels: canais,
-            ...(puxarParaCa
+            ...(puxarParaCa || esperandoCanais
               ? {
                 grupoAtivo: group.id,
                 canalAtivo: primeiroCanalDoGrupo(canais, group.id),
@@ -723,7 +729,14 @@ export const useStore = create<Estado>(set => ({
   marcarEnvio: (id, envio) => set(estado => ({
     mensagens: Object.fromEntries(Object.entries(estado.mensagens).map(([canal, lista]) => [
       canal,
-      lista.map(m => m.id === id ? { ...m, ...(envio === undefined ? {} : { envio }) } : m),
+      lista.map(m => {
+        if (m.id !== id) return m
+        // `undefined` e "confirmada": a chave SAI, porque e a ausencia dela que
+        // o resto do cliente le como mensagem ja aceita pelo servidor.
+        if (envio !== undefined) return { ...m, envio }
+        const { envio: _removido, ...confirmada } = m
+        return confirmada
+      }),
     ])),
   })),
 

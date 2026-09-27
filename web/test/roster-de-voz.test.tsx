@@ -85,7 +85,7 @@ describe('a sala de voz que chega no ready', () => {
     expect(useStore.getState().chamadas[CANAL]).toBeUndefined()
   })
 
-  it('um ready sem o campo calls nao apaga o mapa', () => {
+  it('um ready sem o campo calls não apaga o mapa', () => {
     act(() => useStore.getState().aplicarEvento({
       t: 'voice.participant_joined',
       d: { channelId: CANAL, ...ANA },
@@ -99,7 +99,7 @@ describe('a sala de voz que chega no ready', () => {
     expect(useStore.getState().chamadas[CANAL]).toEqual([ANA])
   })
 
-  it('a fotografia nao interfere no canal que ela nao menciona', () => {
+  it('a fotografia não interfere no canal que ela não menciona', () => {
     act(() => useStore.getState().aplicarReady(
       ready([
         { channelId: CANAL, participants: [ANA] },

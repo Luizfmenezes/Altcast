@@ -30,7 +30,7 @@ const TAMANHOS = [
   { nome: 'laptop', width: 1280, height: 800 },
   // O minimo que o Electron aceita (desktop/src/main.ts). E a janela mais
   // apertada que alguem consegue produzir, e era onde o defeito doia mais.
-  { nome: 'janela minima', width: 760, height: 520 },
+  { nome: 'janela mínima', width: 760, height: 520 },
 ] as const
 
 /**
@@ -59,7 +59,7 @@ async function sobraDeRolagem(page: Page): Promise<number> {
 
 test.describe('o shell cabe na janela', () => {
   for (const { nome, width, height } of TAMANHOS) {
-    test(`o documento nao rola em ${nome} (${width}x${height})`, async ({ browser }) => {
+    test(`o documento não rola em ${nome} (${width}x${height})`, async ({ browser }) => {
       const page = await (await browser.newContext({
         storageState: ESTADO_DONO, viewport: { width, height },
       })).newPage()
@@ -109,7 +109,7 @@ test.describe('os controles da chamada sao alcancaveis', () => {
   }
 
   for (const { nome, width, height } of TAMANHOS) {
-    test(`entrar na chamada fica visivel em ${nome} (${width}x${height})`, async ({ browser }) => {
+    test(`entrar na chamada fica visível em ${nome} (${width}x${height})`, async ({ browser }) => {
       const page = await (await browser.newContext({
         storageState: ESTADO_DONO, viewport: { width, height },
       })).newPage()

@@ -21,7 +21,7 @@ async function abaDe(browser: Browser, estado: string): Promise<Page> {
 const barraDeGrupos = (page: Page) => page.getByRole('navigation', { name: /grupos/i })
 
 test.describe('fluxo de grupos', () => {
-  test('grupo criado aparece sem recarregar a pagina', async ({ browser }) => {
+  test('grupo criado aparece sem recarregar a página', async ({ browser }) => {
     const page = await abaDe(browser, ESTADO_DONO)
     const nome = `Time ${Date.now()}`
 
@@ -48,7 +48,7 @@ test.describe('fluxo de grupos', () => {
     await page.close()
   })
 
-  test('renomear o grupo muda a barra lateral na hora, e na outra aba tambem', async ({ browser }) => {
+  test('renomear o grupo muda a barra lateral na hora, e na outra aba também', async ({ browser }) => {
     const page = await abaDe(browser, ESTADO_DONO)
     const espiao = await abaDe(browser, ESTADO_DONO)
 
@@ -77,10 +77,10 @@ test.describe('fluxo de grupos', () => {
 
     try {
       const nome = `Renomeado ${Date.now()}`
-      await page.getByRole('button', { name: 'Configuracoes' }).click()
+      await page.getByRole('button', { name: 'Configurações' }).click()
       await page.getByRole('tab', { name: 'Grupo' }).click()
-      await page.getByRole('navigation', { name: 'Secoes das configuracoes' })
-        .getByRole('button', { name: 'Visao geral' }).click()
+      await page.getByRole('navigation', { name: 'Seções das configurações' })
+        .getByRole('button', { name: 'Visão geral' }).click()
 
       await page.getByLabel('Nome do grupo').fill(nome)
       await page.getByRole('button', { name: 'Salvar nome' }).click()
@@ -109,9 +109,9 @@ test.describe('fluxo de grupos', () => {
 
     // Um canal de voz proprio, para nao disputar a sala com outro caso.
     const nomeDoCanal = `voz-${Date.now().toString().slice(-6)}`
-    await page.getByRole('button', { name: 'Configuracoes' }).click()
+    await page.getByRole('button', { name: 'Configurações' }).click()
     await page.getByRole('tab', { name: 'Grupo' }).click()
-    await page.getByRole('navigation', { name: 'Secoes das configuracoes' })
+    await page.getByRole('navigation', { name: 'Seções das configurações' })
       .getByRole('button', { name: 'Canais' }).click()
     await page.getByLabel('Nome do canal').fill(nomeDoCanal)
     await page.getByLabel('Tipo').selectOption('voice')
@@ -132,9 +132,9 @@ test.describe('fluxo de grupos', () => {
     await page.close()
   })
 
-  test('entrar por link de convite ja estando logado', async ({ browser }) => {
+  test('entrar por link de convite já estando logado', async ({ browser }) => {
     const dono = await abaDe(browser, ESTADO_DONO)
-    const nome = `Convidavel ${Date.now()}`
+    const nome = `Convidável ${Date.now()}`
 
     await dono.getByRole('button', { name: /Criar grupo/ }).click()
     await dono.getByLabel('Nome do grupo').fill(nome)
@@ -162,9 +162,9 @@ test.describe('fluxo de grupos', () => {
   test('cargo criado pinta o nome na lista de membros', async ({ browser }) => {
     const dono = await abaDe(browser, ESTADO_DONO)
 
-    await dono.getByRole('button', { name: 'Configuracoes' }).click()
+    await dono.getByRole('button', { name: 'Configurações' }).click()
     await dono.getByRole('tab', { name: 'Grupo' }).click()
-    await dono.getByRole('navigation', { name: 'Secoes das configuracoes' })
+    await dono.getByRole('navigation', { name: 'Seções das configurações' })
       .getByRole('button', { name: 'Cargos' }).click()
 
     const nomeDoCargo = `Mod${Date.now().toString().slice(-5)}`

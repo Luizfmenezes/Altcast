@@ -108,7 +108,7 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
       // soma acidental das duas. O `member.roles_updated` atualiza a store.
       await api.put(`/groups/${groupId}/members/${userId}/roles`, { roleIds: proximos })
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel mudar os cargos.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível mudar os cargos.')
     }
   }
 
@@ -135,7 +135,7 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
       await api.patch(`/groups/${groupId}/members/${userId}`, { role })
       await recarregar()
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel mudar o cargo.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível mudar o cargo.')
     } finally {
       setOcupado(null)
     }
@@ -148,7 +148,7 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
       await api.delete(`/groups/${groupId}/members/${userId}`)
       await recarregar()
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel remover.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível remover.')
     } finally {
       setOcupado(null)
     }
@@ -192,7 +192,7 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-medium text-fg">
                   {membro.displayName}
-                  {souEu && <span className="ml-1.5 text-fg-muted">(voce)</span>}
+                  {souEu && <span className="ml-1.5 text-fg-muted">(você)</span>}
                 </p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-fg-muted">
                   {ehDono && <Crown aria-hidden="true" className="size-3" />}
@@ -284,7 +284,7 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
                   <ConfirmarAcao
                     titulo={`Transferir o grupo para ${membro.displayName}?`}
                     descricao={
-                      'Voce deixa de ser dono e vira administrador. So a nova '
+                      'Você deixa de ser dono e vira administrador. Só a nova '
                       + 'pessoa dona podera desfazer isso.'
                     }
                     confirmar="Transferir"

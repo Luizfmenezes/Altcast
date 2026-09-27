@@ -32,8 +32,14 @@ import { cn } from '../../lib/utils.js'
  * reutilizavel — ele so funciona no lugar em que foi escrito. A variante nao e
  * uma opcao de estilo: e a correcao do defeito.
  */
-export function EntrarComGoogle({ rotulo, variante = 'bloco' }: {
+export function EntrarComGoogle({ rotulo, variante = 'bloco', convite }: {
   rotulo: string
+  /**
+   * O convite em curso. Vai ao servidor na ida, volta no fim do fluxo, e a
+   * pessoa chega ao aplicativo ja dentro do grupo — o Google era a terceira
+   * porta por onde o codigo se perdia.
+   */
+  convite?: string | undefined
   /**
    * `bloco` e o rodape de formulario: separador "ou" acima, largura total.
    * `linha` e o botao sozinho, do tamanho do conteudo, sem margem propria —
@@ -58,7 +64,9 @@ export function EntrarComGoogle({ rotulo, variante = 'bloco' }: {
 
   const botao = (
     <a
-      href="/api/auth/google/start"
+      href={convite === undefined
+        ? '/api/auth/google/start'
+        : `/api/auth/google/start?convite=${encodeURIComponent(convite)}`}
       className={cn(
         `inline-flex items-center justify-center gap-3 rounded-md border border-border
          bg-bg-raised text-sm font-medium text-fg transition-colors hover:bg-bg-hover

@@ -266,7 +266,7 @@ function BotaoDaFaixa({ rotulo, aoClicar, pressionado, tom = 'video', children }
  * precisarmos reimplementar nada.
  */
 const NIVEIS: Record<QualidadeDeRecepcao, string> = {
-  automatica: 'Automatica',
+  automatica: 'Automática',
   alta: 'Alta',
   media: 'Media',
   baixa: 'Baixa',

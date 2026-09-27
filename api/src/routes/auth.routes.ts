@@ -7,7 +7,8 @@ import {
 } from '../db/schema.js'
 import { DUMMY_HASH, assertPasswordAcceptable, hashPassword, verifyPassword } from '../auth/password.js'
 import {
-  createSession, listSessions, revokeAllSessions, revokeSession, revokeSessionByHandle,
+  createSession, listSessions, revokeAllSessions, revokeOtherSessions, revokeSession,
+  revokeSessionByHandle,
 } from '../auth/session.js'
 import {
   VALIDADE_RESET_MS, VALIDADE_VERIFICACAO_MS, emitirToken, hashDoToken,
@@ -274,6 +275,11 @@ export async function authRoutes(app: FastifyInstance, opcoes?: {
 
   app.get('/api/auth/sessions', { preHandler: requireAuth }, async req =>
     listSessions(req.user!.id, req.sessionId!))
+
+  /** Encerra todas as outras sessoes da conta e devolve quantas eram. */
+  app.delete('/api/auth/sessions', { preHandler: requireAuth }, async req => ({
+    revoked: await revokeOtherSessions(req.user!.id, req.sessionId!),
+  }))
 
   app.delete('/api/auth/sessions/:handle', { preHandler: requireAuth }, async (req, reply) => {
     const { handle } = req.params as { handle: string }

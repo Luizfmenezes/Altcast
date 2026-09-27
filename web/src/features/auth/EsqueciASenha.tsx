@@ -40,7 +40,7 @@ export function EsqueciASenha(): ReactNode {
         <TituloDaPorta titulo={<>VERIFIQUE<br />SEU E-MAIL</>} />
         <p role="status" className="text-sm leading-relaxed text-fg-muted">
           Se houver uma conta em <strong className="text-fg">{email}</strong>, o link
-          de recuperacao chega em instantes. Ele vale por uma hora.
+          de recuperação chega em instantes. Ele vale por uma hora.
         </p>
         <div className="mt-6 flex flex-col gap-2">
           <Botao variante="discreto" largura="cheia" onClick={() => setEnviado(false)}>
@@ -58,7 +58,7 @@ export function EsqueciASenha(): ReactNode {
     <>
       <TituloDaPorta
         titulo={<>RECUPERAR<br />ACESSO</>}
-        subtitulo="Mandamos um link para voce escolher uma senha nova."
+        subtitulo="Mandamos um link para você escolher uma senha nova."
       />
       <form onSubmit={enviar} className="campos-da-porta flex flex-col gap-5" noValidate>
         <Campo
@@ -76,7 +76,7 @@ export function EsqueciASenha(): ReactNode {
       <nav className="rodape-da-porta">
         <button type="button" className="text-fg-muted hover:text-fg"
           onClick={() => irPara({ nome: 'entrar' })}>
-          Ja lembrei a senha
+          Já lembrei a senha
         </button>
         <button type="button" className="text-fg-muted hover:text-fg"
           onClick={() => irPara({ nome: 'criar-conta' })}>

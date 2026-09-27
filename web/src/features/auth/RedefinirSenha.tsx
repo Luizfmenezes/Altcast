@@ -4,7 +4,8 @@ import { ApiError, api } from '../../lib/api.js'
 import { Campo } from '../../ui/Campo.js'
 import { Botao } from '../../ui/Botao.js'
 import { TituloDaPorta } from './PalcoMercurio.js'
-import { irPara, trocarPor } from '../../lib/rota.js'
+import { apagarDoEndereco, irPara, trocarPor } from '../../lib/rota.js'
+import { SESSAO_EXPIROU } from '../../lib/api.js'
 
 /**
  * Escolha da senha nova, a partir do link do e-mail.
@@ -30,10 +31,12 @@ export function RedefinirSenha({ token }: { token: string }): ReactNode {
     try {
       await api.post('/auth/reset-password', { token, password: senha })
       setPronto(true)
-      trocarPor({ nome: 'entrar' })
+      // O token sai da barra agora; a TELA so muda no "Entrar". Trocar a rota
+      // aqui, como antes, fazia o login engolir a confirmacao no mesmo quadro.
+      apagarDoEndereco({ nome: 'entrar' })
     } catch (e) {
       const apiErro = e instanceof ApiError ? e : null
-      setErro(apiErro?.message ?? 'Nao foi possivel redefinir. Tente novamente.')
+      setErro(apiErro?.message ?? 'Não foi possível redefinir. Tente novamente.')
       setCampos(apiErro?.camposInvalidos ?? {})
       campo.current?.focus()
     } finally {
@@ -46,11 +49,21 @@ export function RedefinirSenha({ token }: { token: string }): ReactNode {
       <>
         <TituloDaPorta titulo={<>SENHA<br />TROCADA</>} />
         <p role="status" className="text-sm leading-relaxed text-fg-muted">
-          Todas as sessoes abertas foram encerradas — inclusive as de quem quer que
+          Todas as sessões abertas foram encerradas — inclusive as de quem quer que
           tivesse a senha antiga. Entre com a nova.
         </p>
         <div className="mt-6">
-          <Botao tamanho="lg" largura="cheia" onClick={() => irPara({ nome: 'entrar' })}>
+          <Botao
+            tamanho="lg"
+            largura="cheia"
+            onClick={() => {
+              // Trocar a senha encerrou TODAS as sessoes, inclusive a desta aba
+              // se havia uma. Avisar agora leva direto ao login, em vez de
+              // abrir o aplicativo so para a primeira requisicao voltar 401.
+              window.dispatchEvent(new Event(SESSAO_EXPIROU))
+              trocarPor({ nome: 'entrar' })
+            }}
+          >
             Entrar
           </Botao>
         </div>
@@ -62,7 +75,7 @@ export function RedefinirSenha({ token }: { token: string }): ReactNode {
     <>
       <TituloDaPorta
         titulo={<>NOVA<br />SENHA</>}
-        subtitulo="Este link vale uma vez so."
+        subtitulo="Este link vale uma vez só."
       />
 
       {erro !== null && (
@@ -75,13 +88,13 @@ export function RedefinirSenha({ token }: { token: string }): ReactNode {
         <Campo
           rotulo="Senha" tipo="password" valor={senha} aoMudar={setSenha}
           aparencia="linha" autoComplete="new-password" referencia={campo} obrigatorio
-          dica="Ao menos 12 caracteres. Uma frase que so voce saberia funciona melhor que simbolos."
+          dica="Ao menos 12 caracteres. Uma frase que só você saberia funciona melhor que símbolos."
           erro={campos['password']?.[0]}
         />
         <div className="envio-da-porta">
           <span className="gota" aria-hidden="true" />
           <Botao type="submit" tamanho="lg" largura="cheia" disabled={enviando}>
-            {enviando ? 'Trocando...' : 'Trocar senha'}
+            {enviando ? 'Trocando…' : 'Trocar senha'}
           </Botao>
         </div>
       </form>

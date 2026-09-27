@@ -41,14 +41,14 @@ describe('painel de voz', () => {
    * mudou em todo render e reentrava para sempre. Nao aparecia em teste nenhum
    * porque nenhum teste montava o componente — so o navegador congelava.
    */
-  it('monta sem entrar em laco de render quando ninguem esta na chamada', () => {
+  it('monta sem entrar em laco de render quando ninguém esta na chamada', () => {
     render(<PainelDeVoz channelId={CANAL} nomeDoCanal="sala-de-voz" />)
 
-    expect(screen.getByText(/Ninguem na chamada ainda/)).toBeInTheDocument()
+    expect(screen.getByText(/Ninguém na chamada ainda/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Entrar na chamada/ })).toBeInTheDocument()
   })
 
-  it('lista quem ja esta na chamada, com o estado do microfone no rotulo', () => {
+  it('lista quem já esta na chamada, com o estado do microfone no rotulo', () => {
     act(() => {
       useStore.getState().aplicarEvento({
         t: 'voice.participant_joined',
@@ -94,7 +94,7 @@ describe('painel de voz', () => {
    * tela. Trocar um teste pelos que estao em `chamada-persistente.test.tsx` e a
    * consequencia disso, e nao um relaxamento.
    */
-  it('desmontar o painel NAO derruba mais a chamada', () => {
+  it('desmontar o painel NÃO derruba mais a chamada', () => {
     const enviar = vi.fn(() => true)
     act(() => useStore.getState().definirEnvio(enviar))
     const { unmount } = render(<PainelDeVoz channelId={CANAL} nomeDoCanal="sala-de-voz" />)

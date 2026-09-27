@@ -174,8 +174,16 @@ export async function googleRoutes(app: FastifyInstance): Promise<void> {
 
     const state = segredoDeFluxo()
     const verificador = segredoDeFluxo()
+    // O convite que a pessoa trouxe ate a porta. Viaja no cookie assinado, e
+    // nao no `state` do Google: o `state` e segredo de CSRF e precisa ser
+    // imprevisivel — misturar dado de aplicacao nele enfraqueceria as duas
+    // coisas. So um codigo com a forma de codigo passa; o resto e descartado.
+    const bruto = (req.query as { convite?: unknown }).convite
+    const convite = typeof bruto === 'string' && /^[0-9A-Za-z-]{1,32}$/.test(bruto)
+      ? bruto
+      : undefined
 
-    reply.setCookie(COOKIE_FLUXO, JSON.stringify({ state, verificador }), {
+    reply.setCookie(COOKIE_FLUXO, JSON.stringify({ state, verificador, convite }), {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
       // `lax`, e nao `strict`: o cookie precisa SOBREVIVER a volta do Google,
@@ -235,9 +243,11 @@ export async function googleRoutes(app: FastifyInstance): Promise<void> {
     const aberto = req.unsignCookie(bruto)
     if (!aberto.valid || aberto.value === null) return falhar('cookie_adulterado')
 
-    let guardado: { state?: unknown; verificador?: unknown }
+    let guardado: { state?: unknown; verificador?: unknown; convite?: unknown }
     try {
-      guardado = JSON.parse(aberto.value) as { state?: unknown; verificador?: unknown }
+      guardado = JSON.parse(aberto.value) as {
+        state?: unknown; verificador?: unknown; convite?: unknown
+      }
     } catch {
       return falhar('cookie_ilegivel')
     }
@@ -288,7 +298,12 @@ export async function googleRoutes(app: FastifyInstance): Promise<void> {
     reply.clearCookie(COOKIE_FLUXO, { path: PATH_FLUXO })
 
     // Para a raiz, e nao para `/entrar`: a sessao ja existe, e o `App` decide
-    // o que mostrar consultando `/auth/me`.
-    return reply.redirect(`${env.PUBLIC_URL}/`)
+    // o que mostrar consultando `/auth/me`. Com convite em curso, o endereco o
+    // devolve ao aplicativo, que aceita e abre o grupo — o mesmo desfecho do
+    // login por senha.
+    const convite = typeof guardado.convite === 'string' ? guardado.convite : null
+    return reply.redirect(convite === null
+      ? `${env.PUBLIC_URL}/`
+      : `${env.PUBLIC_URL}/entrar?convite=${encodeURIComponent(convite)}`)
   })
 }

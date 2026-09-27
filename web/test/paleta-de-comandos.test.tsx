@@ -73,9 +73,9 @@ describe('paleta de comandos', () => {
     const usuario = userEvent.setup()
     render(<AppShell />)
     await usuario.keyboard('{Control>}k{/Control}')
-    await usuario.type(screen.getByLabelText('Buscar canais, grupos ou pessoas'), 'REUNIAO')
+    await usuario.type(screen.getByLabelText('Buscar canais, grupos ou pessoas'), 'REUNIÃO')
 
-    const opcoes = screen.getAllByRole('listitem').map(li => li.textContent)
+    const opcoes = screen.getAllByRole('option').map(li => li.textContent)
     expect(opcoes.some(t => t?.includes('reuniao'))).toBe(true)
     expect(opcoes.some(t => t?.includes('geral'))).toBe(false)
   })
@@ -87,22 +87,69 @@ describe('paleta de comandos', () => {
     render(<AppShell />)
     await usuario.keyboard('{Control>}k{/Control}')
     await usuario.type(screen.getByLabelText('Buscar canais, grupos ou pessoas'), 'calculo')
-    await usuario.click(screen.getByRole('button', { name: /calculo/ }))
+    await usuario.click(screen.getByRole('option', { name: /calculo/ }))
 
     expect(useStore.getState().grupoAtivo).toBe('g2')
     expect(useStore.getState().canalAtivo).toBe('c4')
     expect(screen.queryByLabelText('Buscar canais, grupos ou pessoas')).not.toBeInTheDocument()
   })
 
-  it('acha pessoas, e nao so canais', async () => {
+  it('acha pessoas, e não só canais', async () => {
     const usuario = userEvent.setup()
     render(<AppShell />)
     await usuario.keyboard('{Control>}k{/Control}')
     await usuario.type(screen.getByLabelText('Buscar canais, grupos ou pessoas'), 'ana')
-    expect(screen.getByRole('button', { name: /Ana Paula/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Ana Paula/ })).toBeInTheDocument()
   })
 
-  it('diz quando nao achou, em vez de mostrar uma lista vazia', async () => {
+  it('as setas movem o item ativo e Enter abre, sem sair do campo', async () => {
+    const usuario = userEvent.setup()
+    render(<AppShell />)
+    await usuario.keyboard('{Control>}k{/Control}')
+    const campo = screen.getByLabelText('Buscar canais, grupos ou pessoas')
+    await usuario.type(campo, 'p')
+
+    // "planejamento" comeca com p e vem primeiro; "Ana Paula" so contem.
+    const [primeira, segunda] = screen.getAllByRole('option')
+    expect(primeira).toHaveAttribute('aria-selected', 'true')
+    expect(campo).toHaveAttribute('aria-activedescendant', primeira!.id)
+
+    await usuario.keyboard('{ArrowDown}')
+    expect(segunda).toHaveAttribute('aria-selected', 'true')
+    expect(campo).toHaveFocus()
+
+    await usuario.keyboard('{ArrowUp}{Enter}')
+    expect(useStore.getState().canalAtivo).toBe('c2')
+  })
+
+  it('quem divide dois grupos comigo aparece uma vez só', async () => {
+    act(() => {
+      useStore.getState().aplicarEvento({
+        t: 'member.joined',
+        d: { groupId: 'g2', userId: 'u2', displayName: 'Ana Paula', avatarUrl: null, role: 'member', status: 'offline' },
+      })
+    })
+    const usuario = userEvent.setup()
+    render(<AppShell />)
+    await usuario.keyboard('{Control>}k{/Control}')
+    await usuario.type(screen.getByLabelText('Buscar canais, grupos ou pessoas'), 'ana')
+
+    expect(screen.getAllByRole('option', { name: /Ana Paula/ })).toHaveLength(1)
+    expect(screen.getByRole('option', { name: /Ana Paula/ })).toHaveTextContent('2 grupos')
+  })
+
+  it('escolher uma pessoa abre o cartão de perfil dela', async () => {
+    const usuario = userEvent.setup()
+    render(<AppShell />)
+    await usuario.keyboard('{Control>}k{/Control}')
+    await usuario.type(screen.getByLabelText('Buscar canais, grupos ou pessoas'), 'ana')
+    await usuario.keyboard('{Enter}')
+
+    const cartao = await screen.findByRole('dialog', { name: 'Ana Paula' })
+    expect(cartao).toHaveTextContent('Grupos em comum')
+  })
+
+  it('diz quando não achou, em vez de mostrar uma lista vazia', async () => {
     const usuario = userEvent.setup()
     render(<AppShell />)
     await usuario.keyboard('{Control>}k{/Control}')
@@ -110,7 +157,7 @@ describe('paleta de comandos', () => {
     expect(screen.getByText(/Nada encontrado/)).toBeInTheDocument()
   })
 
-  it('axe nao encontra violacao com a paleta aberta', async () => {
+  it('axe não encontra violação com a paleta aberta', async () => {
     const usuario = userEvent.setup()
     const { baseElement } = render(<AppShell />)
     await usuario.keyboard('{Control>}k{/Control}')

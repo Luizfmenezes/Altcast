@@ -13,7 +13,7 @@ export const MOTIVO_DO_CONVITE: Record<string, string> = {
 }
 
 export function textoDoMotivo(motivo: string): string {
-  return MOTIVO_DO_CONVITE[motivo] ?? 'Este convite nao pode ser usado.'
+  return MOTIVO_DO_CONVITE[motivo] ?? 'Este convite não pode ser usado.'
 }
 
 /** Plural sem malabarismo: dois casos, e so isso existe. */

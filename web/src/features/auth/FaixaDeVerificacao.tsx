@@ -41,7 +41,7 @@ export function FaixaDeVerificacao(): ReactNode {
         {estado === 'enviado'
           ? <>Link novo enviado para <strong className="text-fg">{user?.email}</strong>.</>
           : estado === 'falhou'
-            ? 'Nao foi possivel reenviar agora. Tente daqui a pouco.'
+            ? 'Não foi possível reenviar agora. Tente daqui a pouco.'
             : <>Confirme seu e-mail para criar grupos e convidar pessoas.</>}
       </p>
 

@@ -31,7 +31,8 @@ import { FaixaDeVerificacao } from './features/auth/FaixaDeVerificacao.js'
 import { FaixaDeInstalacao } from './features/voice/FaixaDeInstalacao.js'
 import { BoasVindas } from './features/groups/BoasVindas.js'
 import { Botao } from './ui/Botao.js'
-import { Kbd } from './ui/Kbd.js'
+import { Kbd, teclaModificadora } from './ui/Kbd.js'
+import { CartaoDePerfil } from './features/presence/CartaoDePerfil.js'
 
 /**
  * Quatro colunas: 64px fixos, e as outras tres negociaveis.
@@ -204,10 +205,13 @@ export function AppShell({ aoDigitar, latenciaMs }: {
    * sem saber. Escondida, ela seria pior do que inexistente.
    */
   const rodapeDePresenca = (
-    <>
+    // Uma regiao com nome: sem ela o rodape ficava fora de qualquer marco, e
+    // o axe acusava `region` — quem navega por marcos nao achava a propria
+    // conta nem a chamada em curso.
+    <section aria-label="Você e a chamada" className="flex shrink-0 flex-col">
       <BarraDeChamada />
       <PainelDoUsuario />
-    </>
+    </section>
   )
   const rodapeNaColuna = canaisFixos && canaisAbertos
 
@@ -222,12 +226,12 @@ export function AppShell({ aoDigitar, latenciaMs }: {
       >
         <Search aria-hidden="true" strokeWidth={1.75} className="size-4 shrink-0" />
         <span className="flex-1 text-left">Buscar</span>
-        <Kbd>Ctrl K</Kbd>
+        <Kbd>{`${teclaModificadora()} K`}</Kbd>
       </button>
 
       {/* Abaixo de lg a caixa de busca vira so o icone: a barra inteira nao
           cabe em 320px sem empurrar o resto para fora da tela. */}
-      <Dica texto="Buscar" atalho="Ctrl K" lado="bottom">
+      <Dica texto="Buscar" atalho={`${teclaModificadora()} K`} lado="bottom">
         <Botao
           variante="fantasma"
           tamanho="iconeSm"
@@ -384,7 +388,22 @@ export function AppShell({ aoDigitar, latenciaMs }: {
           Declarar o `display` aqui, e nao espalhar `h-full` nos filhos, e o que
           protege tambem o proximo componente que alguem puser dentro.
         */}
-        <PanelGroup direction="horizontal" className="min-w-0 flex-1">
+        {/*
+          O grupo de paineis E o `<main>` da tela.
+
+          Sem marco principal nenhum, o Lighthouse tirava pontos e o leitor de
+          tela nao tinha para onde pular; e as alcas de redimensionar — que
+          sao separadores focaveis entre as colunas — ficavam fora de qualquer
+          marco, que e o `region` que o axe acusava. O `<main>` vai no proprio
+          grupo, e nao numa `div` a mais, para nao mexer no flex de que os
+          paineis dependem; a conversa e a lista de canais continuam sendo
+          regioes com nome dentro dele.
+        */}
+        <PanelGroup
+          direction="horizontal"
+          className="min-w-0 flex-1"
+          tagName="main"
+        >
           {canaisFixos && (
             <>
               <Panel
@@ -454,7 +473,15 @@ export function AppShell({ aoDigitar, latenciaMs }: {
             minSize={pctDe(CONVERSA_MIN, largura)}
             className="flex min-h-0 flex-col"
           >
+            {/*
+              `key` pelo canal: trocar de canal e trocar de conversa, e todo
+              estado local dela — rolagem, "novas mensagens acima", aba de
+              chamada ou conversa — pertence ao canal que ficou para tras. Sem
+              a chave o React reaproveitava a instancia, e o que era de #geral
+              aparecia em #avisos.
+            */}
             <Conversa
+              key={canalAtivo ?? 'nenhum'}
               campoEscrita={campoEscrita}
               {...(aoDigitar === undefined ? {} : { aoDigitar })}
               antes={aberturaDeCanais}
@@ -520,6 +547,7 @@ export function AppShell({ aoDigitar, latenciaMs }: {
       <BarraConexao latenciaMs={latenciaMs ?? null} />
 
       <PaletaDeComandos aberta={buscaAberta} aoFechar={() => setBuscaAberta(false)} />
+      <CartaoDePerfil />
     </div>
     </ProvedorDeDicas>
   )

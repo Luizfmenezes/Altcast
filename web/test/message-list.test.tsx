@@ -70,7 +70,7 @@ describe('lista de mensagens', () => {
   })
   afterEach(() => vi.useRealTimers())
 
-  it('e uma regiao de log educada', () => {
+  it('e uma região de log educada', () => {
     render(<MessageList escrevendo={false} />)
     const log = screen.getByRole('log')
     expect(log).toHaveAttribute('aria-live', 'polite')
@@ -84,13 +84,13 @@ describe('lista de mensagens', () => {
     expect(screen.getByRole('log')).toHaveAttribute('aria-live', 'polite')
 
     rerender(<MessageList escrevendo />)
-    // Interromper quem esta digitando e pior do que nao anunciar.
+    // Interromper quem está digitando e pior do que nao anunciar.
     expect(screen.getByRole('log')).toHaveAttribute('aria-live', 'off')
   })
 
-  it('o indicador de digitacao NAO fica em regiao viva', () => {
+  it('o indicador de digitação NÃO fica em região viva', () => {
     render(<MessageList escrevendo={false} digitando={['Ana']} />)
-    const aviso = screen.getByText(/esta digitando/)
+    const aviso = screen.getByText(/está digitando/)
     // Informacao de baixo valor e altissima frequencia: anuncia-la seria ruido.
     expect(aviso.closest('[aria-live]')).toBeNull()
   })
@@ -132,19 +132,19 @@ describe('lista de mensagens', () => {
     expect(screen.getAllByRole('separator')).toHaveLength(2)
   })
 
-  it('autor removido aparece como usuario removido, nunca como vazio', () => {
+  it('autor removido aparece como usuário removido, nunca como vazio', () => {
     chegar(mensagem('2026-08-29T12:00:00.000Z', { authorId: null, content: 'orfa' }, 1))
     render(<MessageList escrevendo={false} />)
 
-    expect(screen.getByText('usuario removido')).toBeInTheDocument()
+    expect(screen.getByText('usuário removido')).toBeInTheDocument()
   })
 
-  it('estado vazio traz instrucao concreta, nao ilustracao', () => {
+  it('estado vazio traz instrução concreta, não ilustração', () => {
     render(<MessageList escrevendo={false} />)
     expect(screen.getByText(/Escreva a primeira/)).toBeInTheDocument()
   })
 
-  it('mostra o marcador de novas mensagens so para quem rolou para cima', () => {
+  it('mostra o marcador de novas mensagens só para quem rolou para cima', () => {
     chegar(mensagem('2026-08-29T12:00:00.000Z', { content: 'antiga' }, 1))
     render(<MessageList escrevendo={false} />)
 
@@ -156,7 +156,7 @@ describe('lista de mensagens', () => {
     expect(screen.getByRole('button', { name: /novas mensagens/i })).toBeInTheDocument()
   })
 
-  it('sem rolagem para cima, nao ha marcador atrapalhando', () => {
+  it('sem rolagem para cima, não há marcador atrapalhando', () => {
     chegar(mensagem('2026-08-29T12:00:00.000Z', { content: 'antiga' }, 1))
     render(<MessageList escrevendo={false} />)
 
@@ -164,7 +164,7 @@ describe('lista de mensagens', () => {
     expect(screen.queryByRole('button', { name: /novas mensagens/i })).not.toBeInTheDocument()
   })
 
-  it('carrega o historico anterior ao rolar para o topo', async () => {
+  it('carrega o histórico anterior ao rolar para o topo', async () => {
     const carregarAnteriores = vi.fn()
     chegar(mensagem('2026-08-29T12:00:00.000Z', { content: 'a mais antiga que tenho' }, 1))
     render(<MessageList escrevendo={false} carregarAnteriores={carregarAnteriores} />)
@@ -176,7 +176,7 @@ describe('lista de mensagens', () => {
     ))
   })
 
-  it('eco ainda nao confirmado aparece ocupado', () => {
+  it('eco ainda não confirmado aparece ocupado', () => {
     act(() => useStore.getState().registrarEco(
       mensagem('2026-08-29T12:00:00.000Z', { authorId: 'u1', content: 'indo', envio: 'enviando' }),
     ))

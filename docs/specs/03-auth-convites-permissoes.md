@@ -102,6 +102,13 @@ revogação a qualquer momento. Revogar não afeta quem já entrou.
 | Duração | 30 dias, renovação deslizante a cada uso |
 | Revogação | Apagar a linha em `sessions`. Efeito imediato |
 | Logout global | Apagar todas as linhas do `user_id` |
+| Sair (esta aba) | `POST /api/auth/logout` — botão "Sair" no menu do avatar |
+| Encerrar as outras | `DELETE /api/auth/sessions` apaga todas as linhas do `user_id` menos a da própria requisição e devolve `{ revoked: n }` |
+
+O convite trazido de um link atravessa as três portas de entrada: login e
+cadastro recebem `?convite=CODIGO` na URL, e o Google o carrega no cookie de
+fluxo assinado (nunca no `state`, que é segredo de CSRF) e o devolve em
+`/entrar?convite=CODIGO`. Com sessão, o aplicativo aceita o convite sozinho.
 
 ### Por que sessão em banco e não JWT
 

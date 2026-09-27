@@ -20,5 +20,5 @@ export async function violacoes(elemento: HTMLElement): Promise<string[]> {
       'color-contrast': { enabled: false },
     },
   })
-  return resultado.violations.map(v => `${v.id}: ${v.nodes.length} ocorrencia(s)`)
+  return resultado.violations.map(v => `${v.id}: ${v.nodes.length} ocorrência(s)`)
 }

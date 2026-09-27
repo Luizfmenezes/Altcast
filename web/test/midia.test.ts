@@ -31,7 +31,7 @@ class SalaFalsa implements SalaDeMidia {
   private ouvintes = new Map<string, (...args: never[]) => void>()
 
   async switchActiveDevice(tipo: string, deviceId: string): Promise<unknown> {
-    if (this.falharTroca) throw new Error('dispositivo indisponivel')
+    if (this.falharTroca) throw new Error('dispositivo indisponível')
     this.trocados.push(`${tipo}:${deviceId}`)
     return null
   }
@@ -58,7 +58,7 @@ class SalaFalsa implements SalaDeMidia {
   }
 
   private async dispositivo(qual: string, v: boolean): Promise<unknown> {
-    if (this.falharDispositivo) throw new Error('permissao negada')
+    if (this.falharDispositivo) throw new Error('permissão negada')
     this.chamadas.push(`${qual}:${String(v)}`)
     return null
   }
@@ -124,7 +124,7 @@ function montar(opcoes: {
 const tipos = (enviados: Quadro[]): string[] => enviados.map(q => q.t)
 
 describe('entrada na chamada', () => {
-  it('conecta ao SFU e so entao anuncia a entrada a API', async () => {
+  it('conecta ao SFU e só então anuncia a entrada a API', async () => {
     const { chamada, sala, enviados } = montar()
     await chamada.entrar()
 
@@ -135,17 +135,17 @@ describe('entrada na chamada', () => {
     expect(tipos(enviados)).toEqual(['voice.join'])
   })
 
-  it('servidor de midia ausente vira uma frase que explica o que houve', async () => {
+  it('servidor de mídia ausente vira uma frase que explica o que houve', async () => {
     const { chamada, enviados } = montar({ erroDaCredencial: { code: 'media_unavailable' } })
     await chamada.entrar()
 
     expect(chamada.estado().fase).toBe('erro')
-    expect(chamada.estado().erro).toContain('nao esta configurado')
+    expect(chamada.estado().erro).toContain('não está configurado')
     // Ninguem entrou: a API nao pode ouvir um join que nao aconteceu.
     expect(enviados).toEqual([])
   })
 
-  it('falha de conexao com o SFU nao anuncia entrada nenhuma', async () => {
+  it('falha de conexão com o SFU não anuncia entrada nenhuma', async () => {
     const { chamada, sala, enviados } = montar()
     sala.falharAoConectar = true
     await chamada.entrar()
@@ -154,7 +154,7 @@ describe('entrada na chamada', () => {
     expect(enviados).toEqual([])
   })
 
-  it('entrar duas vezes nao abre duas salas', async () => {
+  it('entrar duas vezes não abre duas salas', async () => {
     const { chamada, enviados } = montar()
     await chamada.entrar()
     await chamada.entrar()
@@ -177,7 +177,7 @@ describe('o que a pessoa transmite', () => {
     })
   })
 
-  it('quem nao pode publicar nao liga o microfone nem por engano', async () => {
+  it('quem não pode publicar não liga o microfone nem por engano', async () => {
     const { chamada, sala, enviados } = montar({
       credencial: { ...CREDENCIAL, podePublicar: false },
     })
@@ -189,7 +189,7 @@ describe('o que a pessoa transmite', () => {
     expect(tipos(enviados)).toEqual(['voice.join'])
   })
 
-  it('permissao negada pelo navegador nao marca o microfone como ligado', async () => {
+  it('permissão negada pelo navegador não marca o microfone como ligado', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     sala.falharDispositivo = true
@@ -197,7 +197,7 @@ describe('o que a pessoa transmite', () => {
 
     // O botao precisa voltar sozinho, e nao mentir que ligou.
     expect(chamada.estado().microfone).toBe(false)
-    expect(chamada.estado().erro).toContain('nao liberou o dispositivo')
+    expect(chamada.estado().erro).toContain('não liberou o dispositivo')
   })
 })
 
@@ -225,7 +225,7 @@ describe('faixas que chegam do SFU', () => {
     expect(chamada.estado().faixas).toEqual([])
   })
 
-  it('quem sai da sala nao deixa o ultimo quadro congelado na tela', async () => {
+  it('quem sai da sala não deixa o último quadro congelado na tela', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     sala.emitir(RoomEvent.TrackSubscribed, faixa, publicacaoDeVideo, { identity: 'u2' })
@@ -234,7 +234,7 @@ describe('faixas que chegam do SFU', () => {
     expect(chamada.estado().faixas).toEqual([])
   })
 
-  it('a propria camera aparece para o dono, e nao so para a sala', async () => {
+  it('a própria câmera aparece para o dono, e não só para a sala', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     sala.emitir(RoomEvent.LocalTrackPublished, {
@@ -248,7 +248,7 @@ describe('faixas que chegam do SFU', () => {
     ])
   })
 
-  it('o proprio audio nunca vira faixa: reproduzi-lo seria eco', async () => {
+  it('o próprio áudio nunca vira faixa: reproduzi-lo seria eco', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     sala.emitir(RoomEvent.LocalTrackPublished, {
@@ -258,7 +258,7 @@ describe('faixas que chegam do SFU', () => {
     expect(chamada.estado().faixas).toEqual([])
   })
 
-  it('desligar a camera tira a propria faixa da tela', async () => {
+  it('desligar a câmera tira a própria faixa da tela', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     const publicacao = { kind: 'video', source: 'camera', track: { sid: 'TR_LOCAL' } }
@@ -269,7 +269,7 @@ describe('faixas que chegam do SFU', () => {
     expect(chamada.estado().faixas).toEqual([])
   })
 
-  it('queda do proprio SFU avisa a API que esta pessoa saiu', async () => {
+  it('queda do próprio SFU avisa a API que esta pessoa saiu', async () => {
     const { chamada, sala, enviados } = montar()
     await chamada.entrar()
     sala.emitir(RoomEvent.Disconnected)
@@ -280,7 +280,7 @@ describe('faixas que chegam do SFU', () => {
 })
 
 describe('escolha de dispositivo', () => {
-  it('troca o microfone em chamada e guarda a escolha para a proxima', async () => {
+  it('troca o microfone em chamada e guarda a escolha para a próxima', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.entrar()
@@ -291,7 +291,7 @@ describe('escolha de dispositivo', () => {
       .toMatchObject({ audioinput: 'mic-usb' })
   })
 
-  it('escolher fora da chamada guarda a preferencia sem estourar', async () => {
+  it('escolher fora da chamada guarda a preferência sem estourar', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.trocarDispositivo('audiooutput', 'fone')
@@ -303,13 +303,13 @@ describe('escolha de dispositivo', () => {
       .toMatchObject({ audiooutput: 'fone' })
   })
 
-  it('dispositivo que o navegador recusa vira mensagem, nao silencio', async () => {
+  it('dispositivo que o navegador recusa vira mensagem, não silencio', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     sala.falharTroca = true
     await chamada.trocarDispositivo('videoinput', 'camera-quebrada')
 
-    expect(chamada.estado().erro).toContain('Nao foi possivel usar esse dispositivo')
+    expect(chamada.estado().erro).toContain('Não foi possível usar esse dispositivo')
   })
 })
 
@@ -325,14 +325,14 @@ describe('saida', () => {
     expect(chamada.estado()).toMatchObject({ fase: 'fora', microfone: false, faixas: [] })
   })
 
-  it('sair sem ter entrado nao estoura', async () => {
+  it('sair sem ter entrado não estoura', async () => {
     const { chamada } = montar()
     await expect(chamada.sair()).resolves.toBeUndefined()
   })
 })
 
 describe('socket caido', () => {
-  it('o anuncio perdido nao vira fila: o estado local segue verdadeiro', async () => {
+  it('o anuncio perdido não vira fila: o estado local segue verdadeiro', async () => {
     const sala = new SalaFalsa()
     const chamada = criarChamada({
       channelId: 'c1',
@@ -360,7 +360,7 @@ describe('socket caido', () => {
  * sem que nada, em lugar nenhum, registre um erro.
  */
 describe('som da tela compartilhada', () => {
-  it('compartilhar a tela pede o audio dela junto', async () => {
+  it('compartilhar a tela pede o áudio dela junto', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     await chamada.definirTela(true)
@@ -369,7 +369,7 @@ describe('som da tela compartilhada', () => {
     expect(sala.opcoesDaTela).toMatchObject({ audio: true })
   })
 
-  it('a captura e pedida a 60 quadros, e nao so a codificacao', async () => {
+  it('a captura e pedida a 60 quadros, e não só a codificação', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.entrar()
@@ -384,7 +384,7 @@ describe('som da tela compartilhada', () => {
     })
   })
 
-  it('o som da tela alheia vira faixa propria, distinta do microfone', async () => {
+  it('o som da tela alheia vira faixa própria, distinta do microfone', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     sala.emitir(
@@ -401,7 +401,7 @@ describe('som da tela compartilhada', () => {
     ])
   })
 
-  it('o som da propria tela nao volta pelo proprio alto-falante', async () => {
+  it('o som da própria tela não volta pelo próprio alto-falante', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     sala.emitir(RoomEvent.LocalTrackPublished, {
@@ -420,7 +420,7 @@ describe('som da tela compartilhada', () => {
  * o elemento existe, o SFU esta entregando — e ninguem ouve nada.
  */
 describe('audio barrado pelo navegador', () => {
-  it('o bloqueio vira estado visivel em vez de silencio inexplicado', async () => {
+  it('o bloqueio vira estado visível em vez de silencio inexplicado', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     expect(chamada.estado().audioBloqueado).toBe(false)
@@ -431,7 +431,7 @@ describe('audio barrado pelo navegador', () => {
     expect(chamada.estado().audioBloqueado).toBe(true)
   })
 
-  it('o gesto da pessoa destrava o audio e some com o aviso', async () => {
+  it('o gesto da pessoa destrava o áudio e some com o aviso', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     sala.canPlaybackAudio = false
@@ -446,7 +446,7 @@ describe('audio barrado pelo navegador', () => {
     expect(chamada.estado().audioBloqueado).toBe(false)
   })
 
-  it('destravar fora da chamada nao estoura', async () => {
+  it('destravar fora da chamada não estoura', async () => {
     const { chamada } = montar()
     await expect(chamada.destravarAudio()).resolves.toBeUndefined()
   })
@@ -463,7 +463,7 @@ describe('audio barrado pelo navegador', () => {
     expect(chamada.estado().audioBloqueado).toBe(false)
   })
 
-  it('sala que ja conecta bloqueada mostra o botao sem depender de evento', async () => {
+  it('sala que já conecta bloqueada mostra o botão sem depender de evento', async () => {
     const { chamada, sala } = montar()
     sala.canPlaybackAudio = false
     sala.recusarDestravar = true
@@ -479,7 +479,7 @@ describe('audio barrado pelo navegador', () => {
 })
 
 describe('saida de som escolhida', () => {
-  it('vale desde a entrada, e nao so depois de trocar na mao', async () => {
+  it('vale desde a entrada, e não só depois de trocar na mão', async () => {
     localStorage.clear()
     localStorage.setItem('altcast:dispositivos', JSON.stringify({ audiooutput: 'fone-usb' }))
     const { chamada, sala } = montar()
@@ -491,7 +491,7 @@ describe('saida de som escolhida', () => {
     localStorage.clear()
   })
 
-  it('saida que sumiu da maquina e ignorada em vez de engolir o som', async () => {
+  it('saída que sumiu da maquina e ignorada em vez de engolir o som', async () => {
     localStorage.clear()
     localStorage.setItem(
       'altcast:dispositivos', JSON.stringify({ audiooutput: 'fone-que-sumiu' }),
@@ -510,7 +510,7 @@ describe('saida de som escolhida', () => {
     localStorage.clear()
   })
 
-  it('lista vazia nao e prova de que o dispositivo sumiu', async () => {
+  it('lista vazia não e prova de que o dispositivo sumiu', async () => {
     localStorage.clear()
     localStorage.setItem('altcast:dispositivos', JSON.stringify({ audiooutput: 'fone-usb' }))
     const { chamada, sala } = montar({ saidas: [] })
@@ -544,7 +544,7 @@ describe('volume por transmissao', () => {
   const MICROFONE = { kind: 'audio', source: 'microphone' }
   const SOM_DA_TELA = { kind: 'audio', source: 'screen_share_audio' }
 
-  it('ajustar o volume mexe na faixa e nao so no estado', async () => {
+  it('ajustar o volume mexe na faixa e não só no estado', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.entrar()
@@ -592,7 +592,7 @@ describe('volume por transmissao', () => {
     localStorage.clear()
   })
 
-  it('o ajuste sobrevive a saida da chamada', async () => {
+  it('o ajuste sobrevive a saída da chamada', async () => {
     localStorage.clear()
     const { chamada } = montar()
     await chamada.entrar()
@@ -605,7 +605,7 @@ describe('volume por transmissao', () => {
     localStorage.clear()
   })
 
-  it('valores fora da faixa sao contidos em vez de chegarem ao codificador', async () => {
+  it('valores fora da faixa são contidos em vez de chegarem ao codificador', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.entrar()
@@ -619,7 +619,7 @@ describe('volume por transmissao', () => {
     localStorage.clear()
   })
 
-  it('ensurdecer NAO destroi os ajustes individuais', async () => {
+  it('ensurdecer NÃO destroi os ajustes individuais', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.entrar()
@@ -640,7 +640,7 @@ describe('volume por transmissao', () => {
     localStorage.clear()
   })
 
-  it('ensurdecer cala o proprio microfone junto', async () => {
+  it('ensurdecer cala o próprio microfone junto', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.entrar()
@@ -656,7 +656,7 @@ describe('volume por transmissao', () => {
     localStorage.clear()
   })
 
-  it('quem chega durante o surdo tambem chega calado', async () => {
+  it('quem chega durante o surdo também chega calado', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.entrar()
@@ -671,7 +671,7 @@ describe('volume por transmissao', () => {
     localStorage.clear()
   })
 
-  it('restaurar devolve o som cheio agora, e nao so na proxima chamada', async () => {
+  it('restaurar devolve o som cheio agora, e não só na próxima chamada', async () => {
     localStorage.clear()
     localStorage.setItem('altcast:volumes', JSON.stringify({ 'u2:audio': 0 }))
     const { chamada, sala } = montar()
@@ -722,7 +722,7 @@ describe('qualidade escolhida por quem assiste', () => {
     return p
   }
 
-  it('escolher um nivel chega a publicacao daquela faixa, e so dela', async () => {
+  it('escolher um nivel chega a publicação daquela faixa, e só dela', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     const daAna = publicacaoDeVideo()
@@ -739,7 +739,7 @@ describe('qualidade escolhida por quem assiste', () => {
     expect(chamada.estado().recepcao['TR_ANA']).toBe('baixa')
   })
 
-  it('automatica e o que vale para quem nunca escolheu', async () => {
+  it('automática e o que vale para quem nunca escolheu', async () => {
     const { chamada, sala } = montar()
     await chamada.entrar()
     sala.emitir(
@@ -763,7 +763,7 @@ describe('qualidade escolhida por quem assiste', () => {
     expect(chamada.estado().recepcao).toEqual({})
   })
 
-  it('sair da chamada esquece a escolha: a rede de ontem nao e a de hoje', async () => {
+  it('sair da chamada esquece a escolha: a rede de ontem não e a de hoje', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.entrar()
@@ -779,7 +779,7 @@ describe('qualidade escolhida por quem assiste', () => {
     localStorage.clear()
   })
 
-  it('escolher para uma faixa que nao existe nao estoura', async () => {
+  it('escolher para uma faixa que não existe não estoura', async () => {
     const { chamada } = montar()
     await chamada.entrar()
     expect(() => { chamada.definirQualidadeDeRecepcao('TR_FANTASMA', 'alta') }).not.toThrow()
@@ -808,7 +808,7 @@ describe('forca do sinal', () => {
 })
 
 describe('qualidade da tela escolhida pela pessoa', () => {
-  it('1080p60 e o padrao de quem nunca escolheu', async () => {
+  it('1080p60 e o padrão de quem nunca escolheu', async () => {
     localStorage.clear()
     const { chamada } = montar()
     await chamada.entrar()
@@ -816,7 +816,7 @@ describe('qualidade da tela escolhida pela pessoa', () => {
     expect(chamada.estado().qualidade).toBe('1080p60')
   })
 
-  it('a escolha chega inteira as duas metades, e nao so a uma', async () => {
+  it('a escolha chega inteira as duas metades, e não só a uma', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.entrar()
@@ -834,7 +834,7 @@ describe('qualidade da tela escolhida pela pessoa', () => {
     localStorage.clear()
   })
 
-  it('a escolha vale na proxima partilha, sem sair da chamada', async () => {
+  it('a escolha vale na próxima partilha, sem sair da chamada', async () => {
     localStorage.clear()
     const { chamada, sala } = montar()
     await chamada.entrar()
@@ -856,7 +856,7 @@ describe('qualidade da tela escolhida pela pessoa', () => {
     localStorage.clear()
   })
 
-  it('a escolha sobrevive a saida e a proxima chamada', async () => {
+  it('a escolha sobrevive a saída e a próxima chamada', async () => {
     localStorage.clear()
     const primeira = montar()
     await primeira.chamada.entrar()
@@ -870,7 +870,7 @@ describe('qualidade da tela escolhida pela pessoa', () => {
     localStorage.clear()
   })
 
-  it('um valor invalido guardado cai no padrao em vez de quebrar a chamada', async () => {
+  it('um valor inválido guardado cai no padrão em vez de quebrar a chamada', async () => {
     localStorage.clear()
     localStorage.setItem('altcast:qualidade-da-tela', '4k144')
     const { chamada, sala } = montar()

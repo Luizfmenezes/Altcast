@@ -35,7 +35,7 @@ describe('tela de perfil', () => {
 
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('salvar o nome de exibicao manda o PATCH e atualiza a store', async () => {
+  it('salvar o nome de exibição manda o PATCH e atualiza a store', async () => {
     const chamadas: string[] = []
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
       chamadas.push(`${String(init?.method)} ${String(url)}`)
@@ -57,7 +57,7 @@ describe('tela de perfil', () => {
     expect(chamadas[0]).toBe('PATCH /api/auth/me')
   })
 
-  it('nao deixa salvar o nome que ja esta la', () => {
+  it('não deixa salvar o nome que já esta lá', () => {
     render(<Perfil />)
     expect(screen.getByRole('button', { name: 'Salvar nome' })).toBeDisabled()
   })
@@ -72,36 +72,36 @@ describe('tela de perfil', () => {
       JSON.stringify({
         error: {
           code: 'validation_failed',
-          message: 'Alguns campos precisam de atencao.',
-          details: { username: ['Use apenas letras minusculas, numeros, ponto e sublinhado.'] },
+          message: 'Alguns campos precisam de atenção.',
+          details: { username: ['Use apenas letras minusculas, números, ponto e sublinhado.'] },
         },
       }),
       { status: 422, headers: { 'content-type': 'application/json' } },
     ))
 
     render(<Perfil />)
-    await userEvent.type(screen.getByLabelText(/Como te encontram/), 'Com Espaco')
-    await userEvent.click(screen.getByRole('button', { name: 'Salvar nome de usuario' }))
+    await userEvent.type(screen.getByLabelText(/Como te encontram/), 'Com Espaço')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar nome de usuário' }))
 
     expect(await screen.findByText(/letras minusculas/)).toBeInTheDocument()
   })
 
-  it('handle ja tomado aparece como tal', async () => {
+  it('handle já tomado aparece como tal', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
       JSON.stringify({
-        error: { code: 'username_taken', message: 'Este nome de usuario ja esta em uso.' },
+        error: { code: 'username_taken', message: 'Este nome de usuário já esta em uso.' },
       }),
       { status: 409, headers: { 'content-type': 'application/json' } },
     ))
 
     render(<Perfil />)
     await userEvent.type(screen.getByLabelText(/Como te encontram/), 'felipe')
-    await userEvent.click(screen.getByRole('button', { name: 'Salvar nome de usuario' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar nome de usuário' }))
 
-    expect(await screen.findByText(/ja esta em uso/)).toBeInTheDocument()
+    expect(await screen.findByText(/já esta em uso/)).toBeInTheDocument()
   })
 
-  it('sem foto nao oferece remover', () => {
+  it('sem foto não oferece remover', () => {
     render(<Perfil />)
     expect(screen.queryByRole('button', { name: /Remover/ })).not.toBeInTheDocument()
   })
@@ -112,7 +112,7 @@ describe('tela de perfil', () => {
     expect(screen.getByRole('button', { name: /Remover/ })).toBeInTheDocument()
   })
 
-  it('axe nao encontra violacao', async () => {
+  it('axe não encontra violação', async () => {
     const { container } = render(<Perfil />)
     expect(await violacoes(container)).toEqual([])
   })
@@ -132,9 +132,9 @@ describe('as abas de configuracao', () => {
         aoMudar={setAba}
         rotulo="Exemplo"
       >
-        <PainelDeAba valor="um"><p>conteudo um</p></PainelDeAba>
-        <PainelDeAba valor="dois"><p>conteudo dois</p></PainelDeAba>
-        <PainelDeAba valor="tres"><p>conteudo tres</p></PainelDeAba>
+        <PainelDeAba valor="um"><p>conteúdo um</p></PainelDeAba>
+        <PainelDeAba valor="dois"><p>conteúdo dois</p></PainelDeAba>
+        <PainelDeAba valor="tres"><p>conteúdo três</p></PainelDeAba>
       </Abas>
     )
   }
@@ -159,13 +159,13 @@ describe('as abas de configuracao', () => {
     expect(primeira).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('so o painel selecionado esta na arvore', () => {
+  it('só o painel selecionado esta na arvore', () => {
     render(<Exemplo />)
-    expect(screen.getByText('conteudo um')).toBeInTheDocument()
-    expect(screen.queryByText('conteudo dois')).not.toBeInTheDocument()
+    expect(screen.getByText('conteúdo um')).toBeInTheDocument()
+    expect(screen.queryByText('conteúdo dois')).not.toBeInTheDocument()
   })
 
-  it('axe nao encontra violacao', async () => {
+  it('axe não encontra violação', async () => {
     const { container } = render(<Exemplo />)
     expect(await violacoes(container)).toEqual([])
   })

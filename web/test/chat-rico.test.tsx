@@ -67,7 +67,7 @@ const montar = (): ReturnType<typeof render> =>
 describe('reacoes na tela', () => {
   beforeEach(() => { useStore.getState().limpar() })
 
-  it('a contagem entra no nome acessivel, e nao so no numero visivel', () => {
+  it('a contagem entra no nome acessível, e não só no número visível', () => {
     render(
       <Reacoes
         messageId="m1"
@@ -80,12 +80,12 @@ describe('reacoes na tela', () => {
     expect(screen.getByRole('button', { name: '👍, 2 pessoas' })).toBeInTheDocument()
   })
 
-  it('a minha reacao aparece marcada', () => {
+  it('a minha reação aparece marcada', () => {
     render(
       <Reacoes messageId="m1" reacoes={[{ emoji: '👍', userIds: ['u1'] }]} eu="u1" />,
     )
 
-    const botao = screen.getByRole('button', { name: /👍, 1 pessoa, voce reagiu/ })
+    const botao = screen.getByRole('button', { name: /👍, 1 pessoa, você reagiu/ })
     expect(botao).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -94,16 +94,16 @@ describe('reacoes na tela', () => {
     render(<Reacoes messageId="m1" reacoes={[]} eu="u1" />)
 
     await pessoa.click(screen.getByRole('button', { name: 'Reagir a esta mensagem' }))
-    expect(screen.getByRole('group', { name: 'Escolher reacao' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Escolher reação' })).toBeInTheDocument()
 
     await pessoa.keyboard('{Escape}')
 
     // Sem o Escape, a unica saida seria clicar fora — o que nao existe para
     // quem navega por teclado.
-    expect(screen.queryByRole('group', { name: 'Escolher reacao' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Escolher reação' })).not.toBeInTheDocument()
   })
 
-  it('a barra de reacoes nao introduz violacao de acessibilidade', async () => {
+  it('a barra de reações não introduz violação de acessibilidade', async () => {
     const { container } = render(
       <Reacoes messageId="m1" reacoes={[{ emoji: '🎉', userIds: ['u2'] }]} eu="u1" />,
     )
@@ -127,7 +127,7 @@ describe('eventos de reacao', () => {
     ])
   })
 
-  it('o mesmo evento duas vezes nao infla a contagem', () => {
+  it('o mesmo evento duas vezes não infla a contagem', () => {
     const evento = {
       t: 'reaction.added',
       d: { messageId: msg(1).id, channelId: CANAL, userId: 'u2', emoji: '👍' },
@@ -142,7 +142,7 @@ describe('eventos de reacao', () => {
     expect(useStore.getState().mensagens[CANAL]![0]!.reactions![0]!.userIds).toEqual(['u2'])
   })
 
-  it('o emoji sem ninguem some da barra', () => {
+  it('o emoji sem ninguém some da barra', () => {
     act(() => {
       useStore.getState().aplicarEvento({
         t: 'reaction.added',
@@ -160,14 +160,14 @@ describe('eventos de reacao', () => {
 })
 
 describe('respostas na tela', () => {
-  it('a citacao mostra o autor e o trecho da mensagem original', () => {
-    preparar([msg(1, { content: 'a reuniao e amanha?' }), msg(2, { replyToId: msg(1).id })])
+  it('a citação mostra o autor e o trecho da mensagem original', () => {
+    preparar([msg(1, { content: 'a reunião e amanha?' }), msg(2, { replyToId: msg(1).id })])
     montar()
 
-    expect(screen.getByText(/Em resposta a Ana: a reuniao e amanha\?/)).toBeInTheDocument()
+    expect(screen.getByText(/Em resposta a Ana: a reunião e amanha\?/)).toBeInTheDocument()
   })
 
-  it('citacao de mensagem apagada diz isso em vez de sumir', () => {
+  it('citação de mensagem apagada diz isso em vez de sumir', () => {
     // O `SET NULL` do banco preserva a resposta de proposito. A linha precisa
     // contar o que aconteceu, senao a conversa fica sem o fio.
     preparar([msg(2, { replyToId: '0198f0aa-0000-7000-8000-000000000009' })])
@@ -176,18 +176,22 @@ describe('respostas na tela', () => {
     expect(screen.getByText('Em resposta a uma mensagem apagada')).toBeInTheDocument()
   })
 
-  it('responder preenche a barra de citacao do composer', async () => {
+  it('responder preenche a barra de citação do composer', async () => {
     const pessoa = userEvent.setup()
-    preparar([msg(1, { content: 'a reuniao e amanha?' })])
+    preparar([msg(1, { content: 'a reunião e amanha?' })])
     montar()
 
     await pessoa.click(screen.getByRole('button', { name: 'Responder' }))
 
-    expect(screen.getByText(/Respondendo a Ana: a reuniao e amanha\?/)).toBeInTheDocument()
+    // O autor vem destacado num elemento proprio: a frase inteira e o texto
+    // do trecho, e nao de um no so.
+    expect(screen.getByText(
+      (_, el) => el?.tagName === 'SPAN' && el.textContent === 'Respondendo a Ana: a reunião e amanha?',
+    )).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancelar resposta' })).toBeInTheDocument()
   })
 
-  it('cancelar desfaz a citacao', async () => {
+  it('cancelar desfaz a citação', async () => {
     const pessoa = userEvent.setup()
     preparar([msg(1)])
     montar()
@@ -207,35 +211,35 @@ describe('mencoes', () => {
 
     await pessoa.type(screen.getByRole('textbox'), 'oi @An')
 
-    expect(screen.getByRole('button', { name: '@Ana' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Ana/ })).toBeInTheDocument()
   })
 
-  it('escolher completa o nome sem apagar o que ja estava escrito', async () => {
+  it('escolher completa o nome sem apagar o que já estava escrito', async () => {
     const pessoa = userEvent.setup()
     preparar([])
     montar()
     const campo = screen.getByRole('textbox')
 
     await pessoa.type(campo, 'bom dia @An')
-    await pessoa.click(screen.getByRole('button', { name: '@Ana' }))
+    await pessoa.click(screen.getByRole('option', { name: /Ana/ }))
 
     // Reescrever o campo inteiro perderia a frase em andamento.
     expect(campo).toHaveValue('bom dia @Ana ')
   })
 
-  it('um @ de frases atras nao reabre a lista', async () => {
+  it('um @ de frases atrás não reabre a lista', async () => {
     const pessoa = userEvent.setup()
     preparar([])
     montar()
 
     await pessoa.type(screen.getByRole('textbox'), 'oi @Ana tudo bem')
 
-    expect(screen.queryByRole('button', { name: '@Ana' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Ana/ })).not.toBeInTheDocument()
   })
 })
 
 describe('nao-lidos', () => {
-  it('o separador cai depois da ultima mensagem lida', () => {
+  it('o separador cai depois da última mensagem lida', () => {
     preparar([msg(1), msg(2), msg(3)], { [CANAL]: msg(1).id })
     montar()
 
@@ -243,21 +247,21 @@ describe('nao-lidos', () => {
     expect(screen.getAllByRole('separator', { name: 'Novas mensagens' })).toHaveLength(1)
   })
 
-  it('sem marco nenhum nao ha separador: tudo e novidade de primeira vez', () => {
+  it('sem marco nenhum não há separador: tudo e novidade de primeira vez', () => {
     preparar([msg(1), msg(2)])
     montar()
 
     expect(screen.queryByRole('separator', { name: 'Novas mensagens' })).not.toBeInTheDocument()
   })
 
-  it('com tudo lido o separador nao aparece', () => {
+  it('com tudo lido o separador não aparece', () => {
     preparar([msg(1), msg(2)], { [CANAL]: msg(2).id })
     montar()
 
     expect(screen.queryByRole('separator', { name: 'Novas mensagens' })).not.toBeInTheDocument()
   })
 
-  it('o marco nao anda para tras', () => {
+  it('o marco não anda para tras', () => {
     preparar([msg(1), msg(2), msg(3)], { [CANAL]: msg(3).id })
 
     act(() => { useStore.getState().marcarLido(CANAL, msg(1).id) })
@@ -268,7 +272,7 @@ describe('nao-lidos', () => {
     expect(useStore.getState().leituras[CANAL]).toBe(msg(3).id)
   })
 
-  it('o separador NAO escorrega quando chega mensagem nova', () => {
+  it('o separador NÃO escorrega quando chega mensagem nova', () => {
     preparar([msg(1), msg(2)], { [CANAL]: msg(1).id })
     montar()
 

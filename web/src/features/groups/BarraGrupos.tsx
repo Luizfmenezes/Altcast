@@ -29,8 +29,11 @@ export function BarraGrupos(): ReactNode {
   return (
     <nav
       aria-label="Grupos"
-      className="flex shrink-0 flex-col items-center gap-1.5 border-r border-border-subtle
-                 bg-bg-raised py-3"
+      // `overflow-y-auto`: com doze grupos a coluna passava da altura da
+      // janela, e os ultimos — mais o botao de criar grupo — ficavam
+      // recortados sem barra de rolagem nenhuma.
+      className="flex shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r
+                 border-border-subtle bg-bg-raised py-3"
       style={{ width: 'var(--w-groups)' }}
     >
       {groups.map(grupo => {
@@ -98,7 +101,7 @@ export function BarraGrupos(): ReactNode {
               />
               <span className="sr-only">
                 {grupo.name}
-                {novidade ? ' (mensagens nao lidas)' : ''}
+                {novidade ? ' (mensagens não lidas)' : ''}
               </span>
             </button>
           </Dica>

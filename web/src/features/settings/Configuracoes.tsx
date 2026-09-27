@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Headphones, Settings, ShieldCheck, UserRound, Users, X } from 'lucide-react'
@@ -11,6 +10,7 @@ import { cn } from '../../lib/utils.js'
 import type { Aba as DescricaoDeAba } from '../../ui/Abas.js'
 import { Botao } from '../../ui/Botao.js'
 import { usaLarguraMinima } from '../../lib/pontosDeQuebra.js'
+import { useDialogoDeConfiguracoes, type AbaDeConfiguracoes } from './dialogoDeConfiguracoes.js'
 
 /**
  * Porta de entrada das configuracoes.
@@ -28,14 +28,16 @@ import { usaLarguraMinima } from '../../lib/pontosDeQuebra.js'
  * com isso.
  */
 
-type Chave = 'perfil' | 'conta' | 'midia' | 'grupo'
+type Chave = AbaDeConfiguracoes
 
 export function Configuracoes({ groupId, podeAdministrar }: {
   groupId: string | null
   podeAdministrar: boolean
 }): ReactNode {
-  const [aberto, setAberto] = useState(false)
-  const [aba, setAba] = useState<Chave>('perfil')
+  const aberto = useDialogoDeConfiguracoes(e => e.aberto)
+  const setAberto = useDialogoDeConfiguracoes(e => e.definirAberto)
+  const aba = useDialogoDeConfiguracoes(e => e.aba)
+  const setAba = useDialogoDeConfiguracoes(e => e.definirAba)
   const vertical = usaLarguraMinima(640)
 
   const mostraGrupo = podeAdministrar && groupId !== null
@@ -43,7 +45,7 @@ export function Configuracoes({ groupId, podeAdministrar }: {
   const abas: DescricaoDeAba[] = [
     { valor: 'perfil', rotulo: 'Perfil', icone: UserRound },
     { valor: 'conta', rotulo: 'Conta', icone: ShieldCheck },
-    { valor: 'midia', rotulo: 'Audio e video', icone: Headphones },
+    { valor: 'midia', rotulo: 'Áudio e vídeo', icone: Headphones },
     // O rotulo "Grupo" e consultado pelo teste de acessibilidade ponta a
     // ponta. Renomear quebra a suite, e com razao: e o nome que as pessoas
     // aprenderam.
@@ -59,7 +61,7 @@ export function Configuracoes({ groupId, podeAdministrar }: {
       <Dialog.Trigger asChild>
         <button
           type="button"
-          aria-label="Configuracoes"
+          aria-label="Configurações"
           className="flex size-10 items-center justify-center rounded text-fg-muted
                      hover:bg-bg-hover hover:text-fg"
         >
@@ -73,8 +75,7 @@ export function Configuracoes({ groupId, podeAdministrar }: {
           className={cn(
             `fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] -translate-x-1/2 -translate-y-1/2
              flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised
-             text-fg
-             shadow-[0_8px_16px_-8px_rgb(0_0_0/0.28),0_24px_48px_-12px_rgb(0_0_0/0.32)]`,
+             text-fg shadow-dialog`,
             // A aba de grupo carrega a propria barra de secoes, e dentro dela
             // os cargos ainda abrem lista mais editor. Em 46rem isso virava
             // tres colunas de navegacao espremendo o conteudo em uns 330px, e
@@ -90,10 +91,10 @@ export function Configuracoes({ groupId, podeAdministrar }: {
           <div className="flex items-start justify-between gap-4 px-4 pt-3">
             <div>
               <Dialog.Title className="text-[15px] font-semibold text-fg">
-                Configuracoes
+                Configurações
               </Dialog.Title>
               <Dialog.Description className="sr-only">
-                Preferencias da sua conta e administracao do grupo.
+                Preferências da sua conta e administração do grupo.
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
@@ -108,15 +109,15 @@ export function Configuracoes({ groupId, podeAdministrar }: {
             abas={abas}
             valor={atual}
             aoMudar={v => setAba(v as Chave)}
-            rotulo="Secoes de configuracao"
+            rotulo="Seções de configuração"
             orientacao={vertical ? 'vertical' : 'horizontal'}
           >
             <PainelDeAba valor="perfil"><Perfil /></PainelDeAba>
             <PainelDeAba valor="conta"><ConfiguracoesUsuario /></PainelDeAba>
             <PainelDeAba valor="midia">
-              <section aria-label="Audio e video" className="flex flex-col gap-4 p-4">
-                <p className="text-[13px] text-fg-muted">
-                  Os dispositivos e a qualidade valem para a proxima chamada. Dentro
+              <section aria-label="Áudio e vídeo" className="flex flex-col gap-4 p-4">
+                <p className="text-sm text-fg-muted">
+                  Os dispositivos e a qualidade valem para a próxima chamada. Dentro
                   de uma chamada, o mesmo painel aparece com o medidor ao vivo.
                 </p>
                 {/*

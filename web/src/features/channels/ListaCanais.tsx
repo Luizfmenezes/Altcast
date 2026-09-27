@@ -33,7 +33,7 @@ function RosterDeVoz({ participantes, membros, canal }: {
   if (participantes.length === 0) return null
 
   const nomeDe = (userId: string): string =>
-    membros.find(m => m.userId === userId)?.displayName ?? 'Alguem'
+    membros.find(m => m.userId === userId)?.displayName ?? 'Alguém'
   const fotoDe = (userId: string): string | null =>
     membros.find(m => m.userId === userId)?.avatarUrl ?? null
 
@@ -147,7 +147,7 @@ function ItemDeCanal({ canal, ativo, naoLidas, naSala, aoEscolher }: {
         <>
           <Badge>{naoLidas > 99 ? '99+' : naoLidas}</Badge>
           <span className="sr-only">
-            {naoLidas === 1 ? '1 mensagem nao lida' : `${naoLidas} mensagens nao lidas`}
+            {naoLidas === 1 ? '1 mensagem não lida' : `${naoLidas} mensagens não lidas`}
           </span>
         </>
       ) : null}
@@ -310,7 +310,7 @@ export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactN
       >
         {doGrupo.length === 0 && (
           <p className="px-2 py-3 text-xs text-fg-muted">
-            Nenhum canal ainda. Crie o primeiro para comecar a conversa.
+            Nenhum canal ainda. Crie o primeiro para começar a conversa.
           </p>
         )}
 
@@ -332,7 +332,7 @@ export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactN
         aoMudarAberto={aberto => { if (!aberto) setTrocarPara(null) }}
         titulo={`Trocar para ${trocarPara?.name ?? ''}?`}
         descricao={
-          `Voce esta numa chamada em ${nomeDoCanalEmChamada ?? 'outro canal'} e vai sair dela `
+          `Você está numa chamada em ${nomeDoCanalEmChamada ?? 'outro canal'} e vai sair dela `
           + 'para entrar nesta.'
         }
         confirmar="Trocar de sala"

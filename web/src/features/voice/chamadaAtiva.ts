@@ -45,6 +45,8 @@ export type EstadoDaChamadaAtiva = {
   chamada: EstadoDaChamada
 
   entrar: (channelId: string) => Promise<void>
+  /** Repete a entrada no mesmo canal depois de uma falha. */
+  tentarDeNovo: () => Promise<void>
   sair: () => Promise<void>
   alternarMicrofone: () => void
   alternarCamera: () => void
@@ -76,15 +78,20 @@ export const useChamadaAtiva = create<EstadoDaChamadaAtiva>((set, get) => ({
     destravarSons()
 
     // Ja estamos nesta chamada: entrar de novo abriria uma segunda sala para o
-    // mesmo canal e mandaria o audio duas vezes.
-    if (get().canal === channelId && viva !== null) return
+    // mesmo canal e mandaria o audio duas vezes. A excecao e a chamada que
+    // FALHOU — ela nao e uma sala, e um cadaver, e "Tentar de novo" precisa
+    // passar por aqui.
+    if (get().canal === channelId && viva !== null && get().chamada.fase !== 'erro') return
 
     // Uma chamada por vez, em todo o sistema. Duas salas abertas mandariam o
     // microfone para um canal que a pessoa acha que deixou — e agora que a
     // navegacao nao derruba mais nada, este e o unico lugar que impede isso.
     if (viva !== null) await viva.sair()
 
-    const nova = criarChamada({
+    // `let` e declarado antes: o `aoMudar` abaixo compara contra a instancia,
+    // e ele pode ser chamado antes de `criarChamada` devolver.
+    let nova: Chamada | null = null
+    nova = criarChamada({
       channelId,
       // Lido da store a cada quadro, e nao capturado uma vez: o socket cai e
       // volta, e uma funcao capturada na criacao enviaria para sempre pela
@@ -99,7 +106,24 @@ export const useChamadaAtiva = create<EstadoDaChamadaAtiva>((set, get) => ({
        * acabou de negar, e ensinaria a pessoa a confiar num sinal falso.
        */
       aoMudar: chamada => {
+        // Uma instancia que ja foi substituida ou encerrada nao fala mais pela
+        // chamada. Sem esta guarda, o `Disconnected` tardio de uma sala velha
+        // apagava o estado da sala nova.
+        if (nova !== null && viva !== nova) return
         const antes = get().chamada
+
+        // A sala caiu SOZINHA — o SFU derrubou, a rede morreu de vez — com a
+        // pessoa ainda "na chamada". Voltar para "fora" em silencio era a
+        // contradicao que a interface exibia: a barra dizia "na chamada" e o
+        // painel dizia "fora". Uma queda e uma falha, com saida.
+        if (antes.fase === 'dentro' && chamada.fase === 'fora') {
+          set({
+            chamada: {
+              ...chamada, fase: 'erro', erro: 'A conexão com a chamada caiu.',
+            },
+          })
+          return
+        }
         set({ chamada })
 
         if (antes.fase !== 'dentro' && chamada.fase === 'dentro') tocar('entrei')
@@ -122,7 +146,8 @@ export const useChamadaAtiva = create<EstadoDaChamadaAtiva>((set, get) => ({
         useStore.getState().semearSala(channelId, participantes)
       },
     })
-    viva = nova
+    const instancia = nova
+    viva = instancia
     set({ canal: channelId, chamada: ESTADO_INICIAL })
 
     /**
@@ -152,7 +177,7 @@ export const useChamadaAtiva = create<EstadoDaChamadaAtiva>((set, get) => ({
     }
 
     try {
-      await nova.entrar()
+      await instancia.entrar()
     } catch (erro) {
       // Nao deixar o otimismo virar mentira permanente.
       desfazer()
@@ -162,6 +187,12 @@ export const useChamadaAtiva = create<EstadoDaChamadaAtiva>((set, get) => ({
     // `fase: 'erro'`. Sem esta segunda checagem o `catch` acima cobriria so o
     // caso raro (o import do SDK rejeitar) e deixaria o comum passar.
     if (get().chamada.fase === 'erro') desfazer()
+  },
+
+  tentarDeNovo: async () => {
+    const canal = get().canal
+    if (canal === null) return
+    await get().entrar(canal)
   },
 
   sair: async () => {

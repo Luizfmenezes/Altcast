@@ -55,7 +55,7 @@ function moldura(titulo: string, corpo: string, botao: { texto: string; url: str
         ${botao.texto}
       </a>
       <p style="margin:20px 0 0;font-size:13px;color:${CINZA}">
-        Se o botao nao funcionar, copie este endereco:<br>
+        Se o botão não funcionar, copie este endereço:<br>
         <span style="word-break:break-all;color:${TINTA}">${botao.url}</span>
       </p>
     </td></tr>
@@ -72,23 +72,23 @@ export function emailDeVerificacao(opcoes: {
     para: opcoes.para,
     assunto: 'Confirme seu e-mail no Altcast',
     texto: [
-      `Ola, ${opcoes.nome}.`,
+      `Olá, ${opcoes.nome}.`,
       '',
-      'Confirme este endereco para liberar a criacao de grupos e o envio de',
+      'Confirme este endereço para liberar a criação de grupos e o envio de',
       'convites no Altcast. O link vale por 24 horas.',
       '',
       opcoes.url,
       '',
-      'Se nao foi voce quem criou a conta, ignore esta mensagem — sem a',
-      'confirmacao, nada acontece.',
+      'Se não foi você quem criou a conta, ignore esta mensagem — sem a',
+      'confirmação, nada acontece.',
     ].join('\n'),
     html: moldura(
       'Confirme seu e-mail',
-      `<p style="margin:0 0 8px">Ola, ${escapar(opcoes.nome)}.</p>
-       <p style="margin:0 0 8px">Confirme este endereco para liberar a criacao de
+      `<p style="margin:0 0 8px">Olá, ${escapar(opcoes.nome)}.</p>
+       <p style="margin:0 0 8px">Confirme este endereço para liberar a criação de
        grupos e o envio de convites. O link vale por 24 horas.</p>
-       <p style="margin:0;font-size:13px;color:${CINZA}">Se nao foi voce quem criou
-       a conta, ignore esta mensagem — sem a confirmacao, nada acontece.</p>`,
+       <p style="margin:0;font-size:13px;color:${CINZA}">Se não foi você quem criou
+       a conta, ignore esta mensagem — sem a confirmação, nada acontece.</p>`,
       { texto: 'Confirmar e-mail', url: opcoes.url },
     ),
   }
@@ -103,22 +103,22 @@ export function emailDeRecuperacao(opcoes: {
     para: opcoes.para,
     assunto: 'Redefinir sua senha do Altcast',
     texto: [
-      `Ola, ${opcoes.nome}.`,
+      `Olá, ${opcoes.nome}.`,
       '',
-      'Alguem pediu para redefinir a senha desta conta. O link abaixo vale por',
-      'uma hora e so pode ser usado uma vez.',
+      'Alguém pediu para redefinir a senha desta conta. O link abaixo vale por',
+      'uma hora e só pode ser usado uma vez.',
       '',
       opcoes.url,
       '',
-      'Se nao foi voce, nao ha nada a fazer: sua senha continua a mesma, e este',
+      'Se não foi você, não há nada a fazer: sua senha continua a mesma, e este',
       'link expira sozinho.',
     ].join('\n'),
     html: moldura(
       'Redefinir sua senha',
-      `<p style="margin:0 0 8px">Ola, ${escapar(opcoes.nome)}.</p>
-       <p style="margin:0 0 8px">Alguem pediu para redefinir a senha desta conta.
-       O link vale por uma hora e so pode ser usado uma vez.</p>
-       <p style="margin:0;font-size:13px;color:${CINZA}">Se nao foi voce, nao ha nada
+      `<p style="margin:0 0 8px">Olá, ${escapar(opcoes.nome)}.</p>
+       <p style="margin:0 0 8px">Alguém pediu para redefinir a senha desta conta.
+       O link vale por uma hora e só pode ser usado uma vez.</p>
+       <p style="margin:0;font-size:13px;color:${CINZA}">Se não foi você, não há nada
        a fazer: sua senha continua a mesma, e este link expira sozinho.</p>`,
       { texto: 'Redefinir senha', url: opcoes.url },
     ),
@@ -147,25 +147,25 @@ export function emailDeConvite(opcoes: {
     para: opcoes.para,
     // O nome do grupo no assunto e o que faz a mensagem ser reconhecida na
     // caixa de entrada por quem estava esperando por ela.
-    assunto: `${opcoes.convidadoPor} convidou voce para ${opcoes.grupo} no Altcast`,
+    assunto: `${opcoes.convidadoPor} convidou você para ${opcoes.grupo} no Altcast`,
     texto: [
-      `${opcoes.convidadoPor} convidou voce para o grupo "${opcoes.grupo}" no Altcast.`,
+      `${opcoes.convidadoPor} convidou você para o grupo "${opcoes.grupo}" no Altcast.`,
       '',
-      'Crie sua conta por este endereco e voce ja entra no grupo:',
+      'Crie sua conta por este endereço e você já entra no grupo:',
       '',
       opcoes.url,
       '',
-      'Se voce nao conhece quem convidou, ignore esta mensagem. Nada acontece',
-      'enquanto voce nao criar a conta.',
+      'Se você não conhece quem convidou, ignore esta mensagem. Nada acontece',
+      'enquanto você não criar a conta.',
     ].join('\n'),
     html: moldura(
-      'Voce foi convidado',
+      'Você foi convidado',
       `<p style="margin:0 0 8px"><strong>${escapar(opcoes.convidadoPor)}</strong> convidou
-       voce para o grupo <strong>${escapar(opcoes.grupo)}</strong> no Altcast.</p>
-       <p style="margin:0 0 8px">Crie sua conta por este endereco e voce ja entra
+       você para o grupo <strong>${escapar(opcoes.grupo)}</strong> no Altcast.</p>
+       <p style="margin:0 0 8px">Crie sua conta por este endereço e você já entra
        no grupo.</p>
-       <p style="margin:0;font-size:13px;color:${CINZA}">Se voce nao conhece quem
-       convidou, ignore esta mensagem — nada acontece enquanto voce nao criar a
+       <p style="margin:0;font-size:13px;color:${CINZA}">Se você não conhece quem
+       convidou, ignore esta mensagem — nada acontece enquanto você não criar a
        conta.</p>`,
       { texto: 'Aceitar convite', url: opcoes.url },
     ),

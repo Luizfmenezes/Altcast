@@ -65,8 +65,11 @@ export async function consumirConvite(
     .where(and(
       eq(groupMembers.groupId, inv!.groupId), eq(groupMembers.userId, userId),
     )).limit(1)
-  // Antes do incremento, de proposito: recusa nao gasta uso.
-  if (ja) throw new AppError('already_member')
+  // Antes do incremento, de proposito: recusa nao gasta uso. O `groupId` vai
+  // junto porque quem ja e membro pode saber de qual grupo — e e o que deixa o
+  // cliente abrir o grupo pelo id, em vez de procura-lo pelo NOME, que dois
+  // grupos podem ter igual.
+  if (ja) throw new AppError('already_member', { groupId: inv!.groupId })
 
   await tx.insert(groupMembers).values({ groupId: inv!.groupId, userId, role: 'member' })
   await tx.update(invites).set({ uses: inv!.uses + 1 }).where(eq(invites.code, codigo))

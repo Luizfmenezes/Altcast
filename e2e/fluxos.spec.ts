@@ -56,13 +56,13 @@ test.describe('fluxos da Fatia 1', () => {
   test('convite completo entre dois navegadores', async ({ browser }) => {
     const dono = await abaDe(browser, ESTADO_DONO)
 
-    await dono.getByRole('button', { name: 'Configuracoes' }).click()
+    await dono.getByRole('button', { name: 'Configurações' }).click()
     await dono.getByRole('tab', { name: 'Grupo' }).click()
     // A tela de grupo deixou de ser um scroll unico com tudo empilhado e virou
     // um menu de secoes: com cargos e identidade entrando, viraram cinco
     // assuntos, e cargos sozinho precisa de duas colunas. O convite agora tem
     // nome proprio no menu — que e justamente o que o scroll nao dava.
-    await dono.getByRole('navigation', { name: 'Secoes das configuracoes' })
+    await dono.getByRole('navigation', { name: 'Seções das configurações' })
       .getByRole('button', { name: 'Convites' }).click()
     await dono.getByRole('button', { name: 'Gerar link' }).click()
 
@@ -77,7 +77,7 @@ test.describe('fluxos da Fatia 1', () => {
     await expect(convidado.getByText('Anticorp')).toBeVisible()
 
     await convidado.getByRole('button', { name: 'Criar conta' }).click()
-    await convidado.getByLabel('Nome de exibicao').fill('Carlos')
+    await convidado.getByLabel('Nome de exibição').fill('Carlos')
     await convidado.getByLabel('E-mail').fill('carlos@altcast.test')
     await convidado.getByLabel('Senha').fill('terceira-frase-longa-de-teste')
     await convidado.getByRole('button', { name: 'Criar conta e entrar' }).click()
@@ -93,7 +93,7 @@ test.describe('fluxos da Fatia 1', () => {
     const dono = await abaDe(browser, ESTADO_DONO)
     const ana = await abaDe(browser, ESTADO_ANA)
 
-    const texto = `ola do dono ${Date.now()}`
+    const texto = `olá do dono ${Date.now()}`
     await dono.getByLabel('Escrever mensagem').fill(texto)
     await dono.keyboard.press('Enter')
 
@@ -141,7 +141,7 @@ test.describe('fluxos da Fatia 1', () => {
     await expect(canalNaBarra(ana, nome)).toHaveCount(0, { timeout: 15_000 })
   })
 
-  test('reconexao cura o buraco', async ({ browser }) => {
+  test('reconexão cura o buraco', async ({ browser }) => {
     const offline = await abaDe(browser, ESTADO_DONO)
     const online = await abaDe(browser, ESTADO_ANA)
 
@@ -152,11 +152,11 @@ test.describe('fluxos da Fatia 1', () => {
     await offline.context().setOffline(true)
     execSync('docker compose restart api', { stdio: 'ignore', env: AMBIENTE_COMPOSE })
 
-    await expect(offline.getByRole('status', { name: 'Estado da conexao' }))
+    await expect(offline.getByRole('status', { name: 'Estado da conexão' }))
       .toContainText('reconectando', { timeout: 60_000 })
 
     // A outra aba reconecta sozinha e volta a falar.
-    await expect(online.getByRole('status', { name: 'Estado da conexao' }))
+    await expect(online.getByRole('status', { name: 'Estado da conexão' }))
       .toContainText('conectado', { timeout: 60_000 })
 
     const marca = Date.now()
@@ -179,7 +179,7 @@ test.describe('fluxos da Fatia 1', () => {
     }
   })
 
-  test('sessao revogada bloqueia o outro dispositivo imediatamente', async ({
+  test('sessão revogada bloqueia o outro dispositivo imediatamente', async ({
     browser, playwright,
   }) => {
     // O aparelho a ser encerrado e criado por este teste, com um user-agent
@@ -197,7 +197,7 @@ test.describe('fluxos da Fatia 1', () => {
     expect(entrada.ok()).toBe(true)
 
     const novo = await abaDe(browser, ESTADO_DONO)
-    await novo.getByRole('button', { name: 'Configuracoes' }).click()
+    await novo.getByRole('button', { name: 'Configurações' }).click()
 
     // As sessoes moraram na primeira tela do dialogo enquanto ela era unica.
     // Agora o dialogo abre em "Perfil", e a lista de aparelhos vive em
@@ -207,7 +207,7 @@ test.describe('fluxos da Fatia 1', () => {
     const encerrar = novo.getByRole('button', { name: `Encerrar ${aparelho}` })
     await expect(encerrar).toBeVisible()
     await encerrar.click()
-    await novo.getByRole('button', { name: 'Encerrar sessao' }).click()
+    await novo.getByRole('button', { name: 'Encerrar sessão' }).click()
 
     // O efeito e imediato porque a sessao mora no banco: revogar apaga a
     // linha. Com JWT assinado, o acesso sobreviveria ate o vencimento.
@@ -221,7 +221,7 @@ test.describe('fluxos da Fatia 1', () => {
     await antigo.dispose()
   })
 
-  test('percurso completo so com teclado', async ({ browser, playwright }) => {
+  test('percurso completo só com teclado', async ({ browser, playwright }) => {
     // Navegar entre canais exige mais de um canal. O segundo e publico, entao
     // aparece para Ana na hora - o que de quebra prova o channel.created
     // chegando a quem nao pediu nada.
@@ -251,13 +251,13 @@ test.describe('fluxos da Fatia 1', () => {
     await page.keyboard.press('Alt+ArrowDown')
     await expect(page.getByLabel('Escrever mensagem')).toBeFocused()
 
-    const texto = `so teclado ${Date.now()}`
+    const texto = `só teclado ${Date.now()}`
     await page.keyboard.type(texto)
     await page.keyboard.press('Enter')
     await expect(page.getByText(texto)).toBeVisible()
 
     // Abrir e fechar a sobreposicao, devolvendo o foco ao gatilho.
-    const gatilho = page.getByRole('button', { name: 'Configuracoes' })
+    const gatilho = page.getByRole('button', { name: 'Configurações' })
     await gatilho.focus()
     await page.keyboard.press('Enter')
     await expect(page.getByRole('dialog')).toBeVisible()
@@ -268,7 +268,7 @@ test.describe('fluxos da Fatia 1', () => {
 })
 
 test.describe('a conta de Ana existe e entra pela porta da frente', () => {
-  test('a sessao guardada corresponde a conta certa', async ({ browser }) => {
+  test('a sessão guardada corresponde a conta certa', async ({ browser }) => {
     const ana = await abaDe(browser, ESTADO_ANA)
     const email = await ana.evaluate(async () => {
       const r = await fetch('/api/auth/me', { credentials: 'include' })
@@ -276,5 +276,85 @@ test.describe('a conta de Ana existe e entra pela porta da frente', () => {
     })
     expect(email).toBe('Ana')
     expect(ANA.email).toContain('@')
+  })
+})
+
+/**
+ * Os fluxos da Etapa 0 do super plano: nenhuma pessoa perde um convite nem a
+ * propria sessao.
+ */
+test.describe('confianca (Etapa 0)', () => {
+  /** Conta nova, sem grupo, deslogada ao fim — para nao mexer nas sessoes gravadas. */
+  async function contaNova(pagina: Page, prefixo: string): Promise<{ email: string; senha: string }> {
+    const email = `${prefixo}${Date.now()}@altcast.test`
+    const senha = 'uma-frase-longa-de-teste-e2e'
+    const r = await pagina.request.post('/api/auth/register', {
+      data: { email, password: senha, displayName: prefixo },
+      headers: { origin: 'http://localhost' },
+    })
+    expect(r.status()).toBe(201)
+    return { email, senha }
+  }
+
+  test('convite → "já tenho conta" → entra direto no grupo', async ({ browser }) => {
+    const dono = await abaDe(browser, ESTADO_DONO)
+    const gerado = await dono.request.post(`/api/groups/${GRUPO()}/invites`, {
+      data: {}, headers: { origin: 'http://localhost' },
+    })
+    const { code } = await gerado.json() as { code: string }
+
+    const pessoa = await abaAnonima(browser)
+    const { email, senha } = await contaNova(pessoa, 'rita')
+    await pessoa.request.post('/api/auth/logout', { headers: { origin: 'http://localhost' } })
+
+    await pessoa.goto(`/convite/${code}`)
+    await pessoa.getByRole('button', { name: 'Já tenho conta' }).click()
+
+    // O login sabe do convite: o cartao do grupo continua na tela.
+    await expect(pessoa).toHaveURL(new RegExp(`/entrar[?]convite=${code}$`))
+    await expect(pessoa.getByRole('region', { name: 'Convite' })).toContainText('Anticorp')
+
+    await pessoa.getByLabel('E-mail').fill(email)
+    await pessoa.getByLabel('Senha').fill(senha)
+    await pessoa.getByRole('button', { name: 'Entrar', exact: true }).click()
+
+    // Aceito sozinho, sem perguntar de novo, e o grupo aberto.
+    await expect(pessoa.getByRole('navigation', { name: 'Grupos' })
+      .getByRole('button', { name: /Anticorp/ })).toHaveAttribute('aria-current', 'true', { timeout: 15_000 })
+    await expect(pessoa).toHaveURL(/\/$/)
+  })
+
+  test('sair da conta encerra a sessão e volta à porta de entrada', async ({ browser }) => {
+    const pessoa = await abaAnonima(browser)
+    await contaNova(pessoa, 'saulo')
+    await pessoa.goto('/')
+
+    await pessoa.getByRole('button', { name: /^Conta de / }).click()
+    await pessoa.getByRole('menuitem', { name: 'Sair' }).click()
+
+    await expect(pessoa.getByLabel('Senha')).toBeVisible()
+    const me = await pessoa.request.get('/api/auth/me')
+    expect(me.status()).toBe(401)
+  })
+
+  test('no celular, os dois botões do convite cabem no diálogo', async ({ browser }) => {
+    const dono = await abaDe(browser, ESTADO_DONO)
+    const gerado = await dono.request.post(`/api/groups/${GRUPO()}/invites`, {
+      data: {}, headers: { origin: 'http://localhost' },
+    })
+    const { code } = await gerado.json() as { code: string }
+
+    const contexto = await browser.newContext({ viewport: { width: 390, height: 844 } })
+    const pessoa = await contexto.newPage()
+    await contaNova(pessoa, 'celia')
+    await pessoa.goto(`/convite/${code}`)
+
+    const dialogo = pessoa.getByRole('dialog')
+    const entrar = dialogo.getByRole('button', { name: 'Entrar', exact: true })
+    await expect(entrar).toBeVisible()
+    const caixa = await dialogo.boundingBox()
+    const botao = await entrar.boundingBox()
+    expect(botao!.x + botao!.width).toBeLessThanOrEqual(caixa!.x + caixa!.width)
+    expect(botao!.x + botao!.width).toBeLessThanOrEqual(390)
   })
 })

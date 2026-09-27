@@ -70,7 +70,7 @@ describe('o modulo de sons', () => {
     expect(ouvidos).toEqual(['mudo'])
   })
 
-  it('deixas diferentes nao se atrapalham', () => {
+  it('deixas diferentes não se atrapalham', () => {
     tocar('mudo')
     tocar('desmudo')
     expect(ouvidos).toEqual(['mudo', 'desmudo'])
@@ -83,14 +83,14 @@ describe('o modulo de sons', () => {
     expect(ouvidos).toEqual([])
   })
 
-  it('sem AudioContext nenhum, nao lanca', () => {
+  it('sem AudioContext nenhum, não lanca', () => {
     definirTocadorParaTeste(null)
     vi.stubGlobal('AudioContext', undefined)
     expect(() => tocar('entrei')).not.toThrow()
     vi.unstubAllGlobals()
   })
 
-  it('preferencia corrompida cai no padrao', () => {
+  it('preferência corrompida cai no padrão', () => {
     window.localStorage.setItem('altcast:sons', 'nao e json')
     expect(lerPreferenciaDeSons()).toEqual(PREFERENCIA_PADRAO)
   })
@@ -126,12 +126,12 @@ describe('as deixas de quem chega e sai', () => {
    * filtra o autor. Sem esta guarda, entrar numa chamada tocaria dois sons: o
    * meu, local, e o eco.
    */
-  it('o eco da minha propria entrada nao toca', () => {
+  it('o eco da minha própria entrada não toca', () => {
     cueDeEvento({ t: 'voice.participant_joined', d: { channelId: CANAL, userId: EU } })
     expect(ouvidos).toEqual([])
   })
 
-  it('sala que eu so estou olhando nao apita', () => {
+  it('sala que eu só estou olhando não apita', () => {
     cueDeEvento({ t: 'voice.participant_joined', d: { channelId: OUTRO, userId: ANA } })
     expect(ouvidos).toEqual([])
   })
@@ -147,7 +147,7 @@ describe('as deixas de quem chega e sai', () => {
    * microfone, camera ou tela. Uma sala de oito pessoas conversando viraria
    * uma metralhadora.
    */
-  it('ligar camera de alguem nao e uma chegada', () => {
+  it('ligar câmera de alguém não e uma chegada', () => {
     cueDeEvento({
       t: 'voice.track_published',
       d: { channelId: CANAL, userId: ANA, camera: true, microfone: true, tela: false },

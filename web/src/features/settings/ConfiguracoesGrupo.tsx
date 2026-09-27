@@ -49,8 +49,8 @@ type Secao = {
 const SECOES: Secao[] = [
   {
     id: 'geral',
-    rotulo: 'Visao geral',
-    descricao: 'Nome, imagem e exclusao do grupo.',
+    rotulo: 'Visão geral',
+    descricao: 'Nome, imagem e exclusão do grupo.',
     icone: Settings2,
     exige: 'group.update',
     conteudo: groupId => <IdentidadeDoGrupo groupId={groupId} />,
@@ -74,7 +74,7 @@ const SECOES: Secao[] = [
   {
     id: 'convites',
     rotulo: 'Convites',
-    descricao: 'Convidar alguem, ou gerar um link.',
+    descricao: 'Convidar alguém, ou gerar um link.',
     icone: Link2,
     exige: 'group.invite',
     conteudo: groupId => <Convidar groupId={groupId} />,
@@ -82,11 +82,22 @@ const SECOES: Secao[] = [
   {
     id: 'membros',
     rotulo: 'Membros',
-    descricao: 'Quem esta no grupo e com quais cargos.',
+    descricao: 'Quem está no grupo e com quais cargos.',
     icone: Users,
     conteudo: groupId => <Membros groupId={groupId} />,
   },
 ]
+
+/**
+ * As permissoes que abrem alguma secao ALEM de "Membros".
+ *
+ * E o criterio unico de "administra este grupo" para o resto da interface. O
+ * painel do usuario decidia pelo PAPEL (`owner` ou `admin`) enquanto esta tela
+ * decidia pela PERMISSAO — um cargo com `group.invite` via a secao de
+ * convites aqui dentro, mas nunca achava a aba "Grupo" para chegar nela.
+ */
+export const PERMISSOES_DE_ADMINISTRACAO: readonly string[] = SECOES
+  .flatMap(s => s.exige === undefined ? [] : [s.exige])
 
 export function ConfiguracoesGrupo({ groupId }: { groupId: string }): ReactNode {
   const grupo = useStore(e => e.groups.find(g => g.id === groupId))
@@ -117,7 +128,7 @@ export function ConfiguracoesGrupo({ groupId }: { groupId: string }): ReactNode 
         um botao. Esconder a navegacao e o que mais custa em tela pequena.
       */}
       <nav
-        aria-label="Secoes das configuracoes"
+        aria-label="Seções das configurações"
         className="flex shrink-0 gap-1 overflow-x-auto border-border-subtle pb-1
                    sm:w-52 sm:flex-col sm:overflow-visible sm:border-r sm:pb-0 sm:pr-3"
       >

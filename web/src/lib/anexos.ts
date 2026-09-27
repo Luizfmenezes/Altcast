@@ -40,10 +40,10 @@ export type ErroDeUpload = { code: string; message: string }
 const MENSAGENS: Record<string, string> = {
   file_too_large: 'O arquivo passa do limite de 25 MB.',
   quota_exceeded: 'O canal atingiu o limite de armazenamento.',
-  storage_unavailable: 'Os anexos estao indisponiveis neste servidor.',
-  not_found: 'Voce nao pode anexar arquivo neste canal.',
-  validation_failed: 'O arquivo esta vazio.',
-  network_error: 'Sem conexao com o servidor.',
+  storage_unavailable: 'Os anexos estão indisponíveis neste servidor.',
+  not_found: 'Você não pode anexar arquivo neste canal.',
+  validation_failed: 'O arquivo está vazio.',
+  network_error: 'Sem conexão com o servidor.',
 }
 
 function mensagemDe(code: string, alternativa: string): string {
@@ -59,7 +59,7 @@ function erroDe(bruto: unknown, status: number): ErroDeUpload {
       code,
       typeof envelope?.message === 'string'
         ? envelope.message
-        : `Nao foi possivel enviar o arquivo (${String(status)}).`,
+        : `Não foi possível enviar o arquivo (${String(status)}).`,
     ),
   }
 }

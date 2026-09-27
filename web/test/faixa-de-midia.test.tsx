@@ -44,7 +44,7 @@ describe('controles de uma transmissao', () => {
     Object.defineProperty(document, 'pictureInPictureElement', { value: null, configurable: true })
   })
 
-  it('a tela cheia vai para a MOLDURA, e nao para o video', async () => {
+  it('a tela cheia vai para a MOLDURA, e não para o vídeo', async () => {
     const { cheia } = ligarCapacidades()
     render(<FaixaDeMidia faixa={faixaDe('tela')} rotulo="Ana" />)
 
@@ -57,7 +57,7 @@ describe('controles de uma transmissao', () => {
     expect((cheia.mock.instances[0] as unknown as HTMLElement).tagName).toBe('FIGURE')
   })
 
-  it('o mini player e uma janela do navegador, pedida ao proprio video', async () => {
+  it('o mini player e uma janela do navegador, pedida ao próprio vídeo', async () => {
     const { pip } = ligarCapacidades()
     render(<FaixaDeMidia faixa={faixaDe('tela')} rotulo="Ana" />)
 
@@ -69,16 +69,16 @@ describe('controles de uma transmissao', () => {
     expect((pip.mock.instances[0] as unknown as HTMLElement).tagName).toBe('VIDEO')
   })
 
-  it('a propria transmissao nao oferece mini player', () => {
+  it('a própria transmissão não oferece mini player', () => {
     ligarCapacidades()
-    render(<FaixaDeMidia faixa={faixaDe('tela', true)} rotulo="Voce" />)
+    render(<FaixaDeMidia faixa={faixaDe('tela', true)} rotulo="Você" />)
 
     // Quem compartilha ja ve a propria tela em tamanho natural, atras da aba.
     expect(screen.queryByRole('button', { name: /Mini player/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Tela cheia/ })).toBeInTheDocument()
   })
 
-  it('o navegador sem essas capacidades nao ganha botao morto', () => {
+  it('o navegador sem essas capacidades não ganha botão morto', () => {
     Object.defineProperty(document, 'fullscreenEnabled', { value: false, configurable: true })
     Object.defineProperty(document, 'pictureInPictureEnabled', { value: false, configurable: true })
     render(<FaixaDeMidia faixa={faixaDe('tela')} rotulo="Ana" />)
@@ -87,7 +87,7 @@ describe('controles de uma transmissao', () => {
     expect(screen.queryByRole('button', { name: /Mini player/ })).not.toBeInTheDocument()
   })
 
-  it('o cursor mostra o volume da faixa, e nao um valor solto', () => {
+  it('o cursor mostra o volume da faixa, e não um valor solto', () => {
     ligarCapacidades()
     render(
       <FaixaDeMidia faixa={faixaDe('tela')} rotulo="Ana" volume={0.35} aoMudarVolume={vi.fn()} />,
@@ -118,14 +118,14 @@ describe('controles de uma transmissao', () => {
     expect(mudou).toHaveBeenLastCalledWith(0.6)
   })
 
-  it('sem som proprio a transmissao nao mostra um cursor que nao move nada', () => {
+  it('sem som próprio a transmissão não mostra um cursor que não move nada', () => {
     ligarCapacidades()
     render(<FaixaDeMidia faixa={faixaDe('tela')} rotulo="Ana" />)
 
     expect(screen.queryByRole('slider')).not.toBeInTheDocument()
   })
 
-  it('axe nao encontra violacao nos controles sobre o video', async () => {
+  it('axe não encontra violação nos controles sobre o vídeo', async () => {
     ligarCapacidades()
     const { container } = render(
       <FaixaDeMidia faixa={faixaDe('tela')} rotulo="Ana" volume={0.5} aoMudarVolume={vi.fn()} />,

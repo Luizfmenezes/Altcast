@@ -68,7 +68,7 @@ export function FaixaDeInstalacao(): ReactNode {
         <strong className="font-semibold">Transmita com o som do jogo.</strong>
         {' '}
         <span className="text-fg-muted">
-          No navegador, compartilhar a janela de um programa nunca leva audio. O
+          No navegador, compartilhar a janela de um programa nunca leva áudio. O
           aplicativo para Windows resolve isso, e ainda deixa a tecla de falar
           funcionando fora da janela.
         </span>

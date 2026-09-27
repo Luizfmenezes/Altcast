@@ -82,7 +82,7 @@ export function ConvidarPessoa({ groupId }: { groupId: string }): ReactNode {
       const lista = await api.get<Conhecido[]>(`/groups/${groupId}/invitable`).catch(() => null)
       if (Array.isArray(lista)) setConhecidos(lista)
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel enviar o convite.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível enviar o convite.')
     } finally {
       setEnviando(false)
     }
@@ -104,7 +104,7 @@ export function ConvidarPessoa({ groupId }: { groupId: string }): ReactNode {
       <div>
         <h3 className="text-[15px] font-semibold text-fg">Convidar uma pessoa</h3>
         <p className="mt-1 text-[13px] text-fg-muted">
-          Quem ja usa o Altcast recebe o convite dentro do aplicativo. Quem ainda nao usa
+          Quem já usa o Altcast recebe o convite dentro do aplicativo. Quem ainda não usa
           recebe um e-mail com o caminho para criar a conta.
         </p>
       </div>
@@ -152,17 +152,17 @@ export function ConvidarPessoa({ groupId }: { groupId: string }): ReactNode {
       */}
       {conhecidos.length === 0 && busca === '' && (
         <p className="text-[13px] text-fg-muted">
-          Quando voce ja dividir algum grupo com alguem, essa pessoa aparece aqui para
-          ser convidada sem digitar o endereco.
+          Quando você já dividir algum grupo com alguém, essa pessoa aparece aqui para
+          ser convidada sem digitar o endereço.
         </p>
       )}
 
       {(conhecidos.length > 0 || busca !== '') && (
         <div className="flex flex-col gap-2">
           <Campo
-            rotulo="Ou escolha entre pessoas que voce ja conhece"
+            rotulo="Ou escolha entre pessoas que você já conhece"
             valor={busca} aoMudar={setBusca} autoComplete="off"
-            dica="Aparecem apenas pessoas com quem voce ja divide algum grupo."
+            dica="Aparecem apenas pessoas com quem você já divide algum grupo."
           />
           <ul className="flex max-h-48 list-none flex-col gap-1 overflow-y-auto">
             {conhecidos.map(pessoa => (
@@ -181,7 +181,7 @@ export function ConvidarPessoa({ groupId }: { groupId: string }): ReactNode {
             ))}
             {conhecidos.length === 0 && (
               <li className="px-1 py-2 text-[13px] text-fg-muted">
-                Ninguem encontrado com esse nome.
+                Ninguém encontrado com esse nome.
               </li>
             )}
           </ul>
@@ -213,7 +213,7 @@ export function ConvidarPessoa({ groupId }: { groupId: string }): ReactNode {
                     }
                     titulo="Cancelar este convite?"
                     descricao={
-                      'A pessoa deixa de ver o convite. Voce pode convida-la de novo '
+                      'A pessoa deixa de ver o convite. Você pode convida-la de novo '
                       + 'a qualquer momento.'
                     }
                     confirmar="Cancelar convite"

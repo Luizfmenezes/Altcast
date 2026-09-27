@@ -50,7 +50,7 @@ afterEach(() => {
 })
 
 describe('a deteccao do app de desktop', () => {
-  it('no navegador nao ha ponte, e o caminho de sempre continua valendo', () => {
+  it('no navegador não há ponte, e o caminho de sempre continua valendo', () => {
     naoNativoParaTeste()
     expect(nativo()).toBeNull()
   })
@@ -74,7 +74,7 @@ describe('a deteccao do app de desktop', () => {
 })
 
 describe('o seletor de tela do app', () => {
-  it('separa telas de janelas e nao oferece aba de navegador', async () => {
+  it('separa telas de janelas e não oferece aba de navegador', async () => {
     render(
       <SeletorDeFonte
         aberto
@@ -93,7 +93,7 @@ describe('o seletor de tela do app', () => {
     expect(screen.queryByRole('heading', { name: /Abas/ })).not.toBeInTheDocument()
   })
 
-  it('nao transmite antes de confirmar', async () => {
+  it('não transmite antes de confirmar', async () => {
     const aoEscolher = vi.fn()
     render(
       <SeletorDeFonte
@@ -118,7 +118,7 @@ describe('o seletor de tela do app', () => {
     expect(aoEscolher).toHaveBeenCalledWith('window:12:0', 'sistema')
   })
 
-  it('o som do sistema vai junto por padrao, inclusive numa JANELA', async () => {
+  it('o som do sistema vai junto por padrão, inclusive numa JANELA', async () => {
     const aoEscolher = vi.fn()
     render(
       <SeletorDeFonte
@@ -139,7 +139,7 @@ describe('o seletor de tela do app', () => {
     expect(aoEscolher).toHaveBeenCalledWith('window:12:0', 'sistema')
   })
 
-  it('desligar o som e uma escolha lembrada na proxima transmissao', async () => {
+  it('desligar o som e uma escolha lembrada na próxima transmissão', async () => {
     const aoEscolher = vi.fn()
     const props = {
       aberto: true as const,
@@ -161,7 +161,7 @@ describe('o seletor de tela do app', () => {
     expect(await screen.findByRole('checkbox')).not.toBeChecked()
   })
 
-  it('a escolha de uma janela que ja fechou nao sobrevive a atualizacao', async () => {
+  it('a escolha de uma janela que já fechou não sobrevive a atualização', async () => {
     let lista = FONTES
     render(
       <SeletorDeFonte
@@ -191,16 +191,16 @@ describe('o seletor de tela do app', () => {
         aberto
         aoFechar={vi.fn()}
         aoEscolher={vi.fn()}
-        listar={async () => { throw new Error('sem permissao de captura') }}
+        listar={async () => { throw new Error('sem permissão de captura') }}
       />,
     )
 
     // "Nenhuma tela disponivel" para um erro seria mentira, e mentira que
     // manda a pessoa procurar o problema no lugar errado.
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Nao foi possivel listar/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Não foi possível listar/)
   })
 
-  it('sem violacoes de acessibilidade', async () => {
+  it('sem violações de acessibilidade', async () => {
     const { container } = render(
       <SeletorDeFonte
         aberto
@@ -215,7 +215,7 @@ describe('o seletor de tela do app', () => {
 })
 
 describe('a ponte, do lado da interface', () => {
-  it('a fonte e escolhida ANTES de a captura comecar', async () => {
+  it('a fonte e escolhida ANTES de a captura começar', async () => {
     const ponte = ponteFalsa()
     definirNativoParaTeste(ponte)
 
@@ -236,7 +236,7 @@ describe('a ponte, do lado da interface', () => {
     expect(ponte.escolherFonte).toHaveBeenCalledWith('screen:0:0', 'sistema')
   })
 
-  it('sem ponte e sem `listar`, o seletor admite que nao tem o que listar', async () => {
+  it('sem ponte e sem `listar`, o seletor admite que não tem o que listar', async () => {
     naoNativoParaTeste()
     render(<SeletorDeFonte aberto aoFechar={vi.fn()} aoEscolher={vi.fn()} />)
     expect(await screen.findByRole('alert')).toBeInTheDocument()

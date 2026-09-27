@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ApiError, api } from '../../lib/api.js'
+import { useStore } from '../../lib/store.js'
 import { Botao } from '../../ui/Botao.js'
 import { TituloDaPorta } from './PalcoMercurio.js'
-import { irPara, trocarPor } from '../../lib/rota.js'
+import { apagarDoEndereco, trocarPor } from '../../lib/rota.js'
 
 type Fase = 'confirmando' | 'pronto' | 'falhou'
 
@@ -15,9 +16,16 @@ type Fase = 'confirmando' | 'pronto' | 'falhou'
  * a pessoa e o que ela veio fazer.
  *
  * A rota nao exige sessao, e isso e o que faz o link funcionar no celular onde
- * ninguem entrou ainda.
+ * ninguem entrou ainda. E ela tambem vale COM sessao: o caso mais comum e a
+ * pessoa confirmar no mesmo navegador em que ja esta logada, e o link era
+ * ignorado — ela caia no aplicativo e a faixa de "confirme seu e-mail"
+ * continuava la.
  */
-export function VerificarEmail({ token }: { token: string }): ReactNode {
+export function VerificarEmail({ token, comSessao = false }: {
+  token: string
+  /** Com sessao, "Continuar" leva ao aplicativo, e nao ao login. */
+  comSessao?: boolean
+}): ReactNode {
   const [fase, setFase] = useState<Fase>('confirmando')
   const [erro, setErro] = useState<string | null>(null)
   // O StrictMode monta duas vezes em desenvolvimento, e o token e de uso
@@ -32,18 +40,26 @@ export function VerificarEmail({ token }: { token: string }): ReactNode {
     api.post('/auth/verify-email', { token })
       .then(() => {
         setFase('pronto')
-        trocarPor({ nome: 'entrar' })
+        // O token sai da barra agora; a TELA so muda no "Continuar".
+        apagarDoEndereco(comSessao ? { nome: 'app' } : { nome: 'entrar' })
+        // Com sessao aberta, a faixa de "confirme seu e-mail" some agora, e
+        // nao so no proximo `ready`.
+        useStore.setState(e => ({
+          user: e.user === null ? null : { ...e.user, emailVerifiedAt: new Date().toISOString() },
+        }))
       })
       .catch((e: unknown) => {
-        setErro(e instanceof ApiError ? e.message : 'Nao foi possivel confirmar agora.')
+        setErro(e instanceof ApiError ? e.message : 'Não foi possível confirmar agora.')
         setFase('falhou')
       })
-  }, [token])
+  }, [token, comSessao])
+
+  const seguir = (): void => { trocarPor(comSessao ? { nome: 'app' } : { nome: 'entrar' }) }
 
   if (fase === 'confirmando') {
     return (
       <>
-        <TituloDaPorta titulo={<>CONFIRMANDO<br />ENDERECO</>} />
+        <TituloDaPorta titulo={<>CONFIRMANDO<br />ENDEREÇO</>} />
         <p role="status" aria-busy="true" className="text-sm text-fg-muted">
           Um instante.
         </p>
@@ -56,11 +72,11 @@ export function VerificarEmail({ token }: { token: string }): ReactNode {
       <>
         <TituloDaPorta titulo={<>E-MAIL<br />CONFIRMADO</>} />
         <p role="status" className="text-sm leading-relaxed text-fg-muted">
-          Pronto. Agora voce pode criar grupos e convidar gente.
+          Pronto. Agora você pode criar grupos e convidar pessoas.
         </p>
         <div className="mt-6">
-          <Botao tamanho="lg" largura="cheia" onClick={() => irPara({ nome: 'entrar' })}>
-            Continuar
+          <Botao tamanho="lg" largura="cheia" onClick={seguir}>
+            {comSessao ? 'Voltar ao Altcast' : 'Continuar'}
           </Botao>
         </div>
       </>
@@ -72,11 +88,13 @@ export function VerificarEmail({ token }: { token: string }): ReactNode {
       <TituloDaPorta titulo={<>LINK<br />VENCIDO</>} />
       <p role="alert" className="text-sm leading-relaxed text-danger">{erro}</p>
       <p className="mt-3 text-sm leading-relaxed text-fg-muted">
-        Entre na sua conta e peca um link novo pelas configuracoes.
+        {comSessao
+          ? 'Peça um link novo pela faixa de confirmação, no topo do aplicativo.'
+          : 'Entre na sua conta e peça um link novo pelas configurações.'}
       </p>
       <div className="mt-6">
-        <Botao tamanho="lg" largura="cheia" onClick={() => irPara({ nome: 'entrar' })}>
-          Entrar
+        <Botao tamanho="lg" largura="cheia" onClick={seguir}>
+          {comSessao ? 'Voltar ao Altcast' : 'Entrar'}
         </Botao>
       </div>
     </>

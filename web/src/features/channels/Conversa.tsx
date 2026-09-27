@@ -7,6 +7,7 @@ import { MessageList } from '../messages/MessageList.js'
 import { Composer } from '../messages/Composer.js'
 import { PainelDeVoz } from '../voice/PainelDeVoz.js'
 import type { Mensagem } from '../../lib/tipos.js'
+import { useRascunhos } from '../messages/rascunhos.js'
 
 /** Chamada primeiro: quem abriu um canal de voz veio pela transmissao. */
 const ABAS = ['chamada', 'conversa'] as const
@@ -40,25 +41,23 @@ export function Conversa({ campoEscrita, aoDigitar, antes, depois }: {
   const [aba, setAba] = useState<(typeof ABAS)[number]>('chamada')
   const members = useStore(e => e.members)
 
-  /**
-   * A quem estamos respondendo.
-   *
-   * Mora AQUI, e nao dentro do composer nem da lista, porque e o unico ponto
-   * que os dois enxergam: quem clica em "Responder" esta na lista, e quem
-   * envia esta no composer. Guardar num dos dois obrigaria o outro a alcancar
-   * por dentro.
-   */
-  const [respondendo, setRespondendo] = useState<
-    { id: string; autor: string; trecho: string } | null
-  >(null)
+  const definirResposta = useRascunhos(e => e.definirResposta)
 
   const nomeDe = (autorId: string | null): string =>
     autorId === null
-      ? 'usuario removido'
-      : members.find(m => m.userId === autorId)?.displayName ?? 'usuario removido'
+      ? 'usuário removido'
+      : members.find(m => m.userId === autorId)?.displayName ?? 'usuário removido'
 
+  /**
+   * A quem estamos respondendo vai para o RASCUNHO do canal.
+   *
+   * Morava num `useState` daqui, e por isso sobrevivia a troca de canal: a
+   * citacao de uma mensagem de #geral ia parar numa resposta em #avisos, e o
+   * servidor recusava com 422 porque a citada era de outro canal.
+   */
   const responder = (m: Mensagem): void => {
-    setRespondendo({
+    if (canalAtivo === null) return
+    definirResposta(canalAtivo, {
       id: m.id,
       autor: nomeDe(m.authorId),
       // Um trecho, e nao a mensagem inteira: a barra de citacao nao pode
@@ -67,8 +66,6 @@ export function Conversa({ campoEscrita, aoDigitar, antes, depois }: {
     })
     campoEscrita.current?.focus()
   }
-
-  const limparResposta = (): void => { setRespondendo(null) }
 
   return (
     <section
@@ -193,8 +190,6 @@ export function Conversa({ campoEscrita, aoDigitar, antes, depois }: {
                   {...(aoDigitar === undefined ? {} : { aoDigitar })}
                   aoFocar={() => setEscrevendo(true)}
                   aoDesfocar={() => setEscrevendo(false)}
-                  respondendo={respondendo}
-                  aoCancelarResposta={limparResposta}
                 />
               </>
             )}
@@ -211,8 +206,6 @@ export function Conversa({ campoEscrita, aoDigitar, antes, depois }: {
                 {...(aoDigitar === undefined ? {} : { aoDigitar })}
                 aoFocar={() => setEscrevendo(true)}
                 aoDesfocar={() => setEscrevendo(false)}
-                respondendo={respondendo}
-                aoCancelarResposta={limparResposta}
               />
             </div>
           )}
@@ -226,8 +219,6 @@ export function Conversa({ campoEscrita, aoDigitar, antes, depois }: {
             {...(aoDigitar === undefined ? {} : { aoDigitar })}
             aoFocar={() => setEscrevendo(true)}
             aoDesfocar={() => setEscrevendo(false)}
-            respondendo={respondendo}
-            aoCancelarResposta={limparResposta}
             desativado={canalAtivo === null}
           />
         </>

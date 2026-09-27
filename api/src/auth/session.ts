@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { and, desc, eq, gt } from 'drizzle-orm'
+import { and, desc, eq, gt, ne } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { sessions } from '../db/schema.js'
 import { newId } from '../shared/ids.js'
@@ -97,4 +97,18 @@ export async function revokeSession(id: string): Promise<void> {
 
 export async function revokeAllSessions(userId: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.userId, userId))
+}
+
+/**
+ * Todas as sessoes da conta, menos a que pede.
+ *
+ * E o botao de panico de quem esqueceu a conta aberta num computador da
+ * biblioteca: encerrar uma por uma exige reconhecer cada aparelho na lista, e
+ * quem esta assustado nao quer reconhecer nada — quer que pare.
+ */
+export async function revokeOtherSessions(userId: string, atual: string): Promise<number> {
+  const removidas = await db.delete(sessions)
+    .where(and(eq(sessions.userId, userId), ne(sessions.id, atual)))
+    .returning({ id: sessions.id })
+  return removidas.length
 }

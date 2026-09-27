@@ -36,7 +36,7 @@ export function TrocarSenha(): ReactNode {
       setPronto(true)
     } catch (e) {
       const apiErro = e instanceof ApiError ? e : null
-      setErro(apiErro?.message ?? 'Nao foi possivel trocar a senha.')
+      setErro(apiErro?.message ?? 'Não foi possível trocar a senha.')
       setCampos(apiErro?.camposInvalidos ?? {})
     } finally {
       setEnviando(false)
@@ -58,7 +58,7 @@ export function TrocarSenha(): ReactNode {
       {pronto && (
         <p role="status" className="mb-3 rounded-md border border-border-subtle px-3 py-2
                                     text-sm text-fg-muted">
-          Senha trocada. As outras sessoes foram encerradas; esta continua valendo.
+          Senha trocada. As outras sessões foram encerradas; esta continua valendo.
         </p>
       )}
 

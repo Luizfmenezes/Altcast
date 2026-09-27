@@ -37,12 +37,12 @@ const CANAIS_DE_GESTAO = [
 
 const SESSOES = [
   {
-    handle: 'aaaa1111', userAgent: 'Firefox 142 / Windows', ip: '10.0.0.1',
+    handle: 'aaaa1111', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:142.0) Gecko/20100101 Firefox/142.0', ip: '10.0.0.1',
     createdAt: '2026-08-29T09:00:00.000Z', lastSeenAt: '2026-08-29T12:00:00.000Z',
     current: true,
   },
   {
-    handle: 'bbbb2222', userAgent: 'Safari / iPhone', ip: '10.0.0.2',
+    handle: 'bbbb2222', userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1', ip: '10.0.0.2',
     createdAt: '2026-08-20T09:00:00.000Z', lastSeenAt: '2026-08-21T12:00:00.000Z',
     current: false,
   },
@@ -79,7 +79,7 @@ function servidorFalso(sobrescritas: Record<string, unknown> = {}) {
  * conteudo por dentro.
  */
 async function abrirSecao(nome: string): Promise<void> {
-  const menu = await screen.findByRole('navigation', { name: 'Secoes das configuracoes' })
+  const menu = await screen.findByRole('navigation', { name: 'Seções das configurações' })
   await userEvent.click(within(menu).getByRole('button', { name: nome }))
 }
 
@@ -94,16 +94,16 @@ describe('configuracoes', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('admin ve o nome do canal privado, mas nao consegue abri-lo', async () => {
+  it('admin ve o nome do canal privado, mas não consegue abri-lo', async () => {
     render(<ConfiguracoesGrupo groupId={GRUPO} />)
     await abrirSecao('Canais')
 
     // A unica excecao a invisibilidade, e ela vem com o rotulo que a explica.
     expect(await screen.findByText('diretoria')).toBeInTheDocument()
-    expect(screen.getByText('Conteudo inacessivel')).toBeInTheDocument()
+    expect(screen.getByText('Conteúdo inacessível')).toBeInTheDocument()
 
     const linhaPublica = screen.getByText('geral').closest('li')!
-    expect(within(linhaPublica).queryByText('Conteudo inacessivel')).not.toBeInTheDocument()
+    expect(within(linhaPublica).queryByText('Conteúdo inacessível')).not.toBeInTheDocument()
   })
 
   it('cria canal de voz mandando o tipo que a pessoa escolheu', async () => {
@@ -150,7 +150,7 @@ describe('configuracoes', () => {
     })
   })
 
-  it('apagar um canal pede confirmacao antes de mandar o DELETE', async () => {
+  it('apagar um canal pede confirmação antes de mandar o DELETE', async () => {
     const fetchFalso = servidorFalso()
     vi.stubGlobal('fetch', fetchFalso)
     render(<ConfiguracoesGrupo groupId={GRUPO} />)
@@ -169,7 +169,7 @@ describe('configuracoes', () => {
     )).toBe(true)
   })
 
-  it('gerar convite mostra o codigo em fonte monoespacada', async () => {
+  it('gerar convite mostra o código em fonte monoespacada', async () => {
     vi.stubGlobal('fetch', servidorFalso({
       [`/api/groups/${GRUPO}/invites`]: { code: 'K7M2P9XQ', uses: 0, maxUses: null },
     }))
@@ -184,7 +184,7 @@ describe('configuracoes', () => {
     expect(codigo.tagName).toBe('CODE')
   })
 
-  it('revogar convite pede confirmacao explicita', async () => {
+  it('revogar convite pede confirmação explicita', async () => {
     vi.stubGlobal('fetch', servidorFalso({
       [`/api/groups/${GRUPO}/invites`]: [
         { code: 'K7M2P9XQ', uses: 1, maxUses: null, expiresAt: null },
@@ -203,7 +203,7 @@ describe('configuracoes', () => {
       .toBeInTheDocument()
   })
 
-  it('a confirmacao devolve o foco ao gatilho quando cancelada com Escape', async () => {
+  it('a confirmação devolve o foco ao gatilho quando cancelada com Escape', async () => {
     vi.stubGlobal('fetch', servidorFalso({
       [`/api/groups/${GRUPO}/invites`]: [
         { code: 'K7M2P9XQ', uses: 1, maxUses: null, expiresAt: null },
@@ -223,16 +223,18 @@ describe('configuracoes', () => {
     await vi.waitFor(() => expect(gatilho).toHaveFocus())
   })
 
-  it('sessoes ativas listam dispositivo e permitem revogar', async () => {
+  it('sessões ativas listam dispositivo e permitem revogar', async () => {
     const usuario = userEvent.setup()
     render(<ThemeProvider><ConfiguracoesUsuario /></ThemeProvider>)
 
-    expect(await screen.findByText('Firefox 142 / Windows')).toBeInTheDocument()
-    expect(screen.getByText('Safari / iPhone')).toBeInTheDocument()
+    // O user-agent cru virou um nome que se reconhece; a string inteira fica
+    // recolhida em "Detalhes tecnicos".
+    expect(await screen.findByText(/Firefox no Windows/)).toBeInTheDocument()
+    expect(screen.getByText(/Safari no iOS/)).toBeInTheDocument()
     // A sessao atual e identificada para que ninguem se desconecte sem querer.
-    expect(screen.getByText('Esta sessao')).toBeInTheDocument()
+    expect(screen.getByText('Esta sessão')).toBeInTheDocument()
 
-    await usuario.click(screen.getByRole('button', { name: 'Encerrar Safari / iPhone' }))
+    await usuario.click(screen.getByRole('button', { name: 'Encerrar Safari no iOS' }))
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
   })
 
@@ -251,7 +253,7 @@ describe('configuracoes', () => {
     expect(document.documentElement.dataset.density).toBe('compact')
   })
 
-  it('axe nao encontra violacao nas duas telas', async () => {
+  it('axe não encontra violação nas duas telas', async () => {
     const grupo = render(<ConfiguracoesGrupo groupId={GRUPO} />)
     // A primeira secao, que e a que abre sozinha: nome, imagem e zona de
     // perigo do grupo.
@@ -266,7 +268,7 @@ describe('configuracoes', () => {
     const conta = render(
       <ThemeProvider><ConfiguracoesUsuario /></ThemeProvider>,
     )
-    await screen.findByText('Firefox 142 / Windows')
+    await screen.findByText(/Firefox no Windows/)
     expect(await violacoes(conta.container)).toEqual([])
   })
 })

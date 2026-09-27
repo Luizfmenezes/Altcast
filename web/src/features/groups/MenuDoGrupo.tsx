@@ -33,7 +33,7 @@ type Painel = 'convidar' | 'membros' | 'grupo' | null
 const TITULO: Record<Exclude<Painel, null>, (nome: string) => string> = {
   convidar: nome => `Convidar para ${nome}`,
   membros: nome => `Membros de ${nome}`,
-  grupo: nome => `Configuracoes de ${nome}`,
+  grupo: nome => `Configurações de ${nome}`,
 }
 
 const PAPEL_POR_EXTENSO = {
@@ -168,7 +168,7 @@ export function MenuDoGrupo({ grupo, variante = 'linha' }: {
                            text-fg outline-none data-[highlighted]:bg-bg-hover"
               >
                 <Settings2 aria-hidden="true" className="size-4" />
-                Configuracoes do grupo
+                Configurações do grupo
               </Menu.Item>
             )}
 
@@ -193,7 +193,7 @@ export function MenuDoGrupo({ grupo, variante = 'linha' }: {
                     }
                     titulo={`Sair de ${grupo.name}?`}
                     descricao={
-                      'Voce deixa de ver os canais e as conversas deste grupo. '
+                      'Você deixa de ver os canais e as conversas deste grupo. '
                       + 'Para voltar, vai precisar de um convite novo.'
                     }
                     confirmar="Sair do grupo"

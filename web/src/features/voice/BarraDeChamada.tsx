@@ -1,7 +1,14 @@
 import type { ReactNode } from 'react'
-import { Headphones, HeadphoneOff, Mic, MicOff, PhoneOff } from 'lucide-react'
+import {
+  Headphones, HeadphoneOff, Loader2, Mic, MicOff, PhoneOff, RotateCw, WifiOff,
+} from 'lucide-react'
 import { useStore } from '../../lib/store.js'
+import { cn } from '../../lib/utils.js'
 import { useChamadaAtiva } from './chamadaAtiva.js'
+import { rotuloDaSituacao, situacaoDaChamada } from './situacao.js'
+
+const BOTAO_DE_ICONE = `inline-flex size-8 items-center justify-center rounded hover:bg-bg-hover
+                        focus-visible:bg-bg-hover`
 
 /**
  * A chamada em curso, visivel de qualquer tela.
@@ -10,17 +17,19 @@ import { useChamadaAtiva } from './chamadaAtiva.js'
  * perdeu. Antes, sair do canal derrubava a chamada, e isso — por acidente —
  * garantia que ninguem ficasse com o microfone aberto sem saber. Agora a
  * chamada sobrevive a navegacao, e o unico jeito honesto de manter aquela
- * protecao e mostrar o estado do microfone o TEMPO TODO, em toda tela, em vez
- * de depender de a pessoa estar olhando o canal certo.
+ * protecao e mostrar o estado do microfone o TEMPO TODO, em toda tela.
  *
- * Por isso o icone do microfone e o primeiro item e nunca some: uma barra que
- * escondesse esse estado seria pior do que nao ter barra nenhuma.
+ * O que ela diz sobre a conexao vem de `situacaoDaChamada`, a mesma funcao que
+ * o painel de voz le. Ela dizia "Na chamada" so porque havia um canal
+ * escolhido — inclusive quando a entrada tinha falhado e o painel, ao lado,
+ * dizia "Fora da chamada".
  */
 export function BarraDeChamada(): ReactNode {
   const canal = useChamadaAtiva(e => e.canal)
   const chamada = useChamadaAtiva(e => e.chamada)
   const alternarMicrofone = useChamadaAtiva(e => e.alternarMicrofone)
   const alternarSurdo = useChamadaAtiva(e => e.alternarSurdo)
+  const tentarDeNovo = useChamadaAtiva(e => e.tentarDeNovo)
   const sair = useChamadaAtiva(e => e.sair)
 
   const nome = useStore(e => e.channels.find(c => c.id === canal)?.name ?? null)
@@ -30,91 +39,130 @@ export function BarraDeChamada(): ReactNode {
 
   if (canal === null) return null
 
+  const situacao = situacaoDaChamada(canal, chamada)
+  const naSala = situacao === 'conectado' || situacao === 'reconectando'
+
   const falando = chamada.falando
     .map(id => members.find(m => m.userId === id)?.displayName)
     .filter((n): n is string => n !== undefined)
 
   return (
     <div
+      role="region"
       aria-label="Chamada em curso"
-      className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border-subtle
-                 bg-bg-raised px-3 py-1"
+      className="flex shrink-0 flex-col gap-1 border-t border-border-subtle bg-bg-raised px-2 py-1.5"
     >
-      {/*
-        O estado do microfone, sempre. `aria-pressed` porque isto e um
-        interruptor, e nao uma acao: quem usa leitor de tela precisa ouvir se
-        esta ligado ANTES de decidir apertar.
-      */}
-      <button
-        type="button"
-        onClick={alternarMicrofone}
-        aria-pressed={chamada.microfone}
-        aria-label={chamada.microfone ? 'Microfone ligado' : 'Microfone desligado'}
-        title={chamada.microfone ? 'Microfone ligado' : 'Microfone desligado'}
-        className={`inline-flex size-8 items-center justify-center rounded hover:bg-bg-hover
-                    focus-visible:bg-bg-hover ${
-          chamada.microfone ? 'text-fg' : 'text-fg-muted'}`}
-      >
-        {chamada.microfone
-          ? <Mic aria-hidden="true" className="size-4" />
-          : <MicOff aria-hidden="true" className="size-4" />}
-      </button>
+      <div className="flex items-center gap-1">
+        {/*
+          O estado da conexao, com forma e texto — nunca so cor. O nome do
+          canal e um BOTAO: voltar para a chamada e a coisa que mais se quer
+          fazer a partir desta barra.
+        */}
+        <button
+          type="button"
+          onClick={() => { escolherCanal(canal) }}
+          disabled={canalAberto === canal}
+          className={cn(
+            `flex min-w-0 flex-1 items-center gap-2 rounded px-1.5 py-1 text-left text-sm
+             hover:bg-bg-hover focus-visible:bg-bg-hover disabled:cursor-default`,
+            situacao === 'falhou' ? 'text-danger' : 'text-fg',
+          )}
+        >
+          <IconeDaSituacao situacao={situacao} />
+          <span className="min-w-0 truncate font-medium">
+            {rotuloDaSituacao(situacao, nome)}
+          </span>
+        </button>
 
-      {/*
-        Ensurdecer fica ao lado do microfone porque os dois respondem a mesma
-        pergunta — "estou dentro ou fora desta conversa?" — e porque ensurdecer
-        derruba o microfone junto: separa-los sugeriria que sao independentes.
-      */}
-      <button
-        type="button"
-        onClick={alternarSurdo}
-        aria-pressed={chamada.surdo}
-        aria-label={chamada.surdo ? 'Ensurdecido' : 'Ouvindo a sala'}
-        title={chamada.surdo ? 'Ensurdecido' : 'Ouvindo a sala'}
-        className={`inline-flex size-8 items-center justify-center rounded hover:bg-bg-hover
-                    focus-visible:bg-bg-hover ${chamada.surdo ? 'text-danger' : 'text-fg'}`}
-      >
-        {chamada.surdo
-          ? <HeadphoneOff aria-hidden="true" className="size-4" />
-          : <Headphones aria-hidden="true" className="size-4" />}
-      </button>
+        {naSala && (
+          <>
+            {/*
+              O estado do microfone, sempre que ha sala. `aria-pressed` porque
+              isto e um interruptor: quem usa leitor de tela precisa ouvir se
+              esta ligado ANTES de decidir apertar.
+            */}
+            <button
+              type="button"
+              onClick={alternarMicrofone}
+              aria-pressed={chamada.microfone}
+              aria-label={chamada.microfone ? 'Microfone ligado' : 'Microfone desligado'}
+              title={chamada.microfone ? 'Microfone ligado' : 'Microfone desligado'}
+              className={cn(BOTAO_DE_ICONE, chamada.microfone ? 'text-fg' : 'text-fg-muted')}
+            >
+              {chamada.microfone
+                ? <Mic aria-hidden="true" className="size-4" />
+                : <MicOff aria-hidden="true" className="size-4" />}
+            </button>
 
-      {/*
-        O nome do canal e um BOTAO, e nao um rotulo: depois de navegar para
-        longe, voltar para a chamada e a coisa que mais se quer fazer a partir
-        desta barra, e obrigar a procurar o canal na lista desfaria metade do
-        ganho de a chamada ter sobrevivido a navegacao.
-      */}
-      <button
-        type="button"
-        onClick={() => { escolherCanal(canal) }}
-        disabled={canalAberto === canal}
-        className="truncate rounded px-2 text-sm text-fg hover:bg-bg-hover
-                   focus-visible:bg-bg-hover disabled:cursor-default disabled:opacity-70"
-      >
-        {nome === null ? 'Na chamada' : `Na chamada — ${nome}`}
-      </button>
+            {/*
+              Ensurdecer fica ao lado do microfone porque os dois respondem a
+              mesma pergunta — "estou dentro ou fora desta conversa?".
+            */}
+            <button
+              type="button"
+              onClick={alternarSurdo}
+              aria-pressed={chamada.surdo}
+              aria-label={chamada.surdo ? 'Ensurdecido' : 'Ouvindo a sala'}
+              title={chamada.surdo ? 'Ensurdecido' : 'Ouvindo a sala'}
+              className={cn(BOTAO_DE_ICONE, chamada.surdo ? 'text-danger' : 'text-fg')}
+            >
+              {chamada.surdo
+                ? <HeadphoneOff aria-hidden="true" className="size-4" />
+                : <Headphones aria-hidden="true" className="size-4" />}
+            </button>
+          </>
+        )}
 
-      {/*
-        Quem esta falando, em texto. Ele e o unico sinal da barra que responde
-        "a sala ainda esta viva?" para quem esta em outra tela.
-      */}
-      {falando.length > 0 && (
-        <span className="truncate text-xs text-fg-muted">
-          {falando.join(', ')} falando
-        </span>
+        <button
+          type="button"
+          onClick={() => { void sair() }}
+          aria-label="Sair da chamada"
+          title="Sair da chamada"
+          className={cn(BOTAO_DE_ICONE, 'text-danger')}
+        >
+          <PhoneOff aria-hidden="true" className="size-4" />
+        </button>
+      </div>
+
+      {situacao === 'falhou' && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 px-1.5 pb-0.5">
+          <p className="min-w-0 flex-1 text-xs text-fg-muted">
+            {chamada.erro ?? 'Não foi possível conectar.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => { void tentarDeNovo() }}
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium
+                       text-fg hover:bg-bg-hover"
+          >
+            <RotateCw aria-hidden="true" className="size-3.5" />
+            Tentar de novo
+          </button>
+        </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => { void sair() }}
-        className="ml-auto inline-flex items-center gap-1 rounded px-2 text-sm text-danger
-                   hover:bg-bg-hover focus-visible:bg-bg-hover"
-        style={{ minHeight: 'var(--height-row)' }}
-      >
-        <PhoneOff aria-hidden="true" className="size-4" />
-        Sair da chamada
-      </button>
+      {/*
+        Quem esta falando, em texto. E o unico sinal da barra que responde "a
+        sala ainda esta viva?" para quem esta em outra tela.
+      */}
+      {situacao === 'conectado' && falando.length > 0 && (
+        <p className="truncate px-1.5 text-xs text-fg-muted">
+          {falando.join(', ')} falando
+        </p>
+      )}
     </div>
   )
+}
+
+function IconeDaSituacao({ situacao }: { situacao: ReturnType<typeof situacaoDaChamada> }): ReactNode {
+  if (situacao === 'conectando') {
+    return <Loader2 aria-hidden="true" className="size-4 shrink-0 motion-safe:animate-spin" />
+  }
+  if (situacao === 'reconectando') {
+    return <Loader2 aria-hidden="true" className="size-4 shrink-0 text-warning motion-safe:animate-spin" />
+  }
+  if (situacao === 'falhou') return <WifiOff aria-hidden="true" className="size-4 shrink-0" />
+  // O ponto "no ar": a unica cor viva da barra, e o que a identidade da
+  // Etapa 1 transforma no acento de transmissao.
+  return <span aria-hidden="true" className="ml-1 mr-0.5 size-2 shrink-0 rounded-full bg-accent-live" />
 }

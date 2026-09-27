@@ -52,7 +52,7 @@ export default async function globalSetup(): Promise<void> {
     } catch {
       // Ainda subindo.
     }
-    if (tentativa > 60) throw new Error('o stack nao respondeu em 120s')
+    if (tentativa > 60) throw new Error('o stack não respondeu em 120s')
     await new Promise(r => setTimeout(r, 2000))
   }
 

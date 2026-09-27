@@ -3,12 +3,16 @@ import type { ReactNode } from 'react'
 import { AppShell } from './AppShell.js'
 import { TelaAuth } from './features/auth/TelaAuth.js'
 import { AceitarConvite } from './features/groups/AceitarConvite.js'
-import { usarRota } from './lib/rota.js'
+import { trocarPor, usarRota } from './lib/rota.js'
+import { Porta } from './features/auth/PalcoMercurio.js'
+import { VerificarEmail } from './features/auth/VerificarEmail.js'
+import { RedefinirSenha } from './features/auth/RedefinirSenha.js'
 import { api, SESSAO_EXPIROU } from './lib/api.js'
 import { conectarSocket, type Conexao } from './lib/socket.js'
 import { canaisComHistorico, useStore } from './lib/store.js'
 import { cueDeEvento } from './features/voice/cues.js'
-import type { Mensagem, Ready, Usuario } from './lib/tipos.js'
+import type { Ready, Usuario } from './lib/tipos.js'
+import { carregarHistorico } from './features/messages/historico.js'
 
 type Sessao = 'verificando' | 'fora' | 'dentro'
 
@@ -33,7 +37,6 @@ export function App(): ReactNode {
   const aplicarEvento = useStore(e => e.aplicarEvento)
   const aplicarReady = useStore(e => e.aplicarReady)
   const definirConexao = useStore(e => e.definirConexao)
-  const carregarMensagens = useStore(e => e.carregarMensagens)
   const limpar = useStore(e => e.limpar)
   const definirEnvio = useStore(e => e.definirEnvio)
 
@@ -103,18 +106,25 @@ export function App(): ReactNode {
   // o que chegar depois.
   useEffect(() => {
     if (sessao !== 'dentro' || canalAtivo === null) return
-    let vigente = true
-    api.get<Mensagem[]>(`/channels/${canalAtivo}/messages?limit=50`)
-      .then(pagina => {
-        // A API devolve do mais novo para o mais antigo; a lista exibe ao
-        // contrario.
-        if (vigente) carregarMensagens(canalAtivo, [...pagina].reverse())
-      })
-      .catch(() => undefined)
-    return () => { vigente = false }
-  }, [sessao, canalAtivo, carregarMensagens])
+    return carregarHistorico(canalAtivo)
+  }, [sessao, canalAtivo])
 
   const entrou = useCallback(() => setSessao('dentro'), [])
+
+  /**
+   * Com sessao, os enderecos da porta nao significam mais nada.
+   *
+   * Entrar deixava `/entrar` na barra: um F5 depois do login mostrava o
+   * aplicativo num endereco que diz "tela de login", e o Voltar do navegador
+   * levava de volta a um formulario que ja nao tinha funcao.
+   */
+  useEffect(() => {
+    if (sessao !== 'dentro') return
+    const daPorta = (rota.nome === 'entrar' || rota.nome === 'criar-conta')
+      ? rota.convite === undefined
+      : rota.nome === 'esqueci-a-senha'
+    if (daPorta) trocarPor({ nome: 'app' })
+  }, [sessao, rota])
 
   if (sessao === 'verificando') {
     // Esqueleto silencioso: piscar o login para quem ja tem sessao seria pior
@@ -128,10 +138,34 @@ export function App(): ReactNode {
     return <TelaAuth aoEntrar={entrou} />
   }
 
+  /**
+   * Os links de e-mail tambem valem com sessao aberta.
+   *
+   * Confirmar o endereco no mesmo navegador em que ja se esta logado e o caso
+   * MAIS comum, e ele era ignorado: `/verificar/<token>` caia direto no
+   * aplicativo, o token nunca era gasto e a faixa de "confirme seu e-mail"
+   * continuava pedindo o que a pessoa acabara de fazer.
+   */
+  if (rota.nome === 'verificar') {
+    return <Porta><VerificarEmail token={rota.token} comSessao /></Porta>
+  }
+  if (rota.nome === 'redefinir') {
+    return <Porta><RedefinirSenha token={rota.token} /></Porta>
+  }
+
+  // Convite trazido pela porta de entrada: quem clicou em "Entrar" com o
+  // cartao do grupo na tela ja decidiu, e o aplicativo aceita sozinho.
+  const conviteDaPorta = (rota.nome === 'entrar' || rota.nome === 'criar-conta')
+    ? rota.convite
+    : undefined
+
   return (
     <>
       <AppShell latenciaMs={latencia} />
       {rota.nome === 'convite' && <AceitarConvite codigo={rota.codigo} />}
+      {conviteDaPorta !== undefined && (
+        <AceitarConvite key={conviteDaPorta} codigo={conviteDaPorta} automatico />
+      )}
     </>
   )
 }

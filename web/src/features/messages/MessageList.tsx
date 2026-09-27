@@ -4,7 +4,8 @@ import { api } from '../../lib/api.js'
 import { useStore } from '../../lib/store.js'
 import { Anexos } from './Anexos.js'
 import { Reacoes } from './Reacoes.js'
-import { enviarMensagem } from './envio.js'
+import { reenviarMensagem } from './envio.js'
+import { carregarAnteriores as buscarAnteriores, carregarHistorico, useHistorico } from './historico.js'
 import type { Mensagem } from '../../lib/tipos.js'
 
 /**
@@ -70,12 +71,22 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
   const caixa = useRef<HTMLDivElement>(null)
   const [noFim, setNoFim] = useState(true)
   const [novasAcima, setNovasAcima] = useState(false)
-  const quantidadeAnterior = useRef(mensagens.length)
+  const historico = useHistorico(e => canalAtivo === null ? undefined : e.porCanal[canalAtivo])
+  /** A primeira e a ultima mensagem vistas no render anterior. */
+  const pontas = useRef({ primeira: mensagens[0]?.id, ultima: mensagens.at(-1)?.id })
+  /**
+   * Distancia ate o FUNDO da caixa medida antes de pedir a pagina anterior.
+   *
+   * E ela que segura a leitura no lugar: sem isto, cinquenta mensagens
+   * inseridas acima empurravam o conteudo para baixo e a pessoa, que estava
+   * lendo a mensagem do topo, pulava para uma de meia hora antes.
+   */
+  const ancora = useRef<number | null>(null)
 
   const nomeDe = (autorId: string | null): string =>
     autorId === null
-      ? 'usuario removido'
-      : members.find(m => m.userId === autorId)?.displayName ?? 'usuario removido'
+      ? 'usuário removido'
+      : members.find(m => m.userId === autorId)?.displayName ?? 'usuário removido'
 
   /**
    * Marcar como lido enquanto a pessoa esta olhando o fim da conversa.
@@ -107,25 +118,48 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
     setNoFim(chegouAoFim)
     if (chegouAoFim) setNovasAcima(false)
 
-    // Topo da caixa: pedir o trecho anterior antes que a pessoa encoste na
+    // Perto do topo: pedir o trecho anterior antes que a pessoa encoste na
     // borda mantem a leitura continua em vez de travar e depois pular.
-    if (el.scrollTop <= 0 && mensagens.length > 0) carregarAnteriores?.(mensagens[0]!.id)
+    if (el.scrollTop <= TOLERANCIA_DE_FIM_PX && mensagens.length > 0) {
+      if (carregarAnteriores !== undefined) {
+        carregarAnteriores(mensagens[0]!.id)
+        return
+      }
+      if (canalAtivo === null || historico?.anteriores === 'carregando' || historico?.inicio) return
+      ancora.current = el.scrollHeight - el.scrollTop
+      void buscarAnteriores(canalAtivo).then(chegaram => {
+        if (chegaram === 0) ancora.current = null
+      })
+    }
   }
 
   /**
    * Ancora de rolagem: cola no fim para quem ja estava no fim, e apenas avisa
    * quem estava mais acima. Arrastar a leitura de quem revisa o historico e a
    * forma mais rapida de fazer alguem perder o lugar.
+   *
+   * "Nova" e quem chegou no FIM da lista. Comparar o tamanho, como antes,
+   * tratava a pagina antiga inserida no topo como cinquenta mensagens novas —
+   * e acendia o aviso "Novas mensagens" para quem so tinha rolado para cima.
    */
   useLayoutEffect(() => {
     const el = caixa.current
+    const antes = pontas.current
+    const agora = { primeira: mensagens[0]?.id, ultima: mensagens.at(-1)?.id }
+    pontas.current = agora
     if (el === null) return
-    const cresceu = mensagens.length > quantidadeAnterior.current
-    quantidadeAnterior.current = mensagens.length
-    if (!cresceu) return
+
+    if (agora.primeira !== antes.primeira && ancora.current !== null) {
+      el.scrollTop = el.scrollHeight - ancora.current
+      ancora.current = null
+    }
+
+    const chegouNoFim = agora.ultima !== undefined && agora.ultima !== antes.ultima
+      && (antes.ultima === undefined || agora.ultima > antes.ultima)
+    if (!chegouNoFim) return
     if (noFim) el.scrollTop = el.scrollHeight
     else setNovasAcima(true)
-  }, [mensagens.length, noFim])
+  }, [mensagens, noFim])
 
   // Trocar de canal recomeca no fim: chegar num canal no meio do historico
   // antigo nao e o que ninguem espera.
@@ -156,7 +190,51 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
         className="flex flex-1 flex-col overflow-y-auto"
         style={{ padding: 'var(--space-gutter)', gap: 'var(--space-row)' }}
       >
-        {mensagens.length === 0 && (
+        {historico?.anteriores === 'carregando' && (
+          <p role="status" className="py-2 text-center text-xs text-fg-muted">
+            Carregando mensagens anteriores…
+          </p>
+        )}
+        {historico?.anteriores === 'falhou' && canalAtivo !== null && (
+          <p className="flex items-center justify-center gap-2 py-2 text-xs text-fg-muted">
+            Não foi possível carregar as mensagens anteriores.
+            <button
+              type="button"
+              onClick={() => { void buscarAnteriores(canalAtivo) }}
+              className="font-medium text-accent underline underline-offset-2"
+            >
+              Tentar de novo
+            </button>
+          </p>
+        )}
+        {historico?.inicio === true && mensagens.length > 0 && (
+          <p className="py-2 text-center text-xs text-fg-muted">Início da conversa</p>
+        )}
+
+        {/*
+          Vazio so e vazio quando o servidor disse que e. Antes a lista
+          afirmava "Nenhuma mensagem ainda" enquanto a primeira pagina ainda
+          estava a caminho — e continuava afirmando se a busca falhasse.
+        */}
+        {mensagens.length === 0 && historico?.primeira === 'carregando' && (
+          <p role="status" aria-busy="true" className="text-sm text-fg-muted">
+            Carregando mensagens…
+          </p>
+        )}
+        {mensagens.length === 0 && historico?.primeira === 'falhou' && canalAtivo !== null && (
+          <div role="alert" className="flex flex-col items-start gap-2 text-sm">
+            <p className="text-fg">Não foi possível carregar as mensagens deste canal.</p>
+            <button
+              type="button"
+              onClick={() => { carregarHistorico(canalAtivo) }}
+              className="rounded-md border border-border px-3 py-1.5 text-sm font-medium
+                         text-fg hover:bg-bg-hover"
+            >
+              Tentar de novo
+            </button>
+          </div>
+        )}
+        {mensagens.length === 0 && (historico === undefined || historico.primeira === 'pronto') && (
           <p className="text-sm text-fg-muted">
             Nenhuma mensagem ainda. Escreva a primeira no campo abaixo.
           </p>
@@ -279,7 +357,7 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
                 )}
                 {mensagem.envio === 'falhou' && (
                   <p className="flex items-center gap-2 text-xs text-danger">
-                    Nao foi enviada.
+                    Não foi enviada.
                     {/*
                       O reenvio leva o mesmo ID: se a primeira tentativa chegou
                       e so a resposta se perdeu, o servidor recusa a duplicata
@@ -287,9 +365,7 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
                     */}
                     <button
                       type="button"
-                      onClick={() => void enviarMensagem(
-                        mensagem.channelId, mensagem.content, mensagem.id,
-                      )}
+                      onClick={() => void reenviarMensagem(mensagem)}
                       className="underline underline-offset-2"
                     >
                       Tentar de novo
@@ -319,7 +395,7 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
       */}
       {digitando !== undefined && digitando.length > 0 && (
         <p className="px-4 pb-1 text-[11px] text-fg-muted">
-          {digitando.join(', ')} {digitando.length === 1 ? 'esta digitando' : 'estao digitando'}...
+          {digitando.join(', ')} {digitando.length === 1 ? 'está digitando' : 'estão digitando'}...
         </p>
       )}
     </div>

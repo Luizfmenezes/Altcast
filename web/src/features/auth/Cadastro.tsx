@@ -5,7 +5,8 @@ import { Campo } from '../../ui/Campo.js'
 import { Botao } from '../../ui/Botao.js'
 import { TituloDaPorta } from './PalcoMercurio.js'
 import { EntrarComGoogle } from './EntrarComGoogle.js'
-import { irPara } from '../../lib/rota.js'
+import { irPara, trocarPor } from '../../lib/rota.js'
+import { PreviaConvite } from './PreviaConvite.js'
 import type { Usuario } from '../../lib/tipos.js'
 
 /**
@@ -52,10 +53,15 @@ export function Cadastro({ codigo, aoEntrar }: {
         ...(codigo === undefined ? {} : { inviteCode: codigo }),
       })
       rearmarAvisoDeSessao()
+      // A conta nasceu dentro do grupo, mas o endereco ainda e o do convite.
+      // Trocar por `entrar?convite=` entrega ao aplicativo o codigo como
+      // "acabou de ser aceito": ele abre o grupo direto, em vez de perguntar
+      // "Entrar em Clube do Livro?" a quem ja esta la dentro.
+      if (codigo !== undefined) trocarPor({ nome: 'entrar', convite: codigo })
       aoEntrar(user)
     } catch (e) {
       const apiErro = e instanceof ApiError ? e : null
-      setErro(apiErro?.message ?? 'Nao foi possivel criar a conta. Tente novamente.')
+      setErro(apiErro?.message ?? 'Não foi possível criar a conta. Tente novamente.')
       const invalidos = apiErro?.camposInvalidos ?? {}
       setCampos(invalidos)
       // Foco no primeiro campo invalido, na ordem em que aparecem na tela.
@@ -72,8 +78,10 @@ export function Cadastro({ codigo, aoEntrar }: {
         titulo={<>CRIAR<br />CONTA</>}
         subtitulo={codigo === undefined
           ? 'Leva menos de um minuto.'
-          : 'Voce entra direto no grupo do convite.'}
+          : 'Você entra direto no grupo do convite.'}
       />
+
+      {codigo !== undefined && <PreviaConvite codigo={codigo} />}
 
       {erro !== null && (
         <p role="alert" className="mb-5 rounded-md border border-danger px-3 py-2 text-sm text-danger">
@@ -83,7 +91,7 @@ export function Cadastro({ codigo, aoEntrar }: {
 
       <form onSubmit={enviar} className="campos-da-porta flex flex-col gap-5" noValidate>
         <Campo
-          rotulo="Nome de exibicao" valor={nome} aoMudar={setNome}
+          rotulo="Nome de exibição" valor={nome} aoMudar={setNome}
           aparencia="linha" autoComplete="nickname" referencia={campoNome} obrigatorio
           erro={campos['displayName']?.[0]}
         />
@@ -95,24 +103,24 @@ export function Cadastro({ codigo, aoEntrar }: {
         <Campo
           rotulo="Senha" tipo="password" valor={senha} aoMudar={setSenha}
           aparencia="linha" autoComplete="new-password" obrigatorio
-          dica="Ao menos 12 caracteres. Uma frase que so voce saberia funciona melhor que simbolos."
+          dica="Ao menos 12 caracteres. Uma frase que só você saberia funciona melhor que símbolos."
           erro={campos['password']?.[0]}
         />
 
         <div className="envio-da-porta">
           <span className="gota" aria-hidden="true" />
           <Botao type="submit" tamanho="lg" largura="cheia" disabled={enviando}>
-            {enviando ? 'Criando...' : 'Criar conta e entrar'}
+            {enviando ? 'Criando…' : 'Criar conta e entrar'}
           </Botao>
         </div>
       </form>
 
-      <EntrarComGoogle rotulo="Criar conta com Google" />
+      <EntrarComGoogle rotulo="Criar conta com Google" convite={codigo} />
 
       <nav className="rodape-da-porta">
         <button type="button" className="text-fg-muted hover:text-fg"
-          onClick={() => irPara({ nome: 'entrar' })}>
-          Ja tenho conta
+          onClick={() => irPara({ nome: 'entrar', ...(codigo === undefined ? {} : { convite: codigo }) })}>
+          Já tenho conta
         </button>
       </nav>
     </>

@@ -109,7 +109,7 @@ export function CriarGrupo({ gatilho }: { gatilho?: ReactNode }): ReactNode {
 
       setEtapa({ fase: 'convite', nomeDoGrupo: grupo.name, codigo })
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel criar o grupo.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível criar o grupo.')
     } finally {
       setEnviando(false)
     }
@@ -120,7 +120,7 @@ export function CriarGrupo({ gatilho }: { gatilho?: ReactNode }): ReactNode {
   const codigo = etapa.fase === 'convite' ? etapa.codigo : null
 
   const rotuloDoGatilho = noTeto
-    ? `Voce ja criou o maximo de ${cota?.max} grupos`
+    ? `Você já criou o máximo de ${cota?.max} grupos`
     : cota?.max == null ? 'Criar grupo' : `Criar grupo — ${cota.used} de ${cota.max}`
 
   return (
@@ -162,10 +162,10 @@ export function CriarGrupo({ gatilho }: { gatilho?: ReactNode }): ReactNode {
               </Dialogo.Title>
               <Dialogo.Description className="mt-1 text-[13px] text-fg-muted">
                 {etapa.fase === 'nome'
-                  ? 'Ele ja nasce com um canal #geral. Voce pode renomear depois.'
+                  ? 'Ele já nasce com um canal #geral. Você pode renomear depois.'
                   : etapa.codigo === null
-                    ? 'O grupo foi criado. O convite voce gera nas configuracoes dele.'
-                    : 'Mande este link para quem voce quiser dentro. Ele vale sete dias.'}
+                    ? 'O grupo foi criado. O convite você gera nas configurações dele.'
+                    : 'Mande este link para quem você quiser dentro. Ele vale sete dias.'}
               </Dialogo.Description>
             </div>
             <Dialogo.Close asChild>
@@ -239,7 +239,7 @@ export function CriarGrupo({ gatilho }: { gatilho?: ReactNode }): ReactNode {
                     acabou de aciona-lo.
                   */}
                   <p role="status" className="min-h-4 text-[12px] text-fg-muted">
-                    {copiado ? 'Link copiado para a area de transferencia.' : ''}
+                    {copiado ? 'Link copiado para a área de transferência.' : ''}
                   </p>
                 </div>
               )}

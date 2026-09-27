@@ -1,60 +1,109 @@
 import type { ReactNode } from 'react'
-import { useStore } from '../../lib/store.js'
+import * as Menu from '@radix-ui/react-dropdown-menu'
+import { LogOut, Settings, UserRound } from 'lucide-react'
+import { possoNoGrupo, useStore } from '../../lib/store.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { Configuracoes } from './Configuracoes.js'
+import { PERMISSOES_DE_ADMINISTRACAO } from './ConfiguracoesGrupo.js'
+import { useDialogoDeConfiguracoes } from './dialogoDeConfiguracoes.js'
+import { sairDaConta } from '../auth/sairDaConta.js'
+
+const ITEM = `flex cursor-pointer select-none items-center gap-2 rounded px-2 py-1.5 text-sm
+              text-fg outline-none data-[highlighted]:bg-bg-hover`
 
 /**
  * Quem voce e, no rodape da coluna de canais.
  *
- * O avatar ja existia — solto num canto da barra do topo, do tamanho de uma
- * moeda, sem nome ao lado e sem nada para clicar. Isso responde "ha uma sessao
- * aberta" e nada mais. Numa conta com apelido e nome de usuario separados, e
- * num app onde a mesma pessoa entra de duas maquinas, a pergunta que a
- * interface precisa responder de relance e outra: *quem* esta logado aqui.
+ * Numa conta com apelido e nome de usuario separados, e num app onde a mesma
+ * pessoa entra de duas maquinas, a pergunta que a interface precisa responder
+ * de relance e *quem* esta logado aqui.
  *
- * A engrenagem MUDOU de lugar, e nao ganhou uma copia. Duas portas com o mesmo
- * nome acessivel quebrariam `getByRole('button', { name: 'Configuracoes' })` —
- * e, pior, ensinariam que existem duas telas de configuracao.
+ * O nome e o avatar agora abrem um menu — Perfil, Configuracoes, Sair. "Sair"
+ * nao existia em tela nenhuma: a rota de logout estava pronta na API havia
+ * meses, e a unica saida era apagar os cookies na mao.
+ *
+ * A engrenagem continua ao lado como atalho direto. Nao e uma segunda porta
+ * para a mesma coisa: o menu e o lugar da identidade, e a engrenagem e o
+ * gesto de quem ja sabe o que quer ajustar.
  */
 export function PainelDoUsuario(): ReactNode {
   const user = useStore(e => e.user)
-  const groups = useStore(e => e.groups)
   const grupoAtivo = useStore(e => e.grupoAtivo)
+  /**
+   * O MESMO criterio da tela de configuracoes do grupo: alguma permissao que
+   * abra uma secao administrativa. Decidir pelo papel, como antes, escondia
+   * a aba de quem recebeu `group.invite` por cargo.
+   *
+   * Continua sendo decisao de APRESENTACAO: quem forcar a rota recebe 404.
+   */
+  const administra = useStore(e => grupoAtivo !== null
+    && PERMISSOES_DE_ADMINISTRACAO.some(acao => possoNoGrupo(e, grupoAtivo, acao)))
+  const abrir = useDialogoDeConfiguracoes(e => e.abrir)
 
   if (!user) return null
 
-  const grupoAtual = groups.find(g => g.id === grupoAtivo)
-  /**
-   * Comparacao de papel no cliente e decisao de APRESENTACAO, nunca de
-   * autorizacao: esconder a aba poupa um caminho sem saida, e quem forcar a
-   * rota mesmo assim recebe 404 da API.
-   */
-  const administra = grupoAtual?.role === 'owner' || grupoAtual?.role === 'admin'
-
   return (
     <div
-      className="flex shrink-0 items-center gap-2 border-t border-border-subtle
+      className="flex shrink-0 items-center gap-1 border-t border-border-subtle
                  bg-bg-raised px-2 py-1.5"
     >
-      <Avatar nome={user.displayName} url={user.avatarUrl} tamanho="md" />
+      <Menu.Root>
+        <Menu.Trigger asChild>
+          <button
+            type="button"
+            aria-label={`Conta de ${user.displayName}`}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left
+                       hover:bg-bg-hover data-[state=open]:bg-bg-hover"
+          >
+            <Avatar nome={user.displayName} url={user.avatarUrl} tamanho="md" />
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-sm font-medium text-fg">
+                {user.displayName}
+              </span>
+              {/*
+                O nome de usuario so aparece quando existe. Uma linha com
+                `@undefined` seria pior do que a ausencia: promete um
+                identificador que a conta nao tem.
+              */}
+              {typeof user.username === 'string' && user.username.length > 0 ? (
+                <span className="block truncate font-mono text-xs text-fg-muted">
+                  @{user.username}
+                </span>
+              ) : null}
+            </span>
+          </button>
+        </Menu.Trigger>
 
-      <span className="min-w-0 flex-1 leading-tight">
-        <span className="block truncate text-[13px] font-medium text-fg">
-          {user.displayName}
-        </span>
-        {/*
-          O nome de usuario so aparece quando existe. Uma linha com `@undefined`
-          — ou um espaco em branco reservado para ele — seria pior do que a
-          ausencia: promete um identificador que a conta nao tem.
-        */}
-        {typeof user.username === 'string' && user.username.length > 0 ? (
-          <span className="block truncate font-mono text-[11px] text-fg-muted">
-            @{user.username}
-          </span>
-        ) : null}
-      </span>
-
-      <span className="sr-only">Voce esta como {user.displayName}</span>
+        <Menu.Portal>
+          <Menu.Content
+            side="top"
+            align="start"
+            sideOffset={6}
+            className="z-50 min-w-52 rounded-lg border border-border bg-bg-raised p-1
+                       shadow-popover"
+          >
+            <Menu.Label className="px-2 py-1.5 text-xs text-fg-muted">
+              Você está como <span className="font-medium text-fg">{user.displayName}</span>
+            </Menu.Label>
+            <Menu.Item className={ITEM} onSelect={() => abrir('perfil')}>
+              <UserRound aria-hidden="true" className="size-4 text-fg-muted" />
+              Perfil
+            </Menu.Item>
+            <Menu.Item className={ITEM} onSelect={() => abrir('conta')}>
+              <Settings aria-hidden="true" className="size-4 text-fg-muted" />
+              Configurações
+            </Menu.Item>
+            <Menu.Separator className="my-1 h-px bg-border-subtle" />
+            <Menu.Item
+              className={`${ITEM} text-danger data-[highlighted]:bg-bg-hover`}
+              onSelect={() => { void sairDaConta() }}
+            >
+              <LogOut aria-hidden="true" className="size-4" />
+              Sair
+            </Menu.Item>
+          </Menu.Content>
+        </Menu.Portal>
+      </Menu.Root>
 
       <Configuracoes groupId={grupoAtivo} podeAdministrar={administra} />
     </div>

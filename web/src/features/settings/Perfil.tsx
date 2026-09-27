@@ -49,9 +49,9 @@ export function Perfil(): ReactNode {
     try {
       const r = await api.patch<{ user: Usuario }>('/auth/me', { displayName: nome.trim() })
       aplicarUsuario(r.user)
-      setRecado('Nome de exibicao atualizado.')
+      setRecado('Nome de exibição atualizado.')
     } catch (e) {
-      setErroNome(e instanceof ApiError ? e.message : 'Nao foi possivel salvar.')
+      setErroNome(e instanceof ApiError ? e.message : 'Não foi possível salvar.')
     } finally {
       setOcupado(null)
     }
@@ -67,12 +67,12 @@ export function Perfil(): ReactNode {
       )
       aplicarUsuario({ username: r.user.username })
       setHandle(r.user.username)
-      setRecado('Nome de usuario atualizado.')
+      setRecado('Nome de usuário atualizado.')
     } catch (e) {
       // O servidor devolve o motivo exato em `details.username`; a mensagem
       // generica so entra quando nao ha motivo por campo.
       const porCampo = e instanceof ApiError ? e.camposInvalidos['username']?.[0] : undefined
-      setErroHandle(porCampo ?? (e instanceof ApiError ? e.message : 'Nao foi possivel salvar.'))
+      setErroHandle(porCampo ?? (e instanceof ApiError ? e.message : 'Não foi possível salvar.'))
     } finally {
       setOcupado(null)
     }
@@ -105,14 +105,14 @@ export function Perfil(): ReactNode {
       if (!resposta.ok) {
         const envelope = await resposta.json().catch(() => null) as
           { error?: { message?: string } } | null
-        throw new Error(envelope?.error?.message ?? 'Nao foi possivel enviar a foto.')
+        throw new Error(envelope?.error?.message ?? 'Não foi possível enviar a foto.')
       }
 
       const { avatarUrl } = await resposta.json() as { avatarUrl: string }
       aplicarUsuario({ avatarUrl })
       setRecado('Foto atualizada.')
     } catch (e) {
-      setErroFoto(e instanceof Error ? e.message : 'Nao foi possivel enviar a foto.')
+      setErroFoto(e instanceof Error ? e.message : 'Não foi possível enviar a foto.')
     } finally {
       setOcupado(null)
     }
@@ -126,7 +126,7 @@ export function Perfil(): ReactNode {
       aplicarUsuario({ avatarUrl: null })
       setRecado('Foto removida.')
     } catch (e) {
-      setErroFoto(e instanceof ApiError ? e.message : 'Nao foi possivel remover a foto.')
+      setErroFoto(e instanceof ApiError ? e.message : 'Não foi possível remover a foto.')
     } finally {
       setOcupado(null)
     }
@@ -183,7 +183,7 @@ export function Perfil(): ReactNode {
                 </Botao>
               )}
             </div>
-            <p className="text-xs text-fg-muted">PNG, JPEG, GIF ou WebP, ate 8 MB.</p>
+            <p className="text-xs text-fg-muted">PNG, JPEG, GIF ou WebP, até 8 MB.</p>
           </div>
         </div>
         {erroFoto !== null && (
@@ -196,12 +196,12 @@ export function Perfil(): ReactNode {
       <Separador />
 
       <form onSubmit={evento => { void salvarNome(evento) }} className="flex flex-col gap-3" noValidate>
-        <h3 className="text-[11px] uppercase tracking-wide text-fg-muted">Nome de exibicao</h3>
+        <h3 className="text-[11px] uppercase tracking-wide text-fg-muted">Nome de exibição</h3>
         <Campo
           rotulo="Como os outros te veem"
           valor={nome}
           aoMudar={setNome}
-          dica="Pode repetir com outras pessoas, e voce muda quando quiser."
+          dica="Pode repetir com outras pessoas, e você muda quando quiser."
           {...(erroNome === null ? {} : { erro: erroNome })}
         />
         <div className="flex justify-end">
@@ -217,13 +217,13 @@ export function Perfil(): ReactNode {
       <Separador />
 
       <form onSubmit={evento => { void salvarHandle(evento) }} className="flex flex-col gap-3" noValidate>
-        <h3 className="text-[11px] uppercase tracking-wide text-fg-muted">Nome de usuario</h3>
+        <h3 className="text-[11px] uppercase tracking-wide text-fg-muted">Nome de usuário</h3>
         <Campo
           rotulo="Como te encontram"
           valor={handle}
           aoMudar={setHandle}
           espacoReservado="felipe"
-          dica="Unico no Altcast. So pode ser trocado uma vez por mes."
+          dica="Único no Altcast. Só pode ser trocado uma vez por mês."
           {...(erroHandle === null ? {} : { erro: erroHandle })}
         />
         <div className="flex justify-end">
@@ -235,7 +235,7 @@ export function Perfil(): ReactNode {
               || handle.trim().toLowerCase() === (user.username ?? '')
             }
           >
-            {ocupado === 'handle' ? 'Salvando...' : 'Salvar nome de usuario'}
+            {ocupado === 'handle' ? 'Salvando...' : 'Salvar nome de usuário'}
           </Botao>
         </div>
       </form>

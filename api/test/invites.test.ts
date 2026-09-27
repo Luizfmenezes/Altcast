@@ -199,6 +199,9 @@ describe('convites', () => {
         headers: { cookie: ze.cookie } })
       expect(deNovo.statusCode).toBe(409)
       expect(deNovo.json().error.code).toBe('already_member')
+      // O grupo vai PELO ID: o cliente abria o grupo procurando pelo nome, e
+      // dois grupos chamados igual levavam ao errado.
+      expect(deNovo.json().error.details).toEqual({ groupId })
 
       // A recusa nao pode ter gasto um uso.
       const [inv] = await db.select().from(invites).where(eq(invites.code, code))

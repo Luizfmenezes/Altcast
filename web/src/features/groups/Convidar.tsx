@@ -67,7 +67,7 @@ export function Convidar({ groupId }: { groupId: string }): ReactNode {
       setConvites(atuais => [novo, ...atuais])
       await copiar(novo.code)
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel gerar o convite.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível gerar o convite.')
     } finally {
       setGerando(false)
     }
@@ -110,7 +110,7 @@ export function Convidar({ groupId }: { groupId: string }): ReactNode {
       <div>
         <h3 className="text-[15px] font-semibold text-fg">Ou gerar um link aberto</h3>
         <p className="mt-1 text-[13px] text-fg-muted">
-          Quem abrir o link entra no grupo. Voce pode revogar a qualquer momento.
+          Quem abrir o link entra no grupo. Você pode revogar a qualquer momento.
         </p>
       </div>
 
@@ -197,8 +197,8 @@ export function Convidar({ groupId }: { groupId: string }): ReactNode {
                     }
                     titulo="Revogar este convite?"
                     descricao={
-                      'Quem ja entrou continua no grupo. O codigo para de funcionar '
-                      + 'para novas pessoas, e isso nao pode ser desfeito.'
+                      'Quem já entrou continua no grupo. O código para de funcionar '
+                      + 'para novas pessoas, e isso não pode ser desfeito.'
                     }
                     confirmar="Revogar convite"
                     aoConfirmar={() => { void revogar(convite.code) }}

@@ -29,7 +29,7 @@ describe('presenca e conexao', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('presenca nunca depende so de cor', () => {
+  it('presença nunca depende só de cor', () => {
     render(<PainelMembros />)
 
     // Nome e estado no mesmo rotulo: quem usa leitor de tela ouve a frase
@@ -49,7 +49,7 @@ describe('presenca e conexao', () => {
     expect(offline).toHaveAttribute('data-presenca', 'vazado')
   })
 
-  it('presenca muda quando o evento chega, sem recarregar', () => {
+  it('presença muda quando o evento chega, sem recarregar', () => {
     render(<PainelMembros />)
     expect(screen.getByLabelText('Felipe, offline')).toBeInTheDocument()
 
@@ -60,36 +60,41 @@ describe('presenca e conexao', () => {
     expect(screen.getByLabelText('Felipe, online')).toBeInTheDocument()
   })
 
-  it('quem esta online aparece antes de quem nao esta', () => {
+  it('quem esta online aparece antes de quem não esta', () => {
     render(<PainelMembros />)
     const nomes = screen.getAllByRole('listitem').map(li => li.textContent)
     expect(nomes[0]).toContain('Ana')
   })
 
-  it('a barra de conexao diz a verdade sobre o socket', () => {
+  it('a barra de conexão fica calada quando está tudo bem e fala quando cai', () => {
     useStore.getState().definirConexao('conectado')
     render(<BarraConexao />)
-    expect(screen.getByRole('status')).toHaveTextContent('conectado')
+    // Tudo bem nao ocupa espaco nem fala: a regiao existe, vazia, para que a
+    // queda seja anunciada no instante em que acontecer.
+    expect(screen.getByRole('status')).toHaveTextContent('')
 
     act(() => useStore.getState().definirConexao('reconectando'))
-    expect(screen.getByRole('status')).toHaveTextContent('reconectando')
+    expect(screen.getByRole('status')).toHaveTextContent('Reconectando')
   })
 
-  it('a barra mostra a latencia medida pelo heartbeat', () => {
+  it('a latência nunca entra na região viva', () => {
     useStore.getState().definirConexao('conectado')
     render(<BarraConexao latenciaMs={42} />)
 
-    expect(screen.getByRole('status')).toHaveTextContent('42 ms')
+    // Um numero novo a cada ping, anunciado pelo leitor de tela, era ruido
+    // puro. Ele continua disponivel, fora da regiao viva.
+    expect(screen.getByRole('status')).not.toHaveTextContent('42 ms')
+    expect(screen.getByText('Latência de 42 ms')).toBeInTheDocument()
   })
 
-  it('sem conexao a latencia some, em vez de mentir um numero velho', () => {
+  it('sem conexão a latência some, em vez de mentir um número velho', () => {
     useStore.getState().definirConexao('reconectando')
     render(<BarraConexao latenciaMs={42} />)
 
-    expect(screen.getByRole('status')).not.toHaveTextContent('42 ms')
+    expect(screen.queryByText(/42 ms/)).not.toBeInTheDocument()
   })
 
-  it('mudanca de estado e anunciada sem interromper', () => {
+  it('mudança de estado e anunciada sem interromper', () => {
     useStore.getState().definirConexao('conectado')
     render(<BarraConexao />)
 

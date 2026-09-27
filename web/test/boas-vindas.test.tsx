@@ -48,7 +48,7 @@ describe('boas-vindas de quem nao tem grupo', () => {
 
     expect(screen.getByRole('heading', { name: 'Criar um grupo' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Tenho um convite' })).toBeInTheDocument()
-    expect(screen.getByLabelText(/Link ou codigo do convite/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Link ou código do convite/)).toBeInTheDocument()
   })
 
   /**
@@ -58,7 +58,7 @@ describe('boas-vindas de quem nao tem grupo', () => {
    * deixaria ela achando que o sistema quebrou. O `aria-describedby` e o que
    * faz o leitor de tela dizer a razao junto com o estado.
    */
-  it('sem e-mail confirmado o botao trava explicando por que', () => {
+  it('sem e-mail confirmado o botão trava explicando por que', () => {
     comUsuario(false)
     desenhar()
 
@@ -70,7 +70,7 @@ describe('boas-vindas de quem nao tem grupo', () => {
     expect(motivo?.textContent).toMatch(/Confirme/)
   })
 
-  it('a trava oferece reenvio e a saida pelo Google', async () => {
+  it('a trava oferece reenvio e a saída pelo Google', async () => {
     comUsuario(false)
     desenhar()
 
@@ -82,7 +82,7 @@ describe('boas-vindas de quem nao tem grupo', () => {
     ).toBeEnabled()
   })
 
-  it('com e-mail confirmado nao ha trava nenhuma', () => {
+  it('com e-mail confirmado não há trava nenhuma', () => {
     comUsuario(true)
     desenhar()
 
@@ -90,18 +90,18 @@ describe('boas-vindas de quem nao tem grupo', () => {
     expect(screen.queryByText(/Confirme/)).not.toBeInTheDocument()
   })
 
-  it('o botao de entrar so libera com um codigo plausivel', async () => {
+  it('o botão de entrar só libera com um código plausível', async () => {
     comUsuario(true)
     desenhar()
 
     const entrar = screen.getByRole('button', { name: 'Entrar no grupo' })
     expect(entrar).toBeDisabled()
 
-    await userEvent.type(screen.getByLabelText(/Link ou codigo do convite/), 'K7M2P9XQ')
+    await userEvent.type(screen.getByLabelText(/Link ou código do convite/), 'K7M2P9XQ')
     expect(entrar).toBeEnabled()
   })
 
-  it('axe nao encontra violacao', async () => {
+  it('axe não encontra violação', async () => {
     comUsuario(false)
     desenhar()
     expect(await violacoes(document.body)).toEqual([])
@@ -119,7 +119,7 @@ describe('leitura do convite colado', () => {
       .toBe('K7M2P9XQ')
   })
 
-  it('aceita o codigo solto, em qualquer caixa', () => {
+  it('aceita o código solto, em qualquer caixa', () => {
     expect(normalizarCodigoDeConvite('  k7m2p9xq  ')).toBe('K7M2P9XQ')
   })
 
@@ -133,7 +133,7 @@ describe('leitura do convite colado', () => {
     expect(normalizarCodigoDeConvite('IL345678')).toBe('11345678')
   })
 
-  it('recusa o que nao pode ser um codigo', () => {
+  it('recusa o que não pode ser um código', () => {
     expect(normalizarCodigoDeConvite('')).toBeNull()
     expect(normalizarCodigoDeConvite('curto')).toBeNull()
     expect(normalizarCodigoDeConvite('https://altcast.exemplo/entrar')).toBeNull()

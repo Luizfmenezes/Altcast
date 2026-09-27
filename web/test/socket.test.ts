@@ -42,7 +42,7 @@ class SocketFalso {
 }
 
 describe('espera de reconexao', () => {
-  it('cresce exponencialmente ate o teto de 30s', () => {
+  it('cresce exponencialmente até o teto de 30s', () => {
     const semJitter = vi.spyOn(Math, 'random').mockReturnValue(0.5)
     expect(esperaDeReconexao(1)).toBe(1000)
     expect(esperaDeReconexao(2)).toBe(2000)
@@ -53,7 +53,7 @@ describe('espera de reconexao', () => {
     semJitter.mockRestore()
   })
 
-  it('aplica jitter de ate 30% em cada espera', () => {
+  it('aplica jitter de até 30% em cada espera', () => {
     const amostras = Array.from({ length: 100 }, () => esperaDeReconexao(1))
 
     // Sem jitter, o servidor reiniciando faz todos os clientes voltarem no
@@ -93,7 +93,7 @@ describe('cliente WebSocket', () => {
     })
   }
 
-  it('reporta status para a barra de conexao', async () => {
+  it('reporta status para a barra de conexão', async () => {
     const conexao = ligar()
     expect(estados).toContain('reconectando')
 
@@ -105,7 +105,7 @@ describe('cliente WebSocket', () => {
     conexao.fechar()
   })
 
-  it('reconecta com backoff exponencial apos quedas sucessivas', async () => {
+  it('reconecta com backoff exponencial após quedas sucessivas', async () => {
     const conexao = ligar()
     SocketFalso.ultimo().abrir()
     expect(SocketFalso.abertos).toHaveLength(1)
@@ -124,7 +124,7 @@ describe('cliente WebSocket', () => {
     conexao.fechar()
   })
 
-  it('zera o contador apos 60s de conexao estavel', async () => {
+  it('zera o contador após 60s de conexão estável', async () => {
     const conexao = ligar()
     SocketFalso.ultimo().abrir()
     SocketFalso.ultimo().cair()
@@ -183,7 +183,7 @@ describe('cliente WebSocket', () => {
     conexao.fechar()
   })
 
-  it('reconecta imediatamente quando a aba volta a ficar visivel', async () => {
+  it('reconecta imediatamente quando a aba volta a ficar visível', async () => {
     const conexao = ligar()
     SocketFalso.ultimo().abrir()
     SocketFalso.ultimo().cair()
@@ -197,7 +197,7 @@ describe('cliente WebSocket', () => {
     conexao.fechar()
   })
 
-  it('fechar encerra de vez e nao reconecta mais', async () => {
+  it('fechar encerra de vez e não reconecta mais', async () => {
     const conexao = ligar()
     SocketFalso.ultimo().abrir()
     conexao.fechar()

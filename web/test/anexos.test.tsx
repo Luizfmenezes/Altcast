@@ -25,7 +25,7 @@ describe('tamanho legivel', () => {
 })
 
 describe('como cada anexo aparece', () => {
-  it('imagem usa a miniatura, e nao o original de vinte megabytes', () => {
+  it('imagem usa a miniatura, e não o original de vinte megabytes', () => {
     render(<Anexos anexos={[anexo({})]} />)
     const img = screen.getByAltText('foto.png')
     expect(img).toHaveAttribute('src', urlDaMiniatura('a1'))
@@ -41,7 +41,7 @@ describe('como cada anexo aparece', () => {
     expect(screen.getByAltText('foto.png')).toHaveAttribute('src', urlDoAnexo('a1'))
   })
 
-  it('video toca na conversa, carregando so os metadados', () => {
+  it('vídeo toca na conversa, carregando só os metadados', () => {
     render(<Anexos anexos={[anexo({
       filename: 'clipe.mp4', contentType: 'video/mp4', temMiniatura: false,
     })]} />)
@@ -50,7 +50,7 @@ describe('como cada anexo aparece', () => {
     expect(screen.getByLabelText('clipe.mp4')).toHaveAttribute('preload', 'metadata')
   })
 
-  it('PDF vira cartao de download, com nome e tamanho', () => {
+  it('PDF vira cartão de download, com nome e tamanho', () => {
     render(<Anexos anexos={[anexo({
       filename: 'contrato.pdf', contentType: 'application/pdf',
       byteSize: 1_500_000, reproduzivel: false, temMiniatura: false,
@@ -69,7 +69,7 @@ describe('como cada anexo aparece', () => {
    * um executavel chamado `gatinho.png` voltaria a ser renderizado — e a
    * deteccao no servidor teria sido feita para nada.
    */
-  it('arquivo com nome de imagem, mas tipo de octetos, nao renderiza como imagem', () => {
+  it('arquivo com nome de imagem, mas tipo de octetos, não renderiza como imagem', () => {
     render(<Anexos anexos={[anexo({
       filename: 'gatinho.png', contentType: 'application/octet-stream',
       reproduzivel: false, temMiniatura: false, width: null, height: null,
@@ -78,7 +78,7 @@ describe('como cada anexo aparece', () => {
     expect(screen.getByText('gatinho.png')).toBeInTheDocument()
   })
 
-  it('SVG tambem cai no cartao, nunca em img', () => {
+  it('SVG também cai no cartão, nunca em img', () => {
     render(<Anexos anexos={[anexo({
       filename: 'desenho.svg', contentType: 'application/octet-stream',
       reproduzivel: false, temMiniatura: false, width: null, height: null,
@@ -86,12 +86,12 @@ describe('como cada anexo aparece', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
   })
 
-  it('mensagem sem anexo nao deixa lista vazia na tela', () => {
+  it('mensagem sem anexo não deixa lista vazia na tela', () => {
     const { container } = render(<Anexos anexos={[]} />)
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('axe nao encontra violacao nos tres formatos juntos', async () => {
+  it('axe não encontra violação nos três formatos juntos', async () => {
     const { container } = render(<Anexos anexos={[
       anexo({}),
       anexo({ id: 'a2', filename: 'clipe.mp4', contentType: 'video/mp4', temMiniatura: false }),

@@ -43,6 +43,14 @@ export type Palette = {
   dangerFg: string
   /** Exclusivo de presenca online — sempre acompanhado de forma e rotulo. */
   presenceOnline: string
+  /**
+   * So o "no ar": quem esta falando, o que esta transmitindo agora. Separado
+   * do acento de acao porque um botao primario e um microfone aberto nao
+   * podem ser a mesma coisa para o olho.
+   */
+  accentLive: string
+  /** Aviso — sempre com icone e texto, nunca a cor sozinha. */
+  warning: string
 }
 
 /**
@@ -66,6 +74,8 @@ export const LIGHT: Palette = {
   danger: '#b91c1c',
   dangerFg: '#ffffff',
   presenceOnline: '#047857',
+  accentLive: '#b45309',
+  warning: '#9a5c06',
 }
 
 /** Escuro e o padrao: e o habito da categoria e reduz fadiga em uso prolongado. */
@@ -83,6 +93,8 @@ export const DARK: Palette = {
   danger: '#f87171',
   dangerFg: '#0f172a',
   presenceOnline: '#34d399',
+  accentLive: '#fbbf24',
+  warning: '#eab308',
 }
 
 export type Theme = 'light' | 'dark'

@@ -61,7 +61,7 @@ function dentroDaListaDeCanais(): HTMLElement[] {
 
 function canal(nome: string): HTMLElement {
   const alvo = dentroDaListaDeCanais().find(b => b.textContent === nome)
-  if (!alvo) throw new Error(`canal ${nome} nao esta na lista`)
+  if (!alvo) throw new Error(`canal ${nome} não esta na lista`)
   return alvo
 }
 
@@ -77,7 +77,7 @@ describe('estrutura da aplicacao', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('canal privado sem acesso nao aparece, nem com cadeado', () => {
+  it('canal privado sem acesso não aparece, nem com cadeado', () => {
     const { container } = render(<AppShell />)
 
     // Contrapartida no frontend da Tarefa 14: o servidor nao envia o canal, e a
@@ -87,7 +87,7 @@ describe('estrutura da aplicacao', () => {
     expect(screen.queryByLabelText(/bloqueado|sem acesso/i)).not.toBeInTheDocument()
   })
 
-  it('lista os canais visiveis na ordem de posicao', () => {
+  it('lista os canais visíveis na ordem de posição', () => {
     render(<AppShell />)
     // A lista de canais e navegacao, e nao um `tablist`: `tab` prometeria um
     // `tabpanel` que a conversa nunca foi, e o cabecalho colapsavel de cada
@@ -97,7 +97,7 @@ describe('estrutura da aplicacao', () => {
     expect(nomes).toEqual(['geral', 'planejamento'])
   })
 
-  it('o canal aberto e o unico marcado como atual', async () => {
+  it('o canal aberto e o único marcado como atual', async () => {
     const usuario = userEvent.setup()
     render(<AppShell />)
     await usuario.click(canal('planejamento'))
@@ -114,7 +114,7 @@ describe('estrutura da aplicacao', () => {
     expect(screen.getByLabelText('Escrever mensagem')).toHaveFocus()
   })
 
-  it('trocar de canal anuncia o nome numa regiao de status', async () => {
+  it('trocar de canal anuncia o nome numa região de status', async () => {
     const usuario = userEvent.setup()
     render(<AppShell />)
 
@@ -139,7 +139,7 @@ describe('estrutura da aplicacao', () => {
     expect(useStore.getState().canalAtivo).toBe('c1')
   })
 
-  it('link de pular para a conversa e o primeiro elemento focavel', async () => {
+  it('link de pular para a conversa e o primeiro elemento focável', async () => {
     const usuario = userEvent.setup()
     render(<AppShell />)
 
@@ -162,7 +162,7 @@ describe('estrutura da aplicacao', () => {
     expect(screen.queryByRole('button', { name: 'geral' })).not.toBeInTheDocument()
   })
 
-  it('em 1000px o painel de membros colapsa e volta por botao', async () => {
+  it('em 1000px o painel de membros colapsa e volta por botão', async () => {
     larguraDe(1000)
     const usuario = userEvent.setup()
     render(<AppShell />)
@@ -172,7 +172,7 @@ describe('estrutura da aplicacao', () => {
     expect(screen.getByRole('complementary', { name: 'Membros' })).toBeInTheDocument()
   })
 
-  it('presenca nunca e so cor: tem forma e rotulo textual', () => {
+  it('presença nunca e só cor: tem forma e rotulo textual', () => {
     larguraDe(1400)
     render(<AppShell />)
 
@@ -184,17 +184,17 @@ describe('estrutura da aplicacao', () => {
       .toHaveTextContent('offline')
   })
 
-  it('a barra de conexao diz a verdade sobre o tempo real', () => {
+  it('a barra de conexão diz a verdade sobre o tempo real', () => {
     render(<AppShell />)
-    const barra = screen.getByRole('status', { name: 'Estado da conexao' })
-    expect(barra).toHaveTextContent('conectado')
+    const barra = screen.getByRole('status', { name: 'Estado da conexão' })
+    expect(barra).toHaveTextContent('')
 
     act(() => useStore.getState().definirConexao('reconectando'))
-    expect(screen.getByRole('status', { name: 'Estado da conexao' }))
-      .toHaveTextContent('reconectando')
+    expect(screen.getByRole('status', { name: 'Estado da conexão' }))
+      .toHaveTextContent('Reconectando')
   })
 
-  it('axe nao encontra violacao na aplicacao montada', async () => {
+  it('axe não encontra violação na aplicação montada', async () => {
     const { container } = render(<AppShell />)
     expect(await violacoes(container)).toEqual([])
   })

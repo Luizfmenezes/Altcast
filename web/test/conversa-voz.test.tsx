@@ -84,7 +84,7 @@ describe('conversa num canal de voz', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument()
   })
 
-  it('o composer nao aparece desabilitado: escrever num canal de voz e permitido', () => {
+  it('o composer não aparece desabilitado: escrever num canal de voz e permitido', () => {
     larguraQueResponde(true)
     montar()
 
@@ -108,7 +108,7 @@ describe('conversa num canal de voz', () => {
     expect(screen.queryByText('da para ver minha tela?')).not.toBeInTheDocument()
   })
 
-  it('a aba de conversa troca o palco pelo historico', async () => {
+  it('a aba de conversa troca o palco pelo histórico', async () => {
     larguraQueResponde(false)
     const { getByRole } = montar()
 

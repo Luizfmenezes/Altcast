@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  Grid2x2, HeadphoneOff, Headphones, Mic, MicOff, MonitorUp, Pin, Video, VideoOff,
-  PhoneOff, Volume2,
+  Grid2x2, HeadphoneOff, Headphones, Loader2, Mic, MicOff, MonitorUp, Pin, RotateCw,
+  Settings2, Video, VideoOff, PhoneOff, Volume2,
 } from 'lucide-react'
 import { Botao } from '../../ui/Botao.js'
 import { useStore } from '../../lib/store.js'
@@ -15,7 +15,8 @@ import {
 import { chaveDeVolume } from '../../lib/midia.js'
 import { nativo } from '../../lib/nativo.js'
 import { SeletorDeFonte } from './SeletorDeFonte.js'
-import { TextoDecifrado } from '../../ui/bits/TextoDecifrado.js'
+import { useDialogoDeConfiguracoes } from '../settings/dialogoDeConfiguracoes.js'
+import { rotuloDaSituacao, situacaoDaChamada } from './situacao.js'
 import type { SomDaTela } from '../../lib/nativo.js'
 import type { ModoDaChamada } from './palco.js'
 import type { ParticipanteDeVoz } from '../../lib/store.js'
@@ -59,20 +60,23 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
   nomeDoCanal: string
 }): ReactNode {
   const {
-    estado, entrar, sair, alternarMicrofone, alternarCamera, alternarTela, trocarDispositivo,
+    estado, aqui, entrar, tentarDeNovo, sair, alternarMicrofone, alternarCamera, alternarTela, trocarDispositivo,
     destravarAudio, definirVolume, restaurarVolumes, definirQualidade,
     definirQualidadeDeRecepcao, alternarSurdo,
   } = useChamada(channelId)
   const participantes = useStore(e => e.chamadas[channelId]) ?? NINGUEM
   const members = useStore(e => e.members)
   const eu = useStore(e => e.user)
+  const abrirConfiguracoes = useDialogoDeConfiguracoes(e => e.abrir)
 
   const nomeDe = (userId: string): string =>
     userId === eu?.id
-      ? 'Voce'
-      : members.find(m => m.userId === userId)?.displayName ?? 'Alguem'
+      ? 'Você'
+      : members.find(m => m.userId === userId)?.displayName ?? 'Alguém'
 
   const dentro = estado.fase === 'dentro'
+  /** A mesma leitura da barra do rodape: as duas nunca mais discordam. */
+  const situacao = situacaoDaChamada(aqui ? channelId : null, estado)
   const ehSom = (papel: string): boolean => papel === 'audio' || papel === 'audio-tela'
   const videos = estado.faixas.filter(f => !ehSom(f.papel))
   const audios = estado.faixas.filter(f => ehSom(f.papel))
@@ -164,7 +168,7 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
     // conversando — o mesmo motivo pelo qual as entradas na chamada tambem nao
     // sao anunciadas uma a uma.
     setAnuncioDoPalco(desfixando
-      ? 'Palco automatico'
+      ? 'Palco automático'
       : `${legenda} no palco`)
   }
 
@@ -230,30 +234,33 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
         numa metralhadora de avisos.
       */}
       <p role="status" className="sr-only">
-        {estado.fase === 'entrando' ? 'Entrando na chamada'
-          : dentro ? `Na chamada, ${participantes.length} participantes`
-            : 'Fora da chamada'}
+        {situacao === 'conectado'
+          ? `No ar, ${String(participantes.length)} participantes`
+          : rotuloDaSituacao(situacao, null)}
       </p>
 
       {/*
-        O nome do canal, decifrando-se na entrada.
+        O nome do canal, e o estado da conexao ao lado dele.
 
-        Um canal de voz aberto era uma tela preta sem cabecalho nenhum — quem
-        entrava nao tinha como confirmar em qual sala caiu, e "teste" e
-        "teste2" sao dois cliques vizinhos. O efeito dura menos de meio segundo
-        e acontece uma vez por troca de canal; o texto real esta no `sr-only`
-        do proprio componente desde o primeiro quadro.
+        O nome se decifrava letra a letra na entrada. Era bonito uma vez e
+        ruido nas outras cem: numa tela de trabalho, movimento tem de dizer
+        que algo MUDOU de estado — e o nome de uma sala nao muda.
       */}
-      <h2 className="flex items-center gap-2 text-[13px] font-semibold text-fg">
-        <Volume2 aria-hidden="true" className="size-4 shrink-0 text-accent" />
-        <TextoDecifrado texto={nomeDoCanal} />
-        {dentro ? (
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-fg">
+        <Volume2 aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
+        <span className="min-w-0 truncate">{nomeDoCanal}</span>
+        {situacao !== 'ocioso' && situacao !== 'falhou' ? (
           <span
-            className="ml-auto rounded-full border border-presence-online/40
-                       bg-presence-online/10 px-2 py-0.5 font-mono text-[10px]
-                       uppercase tracking-wider text-presence-online"
+            className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5
+                        text-xs font-medium ${situacao === 'conectado'
+              ? 'border-accent-live/40 text-fg'
+              : 'border-border-subtle text-fg-muted'}`}
           >
-            na chamada
+            {situacao === 'conectado'
+              ? <span aria-hidden="true" className="size-1.5 rounded-full bg-accent-live" />
+              : <Loader2 aria-hidden="true" className="size-3 motion-safe:animate-spin" />}
+            {situacao === 'conectado' ? 'no ar'
+              : situacao === 'reconectando' ? 'reconectando' : 'conectando'}
           </span>
         ) : null}
       </h2>
@@ -270,15 +277,38 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
         </Botao>
       )}
 
-      {estado.erro !== null && (
+      {/*
+        A falha COM SAIDA. Antes era uma frase vermelha e nada mais: "Nao foi
+        possivel conectar ao servidor de midia", e a pessoa tinha de adivinhar
+        que o proximo passo era clicar em "Entrar" de novo — ou que o problema
+        era o microfone.
+      */}
+      {situacao === 'falhou' && (
+        <div role="alert" className="flex flex-col gap-3 rounded-lg border border-danger/60 p-3">
+          <p className="text-sm text-fg">{estado.erro ?? 'Não foi possível conectar à chamada.'}</p>
+          <div className="flex flex-wrap gap-2">
+            <Botao tamanho="sm" onClick={tentarDeNovo}>
+              <RotateCw aria-hidden="true" />
+              Tentar de novo
+            </Botao>
+            <Botao tamanho="sm" variante="discreto" onClick={() => abrirConfiguracoes('midia')}>
+              <Settings2 aria-hidden="true" />
+              Configurar dispositivos
+            </Botao>
+          </div>
+        </div>
+      )}
+
+      {/* Erro de DISPOSITIVO dentro de uma chamada que continua de pe. */}
+      {situacao !== 'falhou' && estado.erro !== null && (
         <p role="alert" className="rounded border border-danger px-3 py-2 text-sm text-danger">
           {estado.erro}
         </p>
       )}
 
-      {participantes.length === 0 && !dentro && (
+      {participantes.length === 0 && !dentro && situacao !== 'falhou' && (
         <p className="text-sm text-fg-muted">
-          Ninguem na chamada ainda. Entre para comecar.
+          Ninguém na chamada ainda. Entre para começar.
         </p>
       )}
 
@@ -299,7 +329,7 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
                 variante="discreto"
                 onClick={() => {
                   setFixado(null)
-                  setAnuncioDoPalco('Palco automatico')
+                  setAnuncioDoPalco('Palco automático')
                 }}
               >
                 <Pin aria-hidden="true" className="size-4" />
@@ -362,7 +392,7 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
                 aninhar os dois criaria um alvo clicavel dentro de outro.
               */}
               {naFita.length > 0 && (
-                <ul aria-label="Outras transmissoes" className="flex gap-2 overflow-x-auto pb-1">
+                <ul aria-label="Outras transmissões" className="flex gap-2 overflow-x-auto pb-1">
                   {naFita.map(faixa => {
                     const id = idDaFaixa(faixa)
                     const legenda = legendaDe(faixa)
@@ -503,9 +533,16 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
                    border-t border-border-subtle bg-bg px-4 pb-1 pt-3"
       >
         {!dentro ? (
-          <Botao onClick={entrar} disabled={estado.fase === 'entrando'}>
-            {estado.fase === 'entrando' ? 'Entrando...' : 'Entrar na chamada'}
-          </Botao>
+          situacao === 'falhou' ? (
+            <Botao variante="discreto" onClick={sair}>
+              <PhoneOff aria-hidden="true" className="size-4" />
+              Desistir
+            </Botao>
+          ) : (
+            <Botao onClick={entrar} disabled={situacao === 'conectando'}>
+              {situacao === 'conectando' ? 'Entrando…' : 'Entrar na chamada'}
+            </Botao>
+          )
         ) : (
           <>
             <Botao
@@ -515,7 +552,7 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
               aria-pressed={estado.microfone}
               // Quem so escuta precisa saber POR QUE o botao esta apagado.
               // Um controle desabilitado sem explicacao parece defeito.
-              title={estado.podePublicar ? undefined : 'Voce nao pode transmitir neste canal'}
+              title={estado.podePublicar ? undefined : 'Você não pode transmitir neste canal'}
             >
               {estado.microfone
                 ? <Mic aria-hidden="true" className="size-4" />
@@ -532,7 +569,7 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
               {estado.camera
                 ? <Video aria-hidden="true" className="size-4" />
                 : <VideoOff aria-hidden="true" className="size-4" />}
-              {estado.camera ? 'Camera ligada' : 'Camera desligada'}
+              {estado.camera ? 'Câmera ligada' : 'Câmera desligada'}
             </Botao>
 
             <Botao

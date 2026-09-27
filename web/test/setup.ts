@@ -1,11 +1,24 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
+import { useRascunhos } from '../src/features/messages/rascunhos.js'
+import { useHistorico } from '../src/features/messages/historico.js'
 
 // A limpeza automatica da testing-library depende de `globals: true`, que a
 // suite nao usa. Sem este afterEach o DOM do teste anterior sobrevive e a
 // consulta seguinte encontra dois de cada elemento.
 afterEach(cleanup)
+
+/**
+ * Os rascunhos por canal e o estado do historico vivem em modulos, e nao em
+ * componentes — sobrevivem ao desmonte de proposito. Entre testes isso vira
+ * vazamento: o texto digitado num teste aparecia no campo do seguinte.
+ */
+afterEach(() => {
+  try { sessionStorage.clear() } catch { /* jsdom sem armazenamento */ }
+  useRascunhos.setState({ rascunhos: {}, envios: [] })
+  useHistorico.setState({ porCanal: {} })
+})
 
 /**
  * `ResizeObserver` nao existe no jsdom, e `react-resizable-panels` o exige —

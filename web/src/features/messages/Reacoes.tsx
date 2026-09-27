@@ -73,7 +73,7 @@ export function Reacoes({ messageId, reacoes, eu }: {
             // A contagem entra no NOME acessivel, e nao so no texto visivel:
             // "2" sozinho, lido em voz alta, nao diz de que.
             aria-label={`${reacao.emoji}, ${String(reacao.userIds.length)} ${
-              reacao.userIds.length === 1 ? 'pessoa' : 'pessoas'}${minha ? ', voce reagiu' : ''}`}
+              reacao.userIds.length === 1 ? 'pessoa' : 'pessoas'}${minha ? ', você reagiu' : ''}`}
             className={`inline-flex h-7 items-center gap-1 rounded-full border px-2 text-xs ${
               minha
                 ? 'border-accent bg-accent/10 text-fg'
@@ -116,7 +116,7 @@ export function Reacoes({ messageId, reacoes, eu }: {
         {aberto && (
           <div
             role="group"
-            aria-label="Escolher reacao"
+            aria-label="Escolher reação"
             className="absolute bottom-8 left-0 z-10 flex gap-1 rounded border border-border
                        bg-bg-raised p-1 shadow-lg"
           >
@@ -140,7 +140,7 @@ export function Reacoes({ messageId, reacoes, eu }: {
           ser dita, mas nao interrompe quem esta lendo a conversa. */}
       {falhou && (
         <p role="status" className="w-full text-xs text-danger">
-          Nao foi possivel registrar a reacao. Tente de novo.
+          Não foi possível registrar a reação. Tente de novo.
         </p>
       )}
     </div>

@@ -33,15 +33,15 @@ const escolher = (entrada: Partial<Parameters<typeof escolherPalco>[0]>): string
   }).palco
 
 describe('quem sobe ao palco', () => {
-  it('sem video nenhum nao ha palco, e a interface cai na grade', () => {
+  it('sem vídeo nenhum não há palco, e a interface cai na grade', () => {
     expect(escolher({})).toBeNull()
   })
 
-  it('com uma camera so, ela ocupa o palco', () => {
+  it('com uma câmera só, ela ocupa o palco', () => {
     expect(escolher({ videos: [CAMERA_ANA] })).toBe('TR_ANA')
   })
 
-  it('a tela compartilhada ganha da camera', () => {
+  it('a tela compartilhada ganha da câmera', () => {
     // E o que a sala veio ver. Dividir o espaco em pe de igualdade com uma
     // webcam parada e exatamente o defeito que o palco existe para corrigir.
     expect(escolher({ videos: [CAMERA_ANA, TELA_BRUNO] })).toBe('TR_TELA_BRUNO')
@@ -51,7 +51,7 @@ describe('quem sobe ao palco', () => {
     expect(escolher({ videos: [TELA_ANA, TELA_BRUNO] })).toBe('TR_TELA_BRUNO')
   })
 
-  it('a tela nao sai do palco porque outra pessoa falou', () => {
+  it('a tela não sai do palco porque outra pessoa falou', () => {
     // Quem esta mostrando algo continua no palco mesmo calado: perder a tela
     // para a webcam de quem comentou seria trocar o conteudo pelo comentario.
     const palco = escolher({
@@ -63,14 +63,14 @@ describe('quem sobe ao palco', () => {
     expect(palco).toBe('TR_TELA_ANA')
   })
 
-  it('a faixa fixada a mao ganha ate da tela compartilhada', () => {
+  it('a faixa fixada a mão ganha até da tela compartilhada', () => {
     // Escolha manual sempre ganha da automatica: se a pessoa fixou, foi porque
     // o palpite errou, e desfazer a correcao dela seria errar duas vezes.
     const palco = escolher({ videos: [CAMERA_ANA, TELA_BRUNO], fixado: 'TR_ANA' })
     expect(palco).toBe('TR_ANA')
   })
 
-  it('fixar alguem que saiu da sala nao prende o palco num quadro congelado', () => {
+  it('fixar alguém que saiu da sala não prende o palco num quadro congelado', () => {
     const palco = escolher({ videos: [CAMERA_ANA], fixado: 'TR_DE_QUEM_SAIU' })
     expect(palco).toBe('TR_ANA')
   })
@@ -89,7 +89,7 @@ describe('quem sobe ao palco', () => {
 describe('histerese da fala', () => {
   const videos = [CAMERA_ANA, CAMERA_BRUNO]
 
-  it('uma silaba nao troca o palco', () => {
+  it('uma silaba não troca o palco', () => {
     // `ActiveSpeakersChanged` dispara a cada silaba. Trocar a cada disparo
     // produz um estroboscopio numa conversa de quatro pessoas.
     const primeira = escolherPalco({
@@ -132,7 +132,7 @@ describe('histerese da fala', () => {
     expect(logoDepois.palco).toBe('TR_ANA')
   })
 
-  it('quem ja esta no palco e fala nao produz troca nenhuma', () => {
+  it('quem já esta no palco e fala não produz troca nenhuma', () => {
     const memoria = { atual: 'TR_ANA', candidato: 'TR_ANA', desde: 0 }
     const palco = escolherPalco({
       videos, falando: ['ana'], fixado: null, agora: 60_000, memoria,
@@ -140,7 +140,7 @@ describe('histerese da fala', () => {
     expect(palco.palco).toBe('TR_ANA')
   })
 
-  it('o silencio nao devolve o palco a ninguem: quem estava, fica', () => {
+  it('o silencio não devolve o palco a ninguém: quem estava, fica', () => {
     // Uma pausa para respirar nao pode desmontar a tela de quem tem a palavra.
     const palco = escolherPalco({
       videos,
@@ -167,19 +167,19 @@ describe('identidade da faixa', () => {
 })
 
 describe('modo lembrado', () => {
-  it('palco e o padrao de quem nunca escolheu', () => {
+  it('palco e o padrão de quem nunca escolheu', () => {
     localStorage.clear()
     expect(lerModo()).toBe('palco')
   })
 
-  it('a grade escolhida sobrevive a proxima sessao', () => {
+  it('a grade escolhida sobrevive a próxima sessão', () => {
     localStorage.clear()
     guardarModo('grade')
     expect(lerModo()).toBe('grade')
     localStorage.clear()
   })
 
-  it('um valor estranho guardado cai no padrao em vez de quebrar a chamada', () => {
+  it('um valor estranho guardado cai no padrão em vez de quebrar a chamada', () => {
     localStorage.clear()
     localStorage.setItem('altcast:modo-da-chamada', 'holograma')
     expect(lerModo()).toBe('palco')

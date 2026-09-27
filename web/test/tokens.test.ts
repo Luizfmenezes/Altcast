@@ -26,6 +26,12 @@ const PARES: Array<[keyof typeof LIGHT, keyof typeof LIGHT, number]> = [
   ['danger', 'bgHover', 4.5],
   ['border', 'bgHover', 3],
   ['presenceOnline', 'bgHover', 3],
+  // O "no ar" e o aviso aparecem como icone e ponto (3:1, SC 1.4.11) e, no
+  // aviso, tambem como texto curto ao lado do icone.
+  ['accentLive', 'bg', 3],
+  ['accentLive', 'bgRaised', 3],
+  ['warning', 'bg', 4.5],
+  ['warning', 'bgRaised', 4.5],
 ]
 
 describe('contraste WCAG 2.2 AA', () => {

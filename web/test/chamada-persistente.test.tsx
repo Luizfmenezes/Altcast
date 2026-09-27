@@ -98,12 +98,12 @@ describe('a chamada acima da arvore de componentes', () => {
     })
   })
 
-  it('sem chamada nenhuma a barra nao ocupa espaco', () => {
+  it('sem chamada nenhuma a barra não ocupa espaço', () => {
     render(<BarraDeChamada />)
     expect(screen.queryByLabelText('Chamada em curso')).not.toBeInTheDocument()
   })
 
-  it('trocar de canal MANTEM a chamada', () => {
+  it('trocar de canal MANTÉM a chamada', () => {
     fingirChamadaEm(VOZ_A)
     render(<BarraDeChamada />)
 
@@ -114,7 +114,7 @@ describe('a chamada acima da arvore de componentes', () => {
     expect(screen.getByLabelText('Chamada em curso')).toBeInTheDocument()
   })
 
-  it('a barra mostra o microfone em qualquer tela, e nao so no canal da chamada', () => {
+  it('a barra mostra o microfone em qualquer tela, e não só no canal da chamada', () => {
     fingirChamadaEm(VOZ_A, true)
     act(() => { useStore.getState().escolherCanal(VOZ_B) })
     render(<BarraDeChamada />)
@@ -133,7 +133,7 @@ describe('a chamada acima da arvore de componentes', () => {
     render(<BarraDeChamada />)
 
     await act(async () => {
-      screen.getByRole('button', { name: /Na chamada/ }).click()
+      screen.getByRole('button', { name: /No ar|Conectando/ }).click()
     })
 
     // Obrigar a procurar o canal na lista desfaria metade do ganho de a
@@ -154,7 +154,7 @@ describe('a chamada acima da arvore de componentes', () => {
     expect(primeira.sair).toHaveBeenCalled()
   })
 
-  it('entrar de novo no MESMO canal nao reabre a sala', async () => {
+  it('entrar de novo no MESMO canal não reabre a sala', async () => {
     const atual = fingirChamadaEm(VOZ_A)
 
     await act(async () => {
@@ -220,7 +220,7 @@ describe('a chamada acima da arvore de componentes', () => {
    * do zustand dispara a cada `set` da store, e o medidor de nivel sozinho
    * escreve nela o tempo todo durante uma chamada.
    */
-  it('escrever na store com a conexao de pe nao reanuncia de novo', () => {
+  it('escrever na store com a conexão de pé não reanuncia de novo', () => {
     const duble = fingirChamadaEm(VOZ_A)
     // Partir de um estado conhecido: o teste anterior deixa a conexao de pe, e
     // sem isto nao haveria borda nenhuma para detectar.

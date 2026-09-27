@@ -5,6 +5,7 @@ import { Campo } from '../../ui/Campo.js'
 import { Botao } from '../../ui/Botao.js'
 import { TituloDaPorta } from './PalcoMercurio.js'
 import { EntrarComGoogle } from './EntrarComGoogle.js'
+import { PreviaConvite } from './PreviaConvite.js'
 import { irPara } from '../../lib/rota.js'
 import type { Usuario } from '../../lib/tipos.js'
 
@@ -18,17 +19,28 @@ export type { Usuario }
  * para o login sem nenhuma explicacao de por que nao entrou.
  */
 function erroDaUrl(): string | null {
-  const q = new URLSearchParams(window.location.search).get('erro')
+  const busca = new URLSearchParams(window.location.search)
+  const q = busca.get('erro')
+  if (q === null) return null
+  // O aviso e lido uma vez e sai da barra: sem isto ele sobrevivia ao login
+  // seguinte, e um F5 qualquer mostrava de novo um erro de dias atras.
+  busca.delete('erro')
+  const resto = busca.toString()
+  history.replaceState(null, '', `${window.location.pathname}${resto === '' ? '' : `?${resto}`}`)
   if (q === 'google') {
-    return 'Nao foi possivel entrar pelo Google. Tente de novo ou use sua senha.'
+    return 'Não foi possível entrar pelo Google. Tente de novo ou use sua senha.'
   }
   if (q === 'google_indisponivel') {
-    return 'A entrada pelo Google nao esta configurada neste servidor.'
+    return 'A entrada pelo Google não está configurada neste servidor.'
   }
   return null
 }
 
-export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }): ReactNode {
+export function Login({ aoEntrar, convite }: {
+  aoEntrar: (u: Usuario) => void
+  /** O codigo trazido de um link: a pessoa entra e ja aceita. */
+  convite?: string | undefined
+}): ReactNode {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState<string | null>(erroDaUrl)
@@ -46,7 +58,7 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }): ReactNo
     } catch (e) {
       // A mensagem vem do servidor e e deliberadamente uniforme: dizer qual dos
       // dois campos errou entregaria a lista de quem tem conta.
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel entrar. Tente novamente.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível entrar. Tente novamente.')
       // Devolver o foco ao primeiro campo evita que quem navega por teclado
       // precise reencontrar o formulario depois do erro (SC 3.3.3).
       campoEmail.current?.focus()
@@ -58,6 +70,8 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }): ReactNo
   return (
     <>
       <TituloDaPorta titulo={<>ALT<br />CAST</>} subtitulo="Entrar no Altcast" />
+
+      {convite !== undefined && <PreviaConvite codigo={convite} porta="login" />}
 
       {erro !== null && (
         <p role="alert" className="mb-5 rounded-md border border-danger px-3 py-2 text-sm text-danger">
@@ -78,12 +92,12 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }): ReactNo
         <div className="envio-da-porta">
           <span className="gota" aria-hidden="true" />
           <Botao type="submit" tamanho="lg" largura="cheia" disabled={enviando}>
-            {enviando ? 'Entrando...' : 'Entrar'}
+            {enviando ? 'Entrando…' : 'Entrar'}
           </Botao>
         </div>
       </form>
 
-      <EntrarComGoogle rotulo="Entrar com Google" />
+      <EntrarComGoogle rotulo="Entrar com Google" convite={convite} />
 
       <nav className="rodape-da-porta">
         <button type="button" className="text-fg-muted hover:text-fg"
@@ -91,7 +105,7 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }): ReactNo
           Esqueci minha senha
         </button>
         <button type="button" className="text-fg-muted hover:text-fg"
-          onClick={() => irPara({ nome: 'criar-conta' })}>
+          onClick={() => irPara({ nome: 'criar-conta', ...(convite === undefined ? {} : { convite }) })}>
           Criar conta
         </button>
       </nav>

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import type {
   ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent, ReactNode, RefObject,
 } from 'react'
@@ -7,25 +7,12 @@ import { useStore } from '../../lib/store.js'
 import {
   MAXIMO_POR_MENSAGEM, descartarAnexo, enviarArquivo, formatarTamanho,
 } from '../../lib/anexos.js'
-import type { Anexo } from '../../lib/tipos.js'
+import type { Membro } from '../../lib/tipos.js'
 import { LIMITE_DE_CARACTERES, enviarMensagem } from './envio.js'
-
-/**
- * Um arquivo escolhido, do clique ate virar anexo.
- *
- * A chave e local e nao vem do servidor: o item precisa de identidade na lista
- * ANTES de existir no banco, senao a barra de progresso nao teria a que se
- * prender e a remocao removeria o item errado.
- */
-type Pendente = {
-  chave: string
-  nome: string
-  tamanho: number
-  progresso: number
-  anexo: Anexo | null
-  erro: string | null
-  cancelar: () => void
-}
+import {
+  RASCUNHO_VAZIO, cancelamentos, useRascunhos, type EnvioDeArquivo,
+} from './rascunhos.js'
+import { Mencoes, candidatosDeMencao, idDaOpcao } from './Mencoes.js'
 
 let proximaChave = 0
 
@@ -35,31 +22,67 @@ const INTERVALO_DE_TYPING_MS = 3000
 /** Contador so aparece perto do limite; mostra-lo sempre seria ruido. */
 const AVISAR_A_PARTIR_DE = 3800
 
+/** Referencia estavel para canal sem envios, pelo mesmo motivo do `VAZIO` da lista. */
+const SEM_ENVIOS: EnvioDeArquivo[] = []
+
+/**
+ * O `@` que ainda esta sendo escrito, no ponto onde o cursor esta.
+ *
+ * Casa so o trecho IMEDIATAMENTE antes do cursor: um `@` escrito tres frases
+ * atras nao pode reabrir a lista enquanto a pessoa digita outra coisa. E como
+ * a classe exclui espaco, a lista fecha sozinha assim que o nome termina.
+ */
+const MENCAO_PARCIAL = /(?:^|\s)@([^\s@]*)$/
+
 /**
  * Campo de escrita.
  *
  * Enter envia e Shift+Enter quebra linha - a convencao da categoria, e trocar
- * isso obrigaria a reaprender o gesto mais repetido do dia.
+ * isso obrigaria a reaprender o gesto mais repetido do dia. Com a lista de
+ * mencao aberta, Enter e Tab completam: mandar "@An" cru, com a sugestao
+ * certa na tela, era o defeito mais irritante do campo.
+ *
+ * O texto, a citacao e os arquivos pertencem ao CANAL, e moram em
+ * `rascunhos.ts`. O componente so desenha o rascunho do canal ativo.
  */
 export function Composer({
-  campo, aoDigitar, aoFocar, aoDesfocar, desativado, respondendo, aoCancelarResposta,
+  campo, aoDigitar, aoFocar, aoDesfocar, desativado,
 }: {
   campo: RefObject<HTMLTextAreaElement | null>
   aoDigitar?: () => void
   aoFocar?: () => void
   aoDesfocar?: () => void
   desativado?: boolean
-  /** A mensagem sendo respondida, se houver. */
-  respondendo?: { id: string; autor: string; trecho: string } | null
-  aoCancelarResposta?: () => void
 }): ReactNode {
   const canalAtivo = useStore(e => e.canalAtivo)
+  const grupoDoCanal = useStore(
+    e => e.channels.find(c => c.id === e.canalAtivo)?.groupId ?? null,
+  )
   const members = useStore(e => e.members)
-  const [texto, setTexto] = useState('')
-  const [pendentes, setPendentes] = useState<Pendente[]>([])
+  const eu = useStore(e => e.user?.id ?? null)
+
+  const rascunho = useRascunhos(
+    e => canalAtivo === null ? RASCUNHO_VAZIO : e.rascunhos[canalAtivo] ?? RASCUNHO_VAZIO,
+  )
+  const todosOsEnvios = useRascunhos(e => e.envios)
+  const pendentes = canalAtivo === null
+    ? SEM_ENVIOS
+    : todosOsEnvios.filter(p => p.channelId === canalAtivo)
+  const {
+    definirTexto, definirResposta, esvaziar, acrescentarEnvio, mexerNoEnvio, tirarEnvio,
+  } = useRascunhos.getState()
+
+  const texto = rascunho.texto
+  const respondendo = rascunho.resposta
+
   const [arrastando, setArrastando] = useState(false)
+  const [cursor, setCursor] = useState(texto.length)
+  const [ativo, setAtivo] = useState(0)
+  /** O trecho em que a pessoa apertou Esc: a lista so volta se ele mudar. */
+  const [fechadaEm, setFechadaEm] = useState<string | null>(null)
   const seletor = useRef<HTMLInputElement>(null)
   const ultimoTyping = useRef(0)
+  const idDaLista = useId()
 
   const excedeu = texto.length > LIMITE_DE_CARACTERES
   const prontos = pendentes.filter(p => p.anexo !== null)
@@ -70,34 +93,40 @@ export function Composer({
   const podeEnviar = (texto.trim() !== '' || prontos.length > 0)
     && !excedeu && !subindo && canalAtivo !== null
 
+  const parcial = MENCAO_PARCIAL.exec(texto.slice(0, cursor))
+  const trecho = parcial?.[1] ?? null
+  const candidatos = trecho === null || trecho === fechadaEm || grupoDoCanal === null
+    ? []
+    : candidatosDeMencao(members, grupoDoCanal, trecho, eu)
+  const listaAberta = candidatos.length > 0
+  const indiceAtivo = Math.min(ativo, Math.max(candidatos.length - 1, 0))
+
   function anexar(arquivos: FileList | File[]): void {
     if (canalAtivo === null) return
+    // O canal fica preso ao envio no momento do clique. E o que impede o
+    // arquivo escolhido em #geral de sair numa mensagem de #avisos.
+    const canal = canalAtivo
     const espaco = MAXIMO_POR_MENSAGEM - pendentes.length
     for (const arquivo of [...arquivos].slice(0, Math.max(0, espaco))) {
       const chave = `p${String(proximaChave++)}`
-      const envio = enviarArquivo(canalAtivo, arquivo, fracao => {
-        setPendentes(atual => atual.map(p => p.chave === chave ? { ...p, progresso: fracao } : p))
+      const envio = enviarArquivo(canal, arquivo, fracao => {
+        mexerNoEnvio(chave, { progresso: fracao })
+      })
+      cancelamentos.set(chave, envio.cancelar)
+
+      acrescentarEnvio({
+        chave, channelId: canal, nome: arquivo.name, tamanho: arquivo.size,
+        progresso: 0, anexo: null, erro: null,
       })
 
-      setPendentes(atual => [...atual, {
-        chave, nome: arquivo.name, tamanho: arquivo.size,
-        progresso: 0, anexo: null, erro: null, cancelar: envio.cancelar,
-      }])
-
       void envio.pronto
-        .then(anexo => {
-          setPendentes(atual => atual.map(p => p.chave === chave ? { ...p, anexo } : p))
-        })
+        .then(anexo => { mexerNoEnvio(chave, { anexo }) })
         .catch((erro: { code: string; message: string }) => {
           // Cancelar foi decisao da pessoa: some da lista em vez de virar erro.
-          if (erro.code === 'cancelado') {
-            setPendentes(atual => atual.filter(p => p.chave !== chave))
-            return
-          }
-          setPendentes(atual => atual.map(
-            p => p.chave === chave ? { ...p, erro: erro.message } : p,
-          ))
+          if (erro.code === 'cancelado') tirarEnvio(chave)
+          else mexerNoEnvio(chave, { erro: erro.message })
         })
+        .finally(() => { cancelamentos.delete(chave) })
     }
   }
 
@@ -105,9 +134,9 @@ export function Composer({
     const alvo = pendentes.find(p => p.chave === chave)
     if (alvo === undefined) return
     // Ainda subindo: abortar. Ja no servidor: descartar o orfao.
-    if (alvo.anexo === null) alvo.cancelar()
+    if (alvo.anexo === null) cancelamentos.get(chave)?.()
     else void descartarAnexo(alvo.anexo.id)
-    setPendentes(atual => atual.filter(p => p.chave !== chave))
+    tirarEnvio(chave)
   }
 
   function aoEscolherArquivo(evento: ChangeEvent<HTMLInputElement>): void {
@@ -122,34 +151,30 @@ export function Composer({
     if (!podeEnviar || canalAtivo === null) return
     const conteudo = texto.trim()
     const anexos = prontos.map(p => p.anexo!)
+    const replyToId = respondendo?.id
     // Limpar antes de esperar a rede: o eco ja segurou o texto, e o campo
     // pronto para a proxima frase e o que faz a conversa fluir.
-    setTexto('')
-    setPendentes([])
-    aoCancelarResposta?.()
-    void enviarMensagem(canalAtivo, conteudo, undefined, anexos, respondendo?.id)
+    esvaziar(canalAtivo)
+    setCursor(0)
+    void enviarMensagem(canalAtivo, conteudo, undefined, anexos, replyToId)
   }
 
-  /**
-   * O `@` que ainda esta sendo escrito, no ponto onde o cursor esta.
-   *
-   * Casa so o trecho FINAL do texto: um `@` escrito tres frases atras nao pode
-   * reabrir a lista enquanto a pessoa digita outra coisa. E como a classe
-   * exclui espaco, a lista fecha sozinha assim que o nome termina.
-   */
-  const parcial = /(?:^|\s)@([^\s@]*)$/.exec(texto)
-  const candidatos = parcial === null
-    ? []
-    : members
-      .filter(m => m.displayName.toLowerCase().startsWith(parcial[1]!.toLowerCase()))
-      .slice(0, 6)
-
-  function completar(nome: string): void {
-    if (parcial === null) return
-    // Substitui so o trecho parcial e preserva o que veio antes: reescrever o
-    // campo inteiro perderia a frase em andamento.
-    setTexto(`${texto.slice(0, texto.length - parcial[1]!.length)}${nome} `)
-    campo.current?.focus()
+  function completar(membro: Membro): void {
+    if (parcial === null || canalAtivo === null) return
+    // Substitui so o trecho parcial e preserva o que veio antes E depois do
+    // cursor: reescrever o campo inteiro perderia a frase em andamento.
+    const inicio = cursor - parcial[1]!.length
+    const inserido = `${membro.displayName} `
+    const novo = `${texto.slice(0, inicio)}${inserido}${texto.slice(cursor)}`
+    definirTexto(canalAtivo, novo)
+    const posicao = inicio + inserido.length
+    setCursor(posicao)
+    setAtivo(0)
+    // O cursor so pode ser posto depois de o React escrever o valor novo.
+    requestAnimationFrame(() => {
+      campo.current?.focus()
+      campo.current?.setSelectionRange(posicao, posicao)
+    })
   }
 
   /**
@@ -173,14 +198,41 @@ export function Composer({
   }
 
   function aoTeclar(evento: KeyboardEvent<HTMLTextAreaElement>): void {
+    if (listaAberta) {
+      if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
+        evento.preventDefault()
+        const passo = evento.key === 'ArrowDown' ? 1 : -1
+        // Da a volta nas pontas, como todo listbox: a lista tem no maximo
+        // oito itens, e parar no fim obrigaria a subir tudo de novo.
+        setAtivo((indiceAtivo + passo + candidatos.length) % candidatos.length)
+        return
+      }
+      if ((evento.key === 'Enter' && !evento.shiftKey) || evento.key === 'Tab') {
+        evento.preventDefault()
+        completar(candidatos[indiceAtivo]!)
+        return
+      }
+      if (evento.key === 'Escape') {
+        // So a lista fecha. Sem o `stopPropagation` o mesmo Esc fecharia
+        // tambem a gaveta ou a paleta por baixo — duas camadas por uma tecla.
+        evento.preventDefault()
+        evento.stopPropagation()
+        setFechadaEm(trecho)
+        return
+      }
+    }
     if (evento.key === 'Enter' && !evento.shiftKey) {
       evento.preventDefault()
       enviar()
     }
   }
 
-  function aoMudar(valor: string): void {
-    setTexto(valor)
+  function aoMudar(valor: string, posicao: number): void {
+    if (canalAtivo === null) return
+    definirTexto(canalAtivo, valor)
+    setCursor(posicao)
+    setAtivo(0)
+    setFechadaEm(null)
     // Estrangular no cliente: um evento por tecla digitada inundaria o socket
     // com a informacao menos valiosa que ele carrega.
     const agora = Date.now()
@@ -209,7 +261,7 @@ export function Composer({
                          bg-bg-raised px-2 py-1 text-xs"
             >
               <span className="min-w-0 flex-1 truncate text-fg">{p.nome}</span>
-              <span className="font-mono text-[11px] text-fg-muted">
+              <span className="numerico font-mono text-xs text-fg-muted">
                 {formatarTamanho(p.tamanho)}
               </span>
 
@@ -254,17 +306,18 @@ export function Composer({
         que ainda esta respondendo a algo de tres minutos atras, nem como
         desfazer.
       */}
-      {respondendo != null && (
+      {respondendo !== null && (
         <div
           className="mb-1 flex items-center gap-2 rounded border-l-2 border-accent
-                     bg-bg-raised px-2 py-1 text-[11px] text-fg-muted"
+                     bg-bg-raised px-2 py-1 text-xs text-fg-muted"
         >
-          <span className="truncate">
-            Respondendo a {respondendo.autor}: {respondendo.trecho}
+          <span className="min-w-0 truncate">
+            Respondendo a <span className="font-medium text-fg">{respondendo.autor}</span>
+            : {respondendo.trecho}
           </span>
           <button
             type="button"
-            onClick={aoCancelarResposta}
+            onClick={() => { if (canalAtivo !== null) definirResposta(canalAtivo, null) }}
             aria-label="Cancelar resposta"
             className="ml-auto shrink-0 rounded px-1 text-fg-muted hover:text-fg"
           >
@@ -273,50 +326,40 @@ export function Composer({
         </div>
       )}
 
-      {/*
-        O autocompletar de mencao.
-
-        Uma LISTA de botoes, e nao uma caixa flutuante com teclas proprias: o
-        Tab ja navega, o leitor de tela ja anuncia, e nao ha atalho novo para
-        ninguem aprender.
-      */}
-      {candidatos.length > 0 && (
-        <ul
-          aria-label="Mencionar alguem"
-          className="mb-1 flex flex-wrap gap-1 rounded border border-border bg-bg-raised p-1"
-        >
-          {candidatos.map(m => (
-            <li key={m.userId}>
-              <button
-                type="button"
-                onClick={() => { completar(m.displayName) }}
-                className="rounded px-2 py-1 text-xs text-fg hover:bg-bg-hover
-                           focus-visible:bg-bg-hover"
-              >
-                @{m.displayName}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <textarea
-        id="composer"
-        ref={campo}
-        rows={2}
-        value={texto}
-        disabled={desativado ?? false}
-        aria-invalid={excedeu ? true : undefined}
-        aria-describedby={texto.length >= AVISAR_A_PARTIR_DE ? 'contador' : undefined}
-        onChange={e => aoMudar(e.target.value)}
-        onKeyDown={aoTeclar}
-        onFocus={aoFocar}
-        onBlur={aoDesfocar}
-        onPaste={aoColar}
-        placeholder="Escrever..."
-        className="w-full resize-none rounded border border-border bg-bg px-3 py-2 text-sm
-                   text-fg placeholder:text-fg-muted"
-      />
+      <div className="relative">
+        <textarea
+          id="composer"
+          ref={campo}
+          rows={2}
+          value={texto}
+          disabled={desativado ?? false}
+          // Sem `role="combobox"`: a ARIA em HTML nao permite papel nenhum em
+          // `textarea`. O papel implicito de caixa de texto aceita
+          // `aria-autocomplete` e `aria-activedescendant`, que e o que o leitor
+          // de tela precisa para seguir a opcao ativa sem tirar o foco daqui.
+          aria-autocomplete="list"
+          aria-controls={listaAberta ? idDaLista : undefined}
+          aria-activedescendant={listaAberta ? idDaOpcao(idDaLista, indiceAtivo) : undefined}
+          aria-invalid={excedeu ? true : undefined}
+          aria-describedby={texto.length >= AVISAR_A_PARTIR_DE ? 'contador' : undefined}
+          onChange={e => { aoMudar(e.target.value, e.target.selectionStart) }}
+          onSelect={e => { setCursor(e.currentTarget.selectionStart) }}
+          onKeyDown={aoTeclar}
+          onFocus={aoFocar}
+          onBlur={aoDesfocar}
+          onPaste={aoColar}
+          placeholder="Escrever..."
+          className="w-full resize-none rounded border border-border bg-bg px-3 py-2 text-sm
+                     text-fg placeholder:text-fg-muted"
+        />
+        <Mencoes
+          id={idDaLista}
+          candidatos={candidatos}
+          ativo={indiceAtivo}
+          aoEscolher={completar}
+          aoApontar={setAtivo}
+        />
+      </div>
 
       <div className="mt-1 flex items-center gap-2">
         {/*
@@ -345,7 +388,7 @@ export function Composer({
           disabled={(desativado ?? false) || pendentes.length >= MAXIMO_POR_MENSAGEM}
           aria-label="Anexar arquivo"
           title={pendentes.length >= MAXIMO_POR_MENSAGEM
-            ? `No maximo ${String(MAXIMO_POR_MENSAGEM)} arquivos por mensagem`
+            ? `No máximo ${String(MAXIMO_POR_MENSAGEM)} arquivos por mensagem`
             : 'Anexar arquivo'}
           className="rounded p-1.5 text-fg-muted hover:text-fg disabled:cursor-not-allowed
                      disabled:opacity-50"
@@ -356,8 +399,8 @@ export function Composer({
         {subindo && (
           // `polite` e nao `assertive`: o aviso nao pode interromper quem esta
           // digitando a legenda da propria foto.
-          <p role="status" className="text-[11px] text-fg-muted">
-            Enviando arquivo...
+          <p role="status" className="text-xs text-fg-muted">
+            Enviando arquivo…
           </p>
         )}
       </div>
@@ -365,7 +408,7 @@ export function Composer({
       {texto.length >= AVISAR_A_PARTIR_DE && (
         <p
           id="contador"
-          className={`mt-1 text-right font-mono text-[11px] ${
+          className={`numerico mt-1 text-right font-mono text-xs ${
             excedeu ? 'text-danger' : 'text-fg-muted'
           }`}
         >

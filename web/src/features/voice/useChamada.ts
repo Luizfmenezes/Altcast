@@ -6,7 +6,10 @@ import { useChamadaAtiva } from './chamadaAtiva.js'
 
 export type ControleDaChamada = {
   estado: EstadoDaChamada
+  /** A chamada ativa e NESTE canal (inclusive se estiver falhando nele). */
+  aqui: boolean
   entrar: () => void
+  tentarDeNovo: () => void
   sair: () => void
   alternarMicrofone: () => void
   alternarCamera: () => void
@@ -40,7 +43,9 @@ export function useChamada(channelId: string | null): ControleDaChamada {
 
   return {
     estado: aqui ? chamada : ESTADO_INICIAL,
+    aqui,
     entrar: () => { if (channelId !== null) void acoes.entrar(channelId) },
+    tentarDeNovo: () => { void acoes.tentarDeNovo() },
     sair: () => { void acoes.sair() },
     alternarMicrofone: acoes.alternarMicrofone,
     alternarCamera: acoes.alternarCamera,

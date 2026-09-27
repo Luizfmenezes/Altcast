@@ -202,7 +202,7 @@ export type PerfilDeQualidade = {
 
 export const QUALIDADES: Record<QualidadeDaTela, PerfilDeQualidade> = {
   '1080p60': {
-    rotulo: '1080p · 60 fps — Maxima',
+    rotulo: '1080p · 60 fps — Máxima',
     bandaAproximada: '~10 Mb/s',
     captura: { width: 1920, height: 1080, frameRate: 60 },
     codificacao: { maxBitrate: 8_000_000, maxFramerate: 60, priority: 'high' },
@@ -387,6 +387,15 @@ export type EstadoDaChamada = {
    * "sai um pouco".
    */
   surdo: boolean
+  /**
+   * A conexao com o SFU caiu e o LiveKit esta tentando reata-la.
+   *
+   * Um booleano AO LADO de `fase`, e nao uma quinta fase: durante a reconexao
+   * a pessoa continua dentro da sala — o microfone, os volumes e o palco sao
+   * os mesmos quando a rede volta —, e toda a interface que pergunta
+   * `fase === 'dentro'` continua certa. So o aviso muda.
+   */
+  reconectando: boolean
   erro: string | null
 }
 
@@ -405,6 +414,7 @@ export const ESTADO_INICIAL: EstadoDaChamada = {
   recepcao: {},
   sinais: {},
   surdo: false,
+  reconectando: false,
   erro: null,
 }
 
@@ -849,6 +859,16 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
       aplicar({ falando: falantes.map(p => p.identity) })
     }) as (...args: never[]) => void)
 
+    // Wi-Fi que oscila e notebook que acorda: o SFU avisa que perdeu o fio e
+    // que o reatou. Sem estes dois, a chamada ficava muda por dez segundos
+    // dizendo "no ar" — e a pessoa falava sozinha.
+    ouvir(RoomEvent.Reconnecting, (() => {
+      aplicar({ reconectando: true })
+    }) as (...args: never[]) => void)
+    ouvir(RoomEvent.Reconnected, (() => {
+      aplicar({ reconectando: false })
+    }) as (...args: never[]) => void)
+
     ouvir(RoomEvent.Disconnected, (() => {
       // A queda pode vir do SFU, e nao de um clique. O estado local precisa
       // contar a verdade, e a API precisa saber que esta pessoa saiu.
@@ -917,8 +937,8 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
       aplicar({
         fase: 'erro',
         erro: codigo === 'media_unavailable'
-          ? 'A chamada esta fora do ar. O servidor de midia nao esta configurado.'
-          : 'Nao foi possivel entrar na chamada.',
+          ? 'A chamada está fora do ar. O servidor de mídia não está configurado.'
+          : 'Não foi possível entrar na chamada.',
       })
       return
     }
@@ -933,7 +953,7 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     try {
       await s.connect(credencial.url, credencial.token)
     } catch {
-      aplicar({ fase: 'erro', erro: 'Nao foi possivel conectar ao servidor de midia.' })
+      aplicar({ fase: 'erro', erro: 'Não foi possível conectar ao servidor de mídia.' })
       return
     }
 
@@ -1005,7 +1025,7 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     } catch {
       // Permissao negada ou dispositivo ocupado. O estado nao muda, entao o
       // botao volta sozinho para desligado em vez de mentir que ligou.
-      aplicar({ erro: 'O navegador nao liberou o dispositivo.' })
+      aplicar({ erro: 'O navegador não liberou o dispositivo.' })
       return
     }
     aplicar({ [qual]: ligado, erro: null } as Partial<EstadoDaChamada>)
@@ -1035,7 +1055,7 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
       await sala.switchActiveDevice(tipo, deviceId)
       aplicar({ erro: null })
     } catch {
-      aplicar({ erro: 'Nao foi possivel usar esse dispositivo.' })
+      aplicar({ erro: 'Não foi possível usar esse dispositivo.' })
     }
   }
 

@@ -143,4 +143,50 @@ describe('sessoes ativas', () => {
       await app.close()
     })
   })
+
+  it('encerrar todas as outras mantem so a sessao que pediu', async () => {
+    await withTestDb(async db => {
+      const app = await buildServer()
+      const primeira = await loginComo(app, db, 'dono@x.com')
+      // Mais dois aparelhos da mesma conta, de IPs diferentes: o login tem
+      // limite de taxa por IP.
+      let ip = 10
+      const login = async (): Promise<string> => {
+        ip += 1
+        const r = await app.inject({
+          method: 'POST', url: '/api/auth/login',
+          payload: { email: 'dono@x.com', password: 'senha-longa-boa' },
+          remoteAddress: `10.0.0.${String(ip)}`,
+        })
+        return String(r.headers['set-cookie']).split(';')[0]!
+      }
+      const segunda = await login()
+      await login()
+
+      const res = await app.inject({
+        method: 'DELETE', url: '/api/auth/sessions', headers: { cookie: primeira.cookie },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json()).toEqual({ revoked: 2 })
+
+      const vivas = await db.select().from(sessions).where(eq(sessions.userId, primeira.userId))
+      expect(vivas).toHaveLength(1)
+
+      // A que pediu continua valendo; as outras caem na hora.
+      const minha = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: primeira.cookie } })
+      expect(minha.statusCode).toBe(200)
+      const outra = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: segunda } })
+      expect(outra.statusCode).toBe(401)
+      await app.close()
+    })
+  })
+
+  it('encerrar as outras exige sessao', async () => {
+    await withTestDb(async () => {
+      const app = await buildServer()
+      const res = await app.inject({ method: 'DELETE', url: '/api/auth/sessions' })
+      expect(res.statusCode).toBe(401)
+      await app.close()
+    })
+  })
 })

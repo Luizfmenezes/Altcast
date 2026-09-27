@@ -78,11 +78,11 @@ export function BoasVindas(): ReactNode {
       <div className="flex w-full max-w-xl flex-col gap-5">
         <header className="text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-fg">
-            <TituloFatiado texto="Voce ainda nao tem grupos" />
+            <TituloFatiado texto="Você ainda não tem grupos" />
           </h1>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-fg-muted">
-            Um grupo e onde as conversas acontecem — canais de texto, chamadas de
-            voz e as pessoas que voce convidar.
+            Um grupo é onde as conversas acontecem — canais de texto, chamadas de
+            voz e as pessoas que você convidar.
           </p>
         </header>
 
@@ -132,12 +132,12 @@ export function BoasVindas(): ReactNode {
 
             {estado === 'enviado' && (
               <p role="status" className="text-xs text-fg-muted">
-                Enviado. Se nao chegar em alguns minutos, veja o spam — ou entre pelo Google.
+                Enviado. Se não chegar em alguns minutos, veja o spam — ou entre pelo Google.
               </p>
             )}
             {estado === 'falhou' && (
               <p role="alert" className="text-xs text-danger">
-                Nao conseguimos enviar agora. Voce pode pedir de novo em uma hora,
+                Não conseguimos enviar agora. Você pode pedir de novo em uma hora,
                 ou entrar pelo Google.
               </p>
             )}
@@ -159,8 +159,8 @@ export function BoasVindas(): ReactNode {
             </span>
             <h2 className="text-[15px] font-semibold text-fg">Criar um grupo</h2>
             <p className="text-[13px] leading-relaxed text-fg-muted">
-              Ele nasce com um canal #geral, e voce sai daqui com o link de
-              convite na mao para mandar a quem quiser.
+              Ele nasce com um canal #geral, e você sai daqui com o link de
+              convite na mão para mandar a quem quiser.
             </p>
             <div className="mt-auto pt-1">
               <CriarGrupo
@@ -186,7 +186,7 @@ export function BoasVindas(): ReactNode {
             </span>
             <h2 className="text-[15px] font-semibold text-fg">Tenho um convite</h2>
             <p className="text-[13px] leading-relaxed text-fg-muted">
-              Cole o link que voce recebeu, ou so o codigo de oito caracteres.
+              Cole o link que você recebeu, ou só o código de oito caracteres.
             </p>
             {/*
               Aceitar a URL inteira, e nao so o codigo: quem recebe um convite
@@ -195,7 +195,7 @@ export function BoasVindas(): ReactNode {
             */}
             <form onSubmit={entrarPorConvite} className="mt-auto flex flex-col gap-3 pt-1" noValidate>
               <Campo
-                rotulo="Link ou codigo do convite"
+                rotulo="Link ou código do convite"
                 valor={codigo}
                 aoMudar={setCodigo}
                 espacoReservado="K7M2P9XQ"

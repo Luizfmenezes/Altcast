@@ -189,7 +189,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
       setNomeNovo('')
       setCriando(false)
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel criar o cargo.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível criar o cargo.')
     }
   }
 
@@ -198,7 +198,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
     try {
       await api.patch(`/groups/${groupId}/roles/${cargo.id}`, campos)
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel salvar.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar.')
     }
   }
 
@@ -208,7 +208,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
       await api.delete(`/groups/${groupId}/roles/${cargo.id}`)
       setEscolhido(null)
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel apagar o cargo.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível apagar o cargo.')
     }
   }
 
@@ -227,7 +227,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
           pessoa reler para descobrir se sao a mesma coisa. */}
       <p className="max-w-prose text-[13px] text-fg-muted">
         Quem tem mais de um cargo soma o que cada um permite. O cargo mais alto da lista
-        manda mais, e voce so edita o que estiver abaixo do seu.
+        manda mais, e você só edita o que estiver abaixo do seu.
       </p>
 
       {erro !== null && (
@@ -310,7 +310,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
                 <ConfirmarAcao
                   titulo={`Apagar o cargo ${atual.name}?`}
                   descricao={
-                    'Quem tinha este cargo perde as permissoes dele e a cor do nome. '
+                    'Quem tinha este cargo perde as permissões dele e a cor do nome. '
                     + 'As pessoas continuam no grupo.'
                   }
                   confirmar="Apagar cargo"
@@ -329,17 +329,17 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
               <p className="mt-3 flex items-start gap-2 rounded-md border border-border-subtle
                             bg-bg px-3 py-2 text-[13px] text-fg-muted">
                 <Shield aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-                Este cargo esta na sua altura ou acima dela. Voce pode ver, mas nao editar —
-                e o que impede alguem de se promover pela propria tela de cargos.
+                Este cargo está na sua altura ou acima dela. Você pode ver, mas não editar —
+                e o que impede alguém de se promover pela própria tela de cargos.
               </p>
             )}
 
             {atual.isDefault && (
               <p className="mt-3 rounded-md border border-border-subtle bg-bg px-3 py-2
                             text-[13px] text-fg-muted">
-                Este e o cargo de <strong className="font-medium text-fg">todos</strong>: vale
-                para quem esta no grupo sem nenhum outro cargo. Ele nao se renomeia nem se
-                apaga, mas o que ele permite e o piso do grupo inteiro.
+                Este é o cargo de <strong className="font-medium text-fg">todos</strong>: vale
+                para quem está no grupo sem nenhum outro cargo. Ele não se renomeia nem se
+                apaga, mas o que ele permite é o piso do grupo inteiro.
               </p>
             )}
 
@@ -438,7 +438,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
                             </span>
                             <span className="mt-0.5 block text-[12px] leading-relaxed text-fg-muted">
                               {d.descricao}
-                              {forcaDesligado && ' Voce nao tem esta permissao, entao nao pode concede-la.'}
+                              {forcaDesligado && ' Você não tem esta permissão, então não pode concedê-la.'}
                             </span>
                           </span>
                         </label>

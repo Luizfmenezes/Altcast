@@ -34,7 +34,7 @@ Formato único em toda a API:
 | `invite_expired` | 410 | Passou de `expires_at` |
 | `invite_revoked` | 410 | Foi revogado |
 | `invite_exhausted` | 410 | Atingiu `max_uses` |
-| `already_member` | 409 | Já pertence ao grupo |
+| `already_member` | 409 | Já pertence ao grupo. No aceite de convite, `details: { groupId }` — o cliente abre o grupo pelo id, nunca pelo nome |
 | `email_taken` | 409 | E-mail já cadastrado |
 | `invalid_credentials` | 401 | Login incorreto, mensagem uniforme |
 | `rate_limited` | 429 | Excedeu o limite, com `Retry-After` |

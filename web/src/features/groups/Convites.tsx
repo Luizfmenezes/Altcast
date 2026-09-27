@@ -60,7 +60,7 @@ export function Convites(): ReactNode {
       }
       if (convites.length <= 1) setAberto(false)
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel responder ao convite.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível responder ao convite.')
       // Convite que sumiu do outro lado — revogado, ja aceito noutra aba —
       // nao pode continuar na tela prometendo um botao que nao funciona.
       if (e instanceof ApiError && (e.status === 404 || e.status === 410)) {
@@ -110,10 +110,10 @@ export function Convites(): ReactNode {
                      border border-border-subtle bg-bg-raised p-6 text-fg shadow-lg"
         >
           <Dialogo.Title className="text-[15px] font-semibold text-fg">
-            Convites para voce
+            Convites para você
           </Dialogo.Title>
           <Dialogo.Description className="mt-1 text-[13px] text-fg-muted">
-            Aceitar entra no grupo agora. Recusar nao avisa quem convidou.
+            Aceitar entra no grupo agora. Recusar não avisa quem convidou.
           </Dialogo.Description>
 
           {erro !== null && (
@@ -134,7 +134,7 @@ export function Convites(): ReactNode {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-fg">{convite.group.name}</p>
                   <p className="truncate text-[12px] text-fg-muted">
-                    {convite.invitedBy.displayName} convidou voce
+                    {convite.invitedBy.displayName} convidou você
                     {convite.role === 'admin' ? ' como administrador' : ''}
                   </p>
                 </div>

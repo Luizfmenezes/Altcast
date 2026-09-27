@@ -170,8 +170,8 @@ export function SeletorDeFonte({ aberto, aoFechar, aoEscolher, listar }: {
                 Transmitir o som do sistema
               </span>
               <span className="text-[13px] text-fg-muted">
-                O audio do jogo ou do video chega junto, com volume proprio para quem
-                assiste. Isto e o que o navegador nao consegue fazer com uma janela.
+                O áudio do jogo ou do vídeo chega junto, com volume próprio para quem
+                assiste. Isto é o que o navegador não consegue fazer com uma janela.
               </span>
             </span>
           </label>
@@ -181,19 +181,19 @@ export function SeletorDeFonte({ aberto, aoFechar, aoEscolher, listar }: {
               role="alert"
               className="rounded-md border border-danger px-3 py-2 text-sm text-danger"
             >
-              Nao foi possivel listar as telas e janelas.
+              Não foi possível listar as telas e janelas.
             </p>
           )}
 
           {situacao === 'carregando' && (
             <p role="status" className="py-8 text-center text-sm text-fg-muted">
-              Procurando telas e janelas...
+              Procurando telas e janelas…
             </p>
           )}
 
           {situacao === 'pronto' && fontes.length === 0 && (
             <p className="py-8 text-center text-sm text-fg-muted">
-              Nenhuma tela ou janela disponivel.
+              Nenhuma tela ou janela disponível.
             </p>
           )}
 

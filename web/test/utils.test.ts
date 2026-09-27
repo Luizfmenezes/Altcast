@@ -17,12 +17,12 @@ describe('cn', () => {
 
   // O motivo de existir twMerge e este: sem ele as duas sobreviveriam e quem
   // vence passaria a depender da ordem em que o Tailwind emitiu as regras.
-  it('desempata conflito do Tailwind pelo ultimo valor', () => {
+  it('desempata conflito do Tailwind pelo último valor', () => {
     expect(cn('px-2', 'px-4')).toBe('px-4')
     expect(cn('text-fg', 'text-fg-muted')).toBe('text-fg-muted')
   })
 
-  it('nao confunde utilities de eixos diferentes', () => {
+  it('não confunde utilities de eixos diferentes', () => {
     expect(cn('px-2', 'py-4')).toBe('px-2 py-4')
   })
 })

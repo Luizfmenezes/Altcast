@@ -104,7 +104,7 @@ async function requisitar<T>(metodo: Metodo, caminho: string, corpo?: unknown): 
       // Rede caiu, DNS falhou, aba offline: nao houve resposta nenhuma.
       ultimoErro = new ApiError({
         code: 'network_error',
-        message: 'Sem conexao com o servidor. Verifique sua rede.',
+        message: 'Sem conexão com o servidor. Verifique sua rede.',
         status: 0,
       })
       if (tentativa < TENTATIVAS) await dormir(ESPERA_BASE_MS * 2 ** (tentativa - 1))

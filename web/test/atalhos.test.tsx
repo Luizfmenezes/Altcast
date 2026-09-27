@@ -87,7 +87,7 @@ describe('atalhos da chamada', () => {
     expect(espioes.definirSurdo).toHaveBeenCalledWith(true)
   })
 
-  it('escrever no chat nao mexe no microfone', () => {
+  it('escrever no chat não mexe no microfone', () => {
     const espioes = espionarChamada()
     render(<Sonda />)
     const campo = document.createElement('textarea')
@@ -103,7 +103,7 @@ describe('atalhos da chamada', () => {
     campo.remove()
   })
 
-  it('sem chamada nenhuma os atalhos nao existem', () => {
+  it('sem chamada nenhuma os atalhos não existem', () => {
     const espioes = espionarChamada()
     act(() => { zerarChamadaParaTeste() })
     render(<Sonda />)
@@ -126,7 +126,7 @@ describe('apertar para falar', () => {
     vi.useRealTimers()
   })
 
-  it('apertar abre o microfone e soltar so o fecha depois da folga', () => {
+  it('apertar abre o microfone e soltar só o fecha depois da folga', () => {
     vi.useFakeTimers()
     const espioes = espionarChamada()
     render(<Sonda />)
@@ -143,7 +143,7 @@ describe('apertar para falar', () => {
     expect(espioes.definirMicrofone).toHaveBeenCalledWith(false)
   })
 
-  it('segurar a tecla nao reabre o microfone a cada repeticao', () => {
+  it('segurar a tecla não reabre o microfone a cada repetição', () => {
     const espioes = espionarChamada()
     render(<Sonda />)
 
@@ -168,7 +168,7 @@ describe('apertar para falar', () => {
     expect(espioes.definirMicrofone).toHaveBeenCalledWith(false)
   })
 
-  it('no modo aberto a barra de espaco nao mexe em nada', () => {
+  it('no modo aberto a barra de espaço não mexe em nada', () => {
     guardarFala({ modo: 'aberto', tecla: 'Space' })
     const espioes = espionarChamada()
     render(<Sonda />)
@@ -180,12 +180,12 @@ describe('apertar para falar', () => {
 })
 
 describe('preferencias de fala', () => {
-  it('microfone aberto e o padrao de quem nunca escolheu', () => {
+  it('microfone aberto e o padrão de quem nunca escolheu', () => {
     localStorage.clear()
     expect(lerFala()).toEqual({ modo: 'aberto', tecla: 'Space' })
   })
 
-  it('a tecla e guardada por posicao fisica, e nao por letra', () => {
+  it('a tecla e guardada por posição fisica, e não por letra', () => {
     localStorage.clear()
     guardarFala({ modo: 'apertar', tecla: 'KeyQ' })
 
@@ -203,7 +203,7 @@ describe('preferencias de fala', () => {
     expect(escrevendoEm(editor)).toBe(true)
   })
 
-  it('um elemento DENTRO de um editor rico tambem conta', () => {
+  it('um elemento DENTRO de um editor rico também conta', () => {
     const editor = document.createElement('div')
     editor.setAttribute('contenteditable', 'true')
     const negrito = document.createElement('strong')
@@ -215,7 +215,7 @@ describe('preferencias de fala', () => {
     expect(escrevendoEm(negrito)).toBe(true)
   })
 
-  it('um paragrafo comum nao conta', () => {
+  it('um paragrafo comum não conta', () => {
     expect(escrevendoEm(document.createElement('p'))).toBe(false)
   })
 })

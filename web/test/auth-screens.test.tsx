@@ -57,7 +57,7 @@ describe('telas de autenticacao', () => {
     estarEm('/')
   })
 
-  it('o botao do Google e um link, e so existe onde o servidor o oferece', async () => {
+  it('o botão do Google e um link, e só existe onde o servidor o oferece', async () => {
     // Um `<a href>`, e nao um botao com `fetch`: o fluxo vive em
     // redirecionamentos de servidor, e e por isso que a sessao volta para
     // DENTRO da janela do aplicativo de desktop.
@@ -86,7 +86,7 @@ describe('telas de autenticacao', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/Google/)
   })
 
-  it('login tem rotulos persistentes, nao apenas placeholder', () => {
+  it('login tem rotulos persistentes, não apenas placeholder', () => {
     render(<Login aoEntrar={vi.fn()} />)
     // Rotulo que some ao digitar deixa quem voltou ao formulario sem saber o
     // que cada campo pedia.
@@ -110,9 +110,9 @@ describe('telas de autenticacao', () => {
     await waitFor(() => expect(screen.getByLabelText('E-mail')).toHaveFocus())
   })
 
-  it('previa de convite mostra nome e contagem, e nada mais', async () => {
+  it('prévia de convite mostra nome e contagem, e nada mais', async () => {
     respondendo(200, PREVIA_VALIDA)
-    const { container } = render(<PreviaConvite codigo="K7M2P9XQ" aoEntrar={vi.fn()} />)
+    const { container } = render(<PreviaConvite codigo="K7M2P9XQ" />)
 
     expect(await screen.findByText('Anticorp')).toBeInTheDocument()
     expect(screen.getByText(/12 membros/)).toBeInTheDocument()
@@ -124,24 +124,24 @@ describe('telas de autenticacao', () => {
     expect(texto).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/)
   })
 
-  it('convite invalido explica o motivo em portugues', async () => {
+  it('convite inválido explica o motivo em português', async () => {
     respondendo(200, { valid: false, reason: 'expired' })
-    render(<PreviaConvite codigo="K7M2P9XQ" aoEntrar={vi.fn()} />)
+    render(<PreviaConvite codigo="K7M2P9XQ" />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Este convite expirou.')
     expect(screen.queryByText('invite_expired')).not.toBeInTheDocument()
     expect(screen.queryByText('expired')).not.toBeInTheDocument()
   })
 
-  it('o codigo aparece em monoespacada, para ser ditado sem erro', async () => {
+  it('o código aparece em monoespacada, para ser ditado sem erro', async () => {
     respondendo(200, PREVIA_VALIDA)
-    render(<PreviaConvite codigo="K7M2P9XQ" aoEntrar={vi.fn()} />)
+    render(<PreviaConvite codigo="K7M2P9XQ" />)
 
     const codigo = await screen.findByText('K7M2P9XQ')
     expect(codigo.tagName).toBe('CODE')
   })
 
-  it('cadastro preserva o codigo ao alternar com o login', async () => {
+  it('cadastro preserva o código ao alternar com o login', async () => {
     const usuario = userEvent.setup()
     respondendo(200, PREVIA_VALIDA)
     estarEm('/convite/K7M2P9XQ')
@@ -151,9 +151,9 @@ describe('telas de autenticacao', () => {
     // link ja disse o que veio fazer, e uma aba a mais entre ele e a conta so
     // atrasa.
     expect(await screen.findByText('K7M2P9XQ')).toBeInTheDocument()
-    expect(screen.getByLabelText('Nome de exibicao')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nome de exibição')).toBeInTheDocument()
 
-    await usuario.click(screen.getByRole('button', { name: 'Ja tenho conta' }))
+    await usuario.click(screen.getByRole('button', { name: 'Já tenho conta' }))
     expect(screen.getByLabelText('Senha')).toBeInTheDocument()
   })
 
@@ -168,10 +168,10 @@ describe('telas de autenticacao', () => {
 
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument()
     await usuario.click(screen.getByRole('button', { name: 'Criar conta' }))
-    expect(screen.getByLabelText('Nome de exibicao')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nome de exibição')).toBeInTheDocument()
   })
 
-  it('o login leva a recuperacao de senha', async () => {
+  it('o login leva a recuperação de senha', async () => {
     const usuario = userEvent.setup()
     render(<TelaAuth aoEntrar={vi.fn()} />)
 
@@ -183,7 +183,7 @@ describe('telas de autenticacao', () => {
    * A tela NUNCA diz se o endereco existe: o servidor responde igual para os
    * dois casos, e uma mensagem diferente aqui desfaria a protecao inteira.
    */
-  it('o pedido de recuperacao nao revela se a conta existe', async () => {
+  it('o pedido de recuperação não revela se a conta existe', async () => {
     const usuario = userEvent.setup()
     vi.mocked(fetch).mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })))
     estarEm('/esqueci-a-senha')
@@ -194,7 +194,7 @@ describe('telas de autenticacao', () => {
 
     const aviso = await screen.findByRole('status')
     expect(aviso).toHaveTextContent('Se houver uma conta')
-    expect(aviso.textContent).not.toMatch(/nao encontrad|inexistente|nao existe/i)
+    expect(aviso.textContent).not.toMatch(/não encontrad|inexistente|não existe/i)
   })
 
   it('a rota de redefinir monta o formulario de senha nova', () => {
@@ -204,7 +204,7 @@ describe('telas de autenticacao', () => {
     expect(screen.getByRole('button', { name: 'Trocar senha' })).toBeInTheDocument()
   })
 
-  it('axe nao encontra violacao nas tres telas', async () => {
+  it('axe não encontra violação nas três telas', async () => {
     respondendo(200, PREVIA_VALIDA)
     const usuario = userEvent.setup()
 

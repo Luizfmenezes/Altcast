@@ -3,9 +3,9 @@ import { useStore } from '../../lib/store.js'
 import type { SocketStatus } from '../../lib/socket.js'
 
 const TEXTO: Record<SocketStatus, string> = {
-  conectado: 'conectado',
-  reconectando: 'reconectando',
-  offline: 'offline',
+  conectado: 'Conectado',
+  reconectando: 'Reconectando ao servidor…',
+  offline: 'Sem conexão. As mensagens novas chegam assim que a rede voltar.',
 }
 
 /**
@@ -22,27 +22,37 @@ export function BarraConexao({ latenciaMs }: { latenciaMs?: number | null }): Re
   const conexao = useStore(e => e.conexao)
   const conectado = conexao === 'conectado'
 
+  /**
+   * Tudo bem nao ocupa espaco. A calha permanente gastava uma linha da tela
+   * inteira para dizer "conectado — 38 ms" o dia todo, e a latencia estava
+   * DENTRO da regiao viva: a cada ping, o leitor de tela anunciava um numero
+   * novo. Agora a calha aparece quando ha algo a dizer, e a regiao viva so
+   * fala da conexao — nunca do numero.
+   *
+   * A regiao continua montada quando esta tudo bem, vazia: um `role=status`
+   * que nasce junto com o texto nao e anunciado por boa parte dos leitores,
+   * e "reconectando" e exatamente o que precisa ser ouvido.
+   */
   return (
     <div
-      role="status"
-      // `status` ja implica polite; explicitar evita depender de o leitor de
-      // tela derivar o valor implicito do papel.
-      aria-live="polite"
-      aria-label="Estado da conexao"
-      className="flex shrink-0 items-center gap-2 border-t border-border-subtle bg-bg-raised
-                 px-3 py-1 text-[11px] text-fg-muted"
+      className={conectado
+        ? 'sr-only'
+        : `flex shrink-0 items-center gap-2 border-t border-border-subtle bg-bg-raised
+           px-3 py-1.5 text-xs text-fg`}
     >
-      <span
-        aria-hidden="true"
-        className={`size-2 rounded-full border ${
-          conectado
-            ? 'border-presence-online bg-presence-online'
-            : 'border-fg-muted bg-transparent'
-        }`}
-      />
-      <span>{TEXTO[conexao]}</span>
+      {!conectado && (
+        <span
+          aria-hidden="true"
+          className={`size-2 shrink-0 rounded-full ${
+            conexao === 'reconectando' ? 'bg-warning motion-safe:animate-pulse' : 'bg-danger'}`}
+        />
+      )}
+      <span role="status" aria-live="polite" aria-label="Estado da conexão">
+        {conectado ? '' : TEXTO[conexao]}
+      </span>
+      {/* O numero fica fora da regiao viva: e medida, nao acontecimento. */}
       {conectado && latenciaMs !== null && latenciaMs !== undefined && (
-        <span className="font-mono">- {latenciaMs} ms</span>
+        <span className="sr-only">Latência de {latenciaMs} ms</span>
       )}
     </div>
   )

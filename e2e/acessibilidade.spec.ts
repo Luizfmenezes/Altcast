@@ -22,20 +22,20 @@ test.describe('acessibilidade WCAG 2.2 AA', () => {
     expect(await varrer(page)).toEqual([])
   })
 
-  test('previa de convite e cadastro', async ({ page, browser }) => {
+  test('prévia de convite e cadastro', async ({ page, browser }) => {
     // Sessao vinda do disco: o login tem limite por IP, e gasta-lo aqui faria
     // outro teste falhar por um motivo que nada tem a ver com acessibilidade.
     const dono = await (await browser.newContext({ storageState: ESTADO_DONO })).newPage()
     await dono.goto('/')
     await expect(dono.getByLabel('Escrever mensagem')).toBeVisible()
 
-    await dono.getByRole('button', { name: 'Configuracoes' }).click()
+    await dono.getByRole('button', { name: 'Configurações' }).click()
     await dono.getByRole('tab', { name: 'Grupo' }).click()
     // A tela de grupo deixou de ser um scroll unico com tudo empilhado e virou
     // um menu de secoes: com cargos e identidade entrando, viraram cinco
     // assuntos, e cargos sozinho precisa de duas colunas. O convite agora tem
     // nome proprio no menu — que e justamente o que o scroll nao dava.
-    await dono.getByRole('navigation', { name: 'Secoes das configuracoes' })
+    await dono.getByRole('navigation', { name: 'Seções das configurações' })
       .getByRole('button', { name: 'Convites' }).click()
     await dono.getByRole('button', { name: 'Gerar link' }).click()
     const codigo = (await dono.getByRole('dialog').locator('code').first().textContent())?.trim()
@@ -45,18 +45,18 @@ test.describe('acessibilidade WCAG 2.2 AA', () => {
     // A previa e o cadastro aparecem JUNTOS desde o cadastro aberto: quem
     // chegou por um link ja disse o que veio fazer, e uma aba a mais entre a
     // pessoa e a conta so atrasa.
-    await expect(page.getByLabel('Nome de exibicao')).toBeVisible()
+    await expect(page.getByLabel('Nome de exibição')).toBeVisible()
     expect(await varrer(page)).toEqual([])
   })
 
-  test('aplicacao e configuracoes', async ({ browser }) => {
+  test('aplicação e configurações', async ({ browser }) => {
     const page = await (await browser.newContext({ storageState: ESTADO_DONO })).newPage()
     await page.goto('/')
     await expect(page.getByLabel('Escrever mensagem')).toBeVisible()
 
     expect(await varrer(page)).toEqual([])
 
-    await page.getByRole('button', { name: 'Configuracoes' }).click()
+    await page.getByRole('button', { name: 'Configurações' }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
     expect(await varrer(page)).toEqual([])
   })

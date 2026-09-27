@@ -5,6 +5,7 @@ import { Botao } from '../../ui/Botao.js'
 import { TrocarSenha } from './TrocarSenha.js'
 import { ConfirmarAcao } from '../../ui/ConfirmarAcao.js'
 import { useDensity, useTheme } from '../../ui/ThemeProvider.js'
+import { descreverAparelho, haQuanto } from '../../lib/userAgent.js'
 
 type SessaoAtiva = {
   handle: string
@@ -14,8 +15,6 @@ type SessaoAtiva = {
   lastSeenAt: string
   current: boolean
 }
-
-const QUANDO = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
 /**
  * Configuracoes da conta.
@@ -28,6 +27,7 @@ export function ConfiguracoesUsuario(): ReactNode {
   const { theme, setTheme } = useTheme()
   const { density, setDensity } = useDensity()
   const [sessoes, setSessoes] = useState<SessaoAtiva[]>([])
+  const [avisoDeSessoes, setAvisoDeSessoes] = useState<string | null>(null)
 
   useEffect(() => {
     void api.get<SessaoAtiva[]>('/auth/sessions')
@@ -40,14 +40,28 @@ export function ConfiguracoesUsuario(): ReactNode {
     setSessoes(atuais => atuais.filter(s => s.handle !== handle))
   }
 
+  async function encerrarOutras(): Promise<void> {
+    try {
+      const { revoked } = await api.delete<{ revoked: number }>('/auth/sessions')
+      setSessoes(atuais => atuais.filter(s => s.current))
+      setAvisoDeSessoes(revoked === 1
+        ? '1 sessão encerrada.'
+        : `${String(revoked)} sessões encerradas.`)
+    } catch {
+      setAvisoDeSessoes('Não foi possível encerrar as outras sessões. Tente de novo.')
+    }
+  }
+
+  const outras = sessoes.filter(s => !s.current).length
+
   return (
     // Sem cabecalho proprio nem botao de fechar: o dialogo que a contem ja tem
     // UM controle de fechar, e o segundo so criava duvida sobre qual deles
     // fecha o que.
-    <section aria-label="Configuracoes da conta" className="flex flex-col gap-6 p-4">
+    <section aria-label="Configurações da conta" className="flex flex-col gap-6 p-4">
       <div>
-        <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-          Aparencia
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          Aparência
         </h2>
         <div className="flex flex-wrap gap-2">
           <Botao
@@ -80,7 +94,7 @@ export function ConfiguracoesUsuario(): ReactNode {
             aria-pressed={density === 'comfortable'}
             onClick={() => setDensity('comfortable')}
           >
-            Densidade confortavel
+            Densidade confortável
           </Botao>
         </div>
       </div>
@@ -88,43 +102,73 @@ export function ConfiguracoesUsuario(): ReactNode {
       <TrocarSenha />
 
       <div>
-        <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-          Sessoes ativas
-        </h2>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+            Sessões ativas
+          </h2>
+          {outras > 0 && (
+            <ConfirmarAcao
+              gatilho={<Botao variante="discreto" tamanho="sm">Encerrar todas as outras</Botao>}
+              titulo="Encerrar todas as outras sessões?"
+              descricao={
+                `${outras === 1 ? 'O outro aparelho sai' : `Os outros ${String(outras)} aparelhos saem`} `
+                + 'da conta imediatamente. Esta sessão continua aberta.'
+              }
+              confirmar="Encerrar as outras"
+              aoConfirmar={() => void encerrarOutras()}
+            />
+          )}
+        </div>
+        {avisoDeSessoes !== null && (
+          <p role="status" className="mb-2 text-sm text-fg-muted">{avisoDeSessoes}</p>
+        )}
         <ul className="flex flex-col gap-1">
           {sessoes.map(sessao => {
-            const aparelho = sessao.userAgent ?? 'Aparelho desconhecido'
+            const aparelho = descreverAparelho(sessao.userAgent)
             return (
               <li
                 key={sessao.handle}
-                className="flex items-center justify-between gap-3 rounded border
+                className="flex items-start justify-between gap-3 rounded border
                            border-border-subtle px-3 py-2"
               >
-                <span className="flex flex-col">
-                  <span className="text-sm text-fg">{aparelho}</span>
-                  <span className="text-[11px] text-fg-muted">
-                    {sessao.ip ?? 'origem desconhecida'} - visto em{' '}
-                    {QUANDO.format(new Date(sessao.lastSeenAt))}
+                <div className="flex min-w-0 flex-col">
+                  <span className="text-sm text-fg">
+                    {aparelho}
+                    <span className="text-fg-muted"> · {haQuanto(sessao.lastSeenAt)}</span>
                   </span>
-                </span>
+                  <span className="text-xs text-fg-muted">
+                    {sessao.ip ?? 'Origem desconhecida'}
+                  </span>
+                  {/*
+                    O user-agent inteiro, recolhido. Ninguem precisa dele para
+                    reconhecer o proprio aparelho, e o suporte precisa dele
+                    para diagnosticar — as duas necessidades cabem numa linha.
+                  */}
+                  {sessao.userAgent !== null && (
+                    <details className="mt-1 text-xs text-fg-muted">
+                      <summary className="cursor-pointer select-none">Detalhes técnicos</summary>
+                      <p className="mt-1 break-all font-mono">{sessao.userAgent}</p>
+                    </details>
+                  )}
+                </div>
 
                 {sessao.current ? (
                   // Marcar a sessao atual evita que alguem se desconecte sem
                   // querer e depois nao entenda por que caiu.
-                  <span className="text-[11px] text-fg-muted">Esta sessao</span>
+                  <span className="shrink-0 text-xs font-medium text-fg-muted">Esta sessão</span>
                 ) : (
                   <ConfirmarAcao
                     gatilho={
-                      <Botao variante="discreto" aria-label={`Encerrar ${aparelho}`}>
+                      <Botao variante="discreto" tamanho="sm" aria-label={`Encerrar ${aparelho}`}>
                         Encerrar
                       </Botao>
                     }
-                    titulo="Encerrar esta sessao?"
+                    titulo="Encerrar esta sessão?"
                     descricao={
-                      `O acesso em ${aparelho} termina imediatamente e sera preciso `
+                      `O acesso em ${aparelho} termina imediatamente e será preciso `
                       + 'entrar de novo naquele aparelho.'
                     }
-                    confirmar="Encerrar sessao"
+                    confirmar="Encerrar sessão"
                     aoConfirmar={() => void encerrar(sessao.handle)}
                   />
                 )}

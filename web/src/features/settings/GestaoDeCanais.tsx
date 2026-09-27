@@ -165,7 +165,7 @@ export function GestaoDeCanais({ groupId }: { groupId: string }): ReactNode {
           valor={visibilidade}
           aoMudar={v => setVisibilidade(v as 'public' | 'private')}
           opcoes={[
-            { valor: 'public', texto: 'Publico' },
+            { valor: 'public', texto: 'Público' },
             { valor: 'private', texto: 'Privado' },
           ]}
         />
@@ -206,7 +206,7 @@ export function GestaoDeCanais({ groupId }: { groupId: string }): ReactNode {
                     ...r, visibility: v as 'public' | 'private',
                   }))}
                   opcoes={[
-                    { valor: 'public', texto: 'Publico' },
+                    { valor: 'public', texto: 'Público' },
                     { valor: 'private', texto: 'Privado' },
                   ]}
                 />
@@ -233,7 +233,7 @@ export function GestaoDeCanais({ groupId }: { groupId: string }): ReactNode {
                       className="rounded border border-border-subtle px-2 py-0.5 text-[11px]
                                  text-fg-muted"
                     >
-                      Conteudo inacessivel
+                      Conteúdo inacessível
                     </span>
                   )}
 
@@ -252,7 +252,7 @@ export function GestaoDeCanais({ groupId }: { groupId: string }): ReactNode {
                       </Botao>
                     }
                     titulo={`Apagar o canal ${canal.name}?`}
-                    descricao="As mensagens do canal vao junto, e isso nao pode ser desfeito."
+                    descricao="As mensagens do canal vão junto, e isso não pode ser desfeito."
                     confirmar="Apagar canal"
                     aoConfirmar={() => void apagar(canal.id)}
                   />

@@ -62,7 +62,7 @@ describe('composicao', () => {
     expect(screen.getByText('ola').closest('article')).toHaveAttribute('aria-busy', 'true')
   })
 
-  it('usa o mesmo UUIDv7 do cliente e nao duplica quando o evento volta', async () => {
+  it('usa o mesmo UUIDv7 do cliente e não duplica quando o evento volta', async () => {
     vi.mocked(fetch).mockImplementation(async (_url, opcoes) => {
       const corpo = JSON.parse(String((opcoes as RequestInit).body)) as { id: string }
       return respostaDoServidor({
@@ -93,7 +93,7 @@ describe('composicao', () => {
     expect(useStore.getState().mensagens[CANAL]).toHaveLength(1)
   })
 
-  it('mensagem repetida nao e confundida com a anterior', async () => {
+  it('mensagem repetida não e confundida com a anterior', async () => {
     vi.mocked(fetch).mockImplementation(async (_url, opcoes) => {
       const corpo = JSON.parse(String((opcoes as RequestInit).body)) as
         { id: string; content: string }
@@ -113,7 +113,7 @@ describe('composicao', () => {
     await vi.waitFor(() => expect(screen.getAllByText('oi')).toHaveLength(2))
   })
 
-  it('falha vira estado visivel com botao de tentar de novo', async () => {
+  it('falha vira estado visível com botão de tentar de novo', async () => {
     vi.mocked(fetch).mockImplementation(() => Promise.resolve(respostaDoServidor({
       error: { code: 'internal_error', message: 'Algo deu errado.', requestId: 'r' },
     }, 500)))
@@ -126,19 +126,19 @@ describe('composicao', () => {
       .toBeInTheDocument()
   })
 
-  it('NUNCA some em silencio: o texto continua na tela apos o erro', async () => {
+  it('NUNCA some em silencio: o texto continua na tela após o erro', async () => {
     vi.mocked(fetch).mockImplementation(() => Promise.resolve(respostaDoServidor({
       error: { code: 'internal_error', message: 'Algo deu errado.', requestId: 'r' },
     }, 500)))
     const usuario = userEvent.setup()
     render(<Conversa />)
 
-    await usuario.type(screen.getByLabelText('Escrever mensagem'), 'nao me perca{Enter}')
+    await usuario.type(screen.getByLabelText('Escrever mensagem'), 'não me perca{Enter}')
 
     // A falha mais corrosiva de confianca num chat: a pessoa acha que falou, e
     // ninguem recebeu.
     await screen.findByRole('button', { name: 'Tentar de novo' }, { timeout: 5000 })
-    expect(screen.getByText('nao me perca')).toBeInTheDocument()
+    expect(screen.getByText('não me perca')).toBeInTheDocument()
   })
 
   it('tentar de novo reenvia com o mesmo ID', async () => {
@@ -197,7 +197,7 @@ describe('composicao', () => {
     expect(vi.mocked(fetch)).not.toHaveBeenCalled()
   })
 
-  it('emite typing no maximo a cada 3 segundos', async () => {
+  it('emite typing no máximo a cada 3 segundos', async () => {
     const aoDigitar = vi.fn()
     // Relogio controlado em vez de timers falsos: o estrangulamento le
     // Date.now() diretamente, e o userEvent nao precisa disputar a fila de

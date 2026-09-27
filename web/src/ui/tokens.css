@@ -30,6 +30,8 @@
   --color-danger: var(--color-danger);
   --color-danger-fg: var(--color-danger-fg);
   --color-presence-online: var(--color-presence-online);
+  --color-accent-live: var(--color-accent-live);
+  --color-warning: var(--color-warning);
 
   /**
    * Apelidos no vocabulario shadcn, apontando para as MESMAS variaveis acima.
@@ -62,6 +64,17 @@
   /* Reservada aos rotulos maiusculos e espacados da porta de entrada. Separada
      de --font-mono porque ali a monoespacada e legibilidade, e aqui e voz. */
   --font-tecnica: 'Space Mono', 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/**
+ * Duas sombras, e so duas: uma para o que flutua perto do gatilho (menus,
+ * listas de sugestao, dicas) e outra para o que interrompe (dialogos). Curtas
+ * de proposito — o par "borda fina + sombra de 64px" desenhava um halo em
+ * volta de todo dialogo, e a borda ja diz onde a superficie termina.
+ */
+@theme {
+  --shadow-popover: 0 4px 12px -2px rgb(0 0 0 / 0.28);
+  --shadow-dialog: 0 12px 24px -8px rgb(0 0 0 / 0.36);
 }
 
 :root {

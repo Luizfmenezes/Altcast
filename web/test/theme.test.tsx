@@ -33,7 +33,7 @@ describe('tema e densidade', () => {
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
 
-  it('trocar o tema reescreve as variaveis e persiste a escolha', async () => {
+  it('trocar o tema reescreve as variáveis e persiste a escolha', async () => {
     const usuario = userEvent.setup()
     render(<ThemeProvider><Painel /></ThemeProvider>)
 
@@ -54,7 +54,7 @@ describe('tema e densidade', () => {
     expect(document.documentElement.dataset.density).toBe('compact')
   })
 
-  it('a escolha guardada vence a preferencia do sistema', () => {
+  it('a escolha guardada vence a preferência do sistema', () => {
     localStorage.setItem('altcast:tema', 'light')
     render(<ThemeProvider><Painel /></ThemeProvider>)
     // Sobrescrever uma decisao consciente com a do sistema operacional seria
@@ -62,7 +62,7 @@ describe('tema e densidade', () => {
     expect(screen.getByTestId('estado')).toHaveTextContent('light/')
   })
 
-  it('usar os ganchos fora do provedor falha alto, nao em silencio', () => {
+  it('usar os ganchos fora do provedor falha alto, não em silencio', () => {
     expect(() => render(<Painel />)).toThrow(/ThemeProvider/)
   })
 })

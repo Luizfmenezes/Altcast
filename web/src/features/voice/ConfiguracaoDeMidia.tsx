@@ -22,52 +22,88 @@ import { AjusteDeSons } from './AjusteDeSons.js'
 const TRATAMENTOS: { chave: keyof Processamento; rotulo: string; nota: string }[] = [
   {
     chave: 'ruido',
-    rotulo: 'Supressao de ruido',
-    nota: 'Otima para voz. Desligue para transmitir musica ou instrumento.',
+    rotulo: 'Supressão de ruido',
+    nota: 'Otima para voz. Desligue para transmitir música ou instrumento.',
   },
   {
     chave: 'eco',
     rotulo: 'Cancelamento de eco',
-    nota: 'Indispensavel sem fone de ouvido.',
+    nota: 'Indispensável sem fone de ouvido.',
   },
   {
     chave: 'ganho',
-    rotulo: 'Volume automatico',
+    rotulo: 'Volume automático',
     nota: 'Nivela a voz, mas levanta o chiado no silencio.',
   },
 ]
 
 const ROTULOS: Record<TipoDeDispositivo, string> = {
   audioinput: 'Microfone',
-  videoinput: 'Camera',
-  audiooutput: 'Saida de som',
+  videoinput: 'Câmera',
+  audiooutput: 'Saída de som',
 }
 
 const TIPOS: TipoDeDispositivo[] = ['audioinput', 'videoinput', 'audiooutput']
 
-function Escolha({ tipo, valor, aoEscolher, dispositivos }: {
+function Escolha({ tipo, valor, aoEscolher, dispositivos, aoPedirPermissao }: {
   tipo: TipoDeDispositivo
   valor: string
   aoEscolher: (deviceId: string) => void
   dispositivos: Dispositivo[]
+  /** Ausente onde nao ha permissao a pedir (a saida de som nao tem). */
+  aoPedirPermissao?: () => void
 }): ReactNode {
   return (
-    <label className="flex min-w-[180px] flex-1 flex-col gap-1">
-      <span className="text-[13px] font-medium text-fg">{ROTULOS[tipo]}</span>
-      <select
-        value={valor}
-        onChange={e => aoEscolher(e.target.value)}
-        disabled={dispositivos.length === 0}
-        className="h-9 rounded border border-border bg-bg-raised px-2 text-sm text-fg
-                   disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {dispositivos.length === 0 && <option value="">Nenhum disponivel</option>}
-        {dispositivos.map(d => (
-          <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
-        ))}
-      </select>
-    </label>
+    <div className="flex min-w-[180px] flex-1 flex-col gap-1">
+      <label className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-fg">{ROTULOS[tipo]}</span>
+        <select
+          value={valor}
+          onChange={e => aoEscolher(e.target.value)}
+          disabled={dispositivos.length === 0}
+          className="h-9 rounded border border-border bg-bg-raised px-2 text-sm text-fg
+                     disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {dispositivos.length === 0 && <option value="">Nenhum encontrado</option>}
+          {dispositivos.map(d => (
+            <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
+          ))}
+        </select>
+      </label>
+      {/*
+        Lista vazia quase nunca e "nao ha microfone": e o navegador escondendo
+        os aparelhos ate a pessoa conceder a permissao. "Nenhum disponivel",
+        sozinho, mandava procurar defeito no fone; o botao e o passo que falta.
+      */}
+      {dispositivos.length === 0 && aoPedirPermissao !== undefined && (
+        <button
+          type="button"
+          onClick={aoPedirPermissao}
+          className="self-start text-xs font-medium text-accent underline underline-offset-2"
+        >
+          Permitir acesso {tipo === 'videoinput' ? 'à câmera' : 'ao microfone'}
+        </button>
+      )}
+    </div>
   )
+}
+
+/**
+ * Pede a permissao e solta o aparelho em seguida.
+ *
+ * So o PEDIDO interessa: concedida a permissao, o navegador passa a revelar os
+ * aparelhos com nome. Segurar a faixa acenderia a luz da camera sem motivo.
+ */
+async function pedirPermissao(tipo: 'audioinput' | 'videoinput'): Promise<void> {
+  try {
+    const fluxo = await navigator.mediaDevices.getUserMedia(
+      tipo === 'audioinput' ? { audio: true } : { video: true },
+    )
+    for (const faixa of fluxo.getTracks()) faixa.stop()
+  } catch {
+    // Negada: a lista continua vazia, e o botao continua la para a proxima
+    // tentativa — que e onde o navegador mostra como desfazer a recusa.
+  }
 }
 
 /**
@@ -110,7 +146,7 @@ function EscolhaDeQualidade({ valor, aoEscolher, compartilhando }: {
       */}
       {compartilhando && (
         <span id="aviso-qualidade" className="text-xs text-fg-muted">
-          Vale quando voce recomecar a compartilhar.
+          Vale quando você recomecar a compartilhar.
         </span>
       )}
     </label>
@@ -131,7 +167,7 @@ function Medidor({ nivel, ativo }: { nivel: number; ativo: boolean }): ReactNode
   return (
     <div className="flex min-w-[180px] flex-1 flex-col gap-1">
       <span className="text-[13px] font-medium text-fg">
-        {ativo ? 'O que estao ouvindo' : 'Microfone desligado'}
+        {ativo ? 'O que estão ouvindo' : 'Microfone desligado'}
       </span>
       <div
         role="meter"
@@ -201,6 +237,7 @@ export function ConfiguracaoDeMidia({
   )
   const [tratamento, setTratamento] = useState<Processamento>(lerProcessamento)
   const [fala, setFala] = useState(lerFala)
+  const [recarga, setRecarga] = useState(0)
 
   useEffect(() => {
     let vigente = true
@@ -214,8 +251,9 @@ export function ConfiguracaoDeMidia({
 
     return () => { vigente = false }
     // Reler quando o microfone liga: e o momento em que a permissao sai e os
-    // nomes de verdade substituem os rotulos vazios.
-  }, [microfoneLigado])
+    // nomes de verdade substituem os rotulos vazios. `recarga` e o mesmo
+    // momento, provocado pelo botao de permissao.
+  }, [microfoneLigado, recarga])
 
   function escolher(tipo: TipoDeDispositivo, deviceId: string): void {
     setEscolhido(atual => ({ ...atual, [tipo]: deviceId }))
@@ -238,6 +276,11 @@ export function ConfiguracaoDeMidia({
             valor={valorDe(tipo)}
             aoEscolher={id => escolher(tipo, id)}
             dispositivos={dispositivos[tipo]}
+            {...(tipo === 'audiooutput' ? {} : {
+              aoPedirPermissao: () => {
+                void pedirPermissao(tipo).then(() => { setRecarga(n => n + 1) })
+              },
+            })}
           />
         ))}
 
@@ -268,11 +311,11 @@ export function ConfiguracaoDeMidia({
             className="h-9 rounded border border-border bg-bg-raised px-2 text-sm text-fg"
           >
             <option value="aberto">Microfone aberto</option>
-            <option value="apertar">Apertar para falar (barra de espaco)</option>
+            <option value="apertar">Apertar para falar (barra de espaço)</option>
           </select>
           {fala.modo === 'apertar' && (
             <span className="text-xs text-fg-muted">
-              Segure a barra de espaco para falar. Fora desta aba o navegador nao
+              Segure a barra de espaço para falar. Fora desta aba o navegador não
               entrega a tecla, e o microfone fecha sozinho.
             </span>
           )}
@@ -308,7 +351,7 @@ export function ConfiguracaoDeMidia({
           </label>
         ))}
         <p className="basis-full text-xs text-fg-muted">
-          Vale na proxima vez que voce entrar numa chamada.
+          Vale na próxima vez que você entrar numa chamada.
         </p>
       </fieldset>
 
@@ -316,8 +359,8 @@ export function ConfiguracaoDeMidia({
 
       {dispositivos.audioinput.length === 0 && (
         <p className="px-3 pb-3 text-xs text-fg-muted">
-          O navegador ainda nao liberou os dispositivos. Ligue o microfone uma vez
-          para conceder a permissao e ver os nomes.
+          O navegador ainda não liberou os dispositivos. Ligue o microfone uma vez
+          para conceder a permissão e ver os nomes.
         </p>
       )}
 
@@ -343,7 +386,7 @@ export function ConfiguracaoDeMidia({
           Restaurar volumes
         </button>
         <span className="text-xs text-fg-muted">
-          Devolve todas as transmissoes ao som cheio.
+          Devolve todas as transmissões ao som cheio.
         </span>
       </div>
     </>

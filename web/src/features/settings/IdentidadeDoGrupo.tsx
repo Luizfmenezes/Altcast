@@ -61,7 +61,7 @@ export function IdentidadeDoGrupo({ groupId }: { groupId: string }): ReactNode {
       editando.current = false
       setRecado('Nome atualizado.')
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel salvar o nome.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar o nome.')
     } finally {
       setOcupado(null)
     }
@@ -95,11 +95,11 @@ export function IdentidadeDoGrupo({ groupId }: { groupId: string }): ReactNode {
       if (!resposta.ok) {
         const envelope = await resposta.json().catch(() => null) as
           { error?: { message?: string } } | null
-        throw new Error(envelope?.error?.message ?? 'Nao foi possivel enviar a imagem.')
+        throw new Error(envelope?.error?.message ?? 'Não foi possível enviar a imagem.')
       }
       setRecado('Imagem atualizada.')
     } catch (e) {
-      setErroFoto(e instanceof Error ? e.message : 'Nao foi possivel enviar a imagem.')
+      setErroFoto(e instanceof Error ? e.message : 'Não foi possível enviar a imagem.')
     } finally {
       setOcupado(null)
     }
@@ -111,7 +111,7 @@ export function IdentidadeDoGrupo({ groupId }: { groupId: string }): ReactNode {
       await api.delete(`/groups/${groupId}/icon`)
       setRecado('Imagem removida.')
     } catch (e) {
-      setErroFoto(e instanceof ApiError ? e.message : 'Nao foi possivel remover a imagem.')
+      setErroFoto(e instanceof ApiError ? e.message : 'Não foi possível remover a imagem.')
     } finally {
       setOcupado(null)
     }
@@ -123,7 +123,7 @@ export function IdentidadeDoGrupo({ groupId }: { groupId: string }): ReactNode {
       // O `group.deleted` tira o grupo da barra e aponta a tela para outro.
       await api.delete(`/groups/${groupId}`)
     } catch (e) {
-      setErro(e instanceof ApiError ? e.message : 'Nao foi possivel apagar o grupo.')
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível apagar o grupo.')
       setOcupado(null)
     }
   }
@@ -134,7 +134,7 @@ export function IdentidadeDoGrupo({ groupId }: { groupId: string }): ReactNode {
         <div>
           <h3 className="text-[15px] font-semibold text-fg">Imagem do grupo</h3>
           <p className="mt-1 text-[13px] text-fg-muted">
-            Ela aparece na barra lateral, na previa do convite e no topo da lista de canais.
+            Ela aparece na barra lateral, na prévia do convite e no topo da lista de canais.
           </p>
         </div>
 
@@ -175,7 +175,7 @@ export function IdentidadeDoGrupo({ groupId }: { groupId: string }): ReactNode {
                 </Botao>
               )}
             </div>
-            <p className="text-xs text-fg-muted">PNG, JPEG, GIF ou WebP, ate 8 MB.</p>
+            <p className="text-xs text-fg-muted">PNG, JPEG, GIF ou WebP, até 8 MB.</p>
           </div>
         </div>
 
@@ -192,7 +192,7 @@ export function IdentidadeDoGrupo({ groupId }: { groupId: string }): ReactNode {
         <div>
           <h3 className="text-[15px] font-semibold text-fg">Nome</h3>
           <p className="mt-1 text-[13px] text-fg-muted">
-            De 2 a 64 caracteres. Todo mundo do grupo ve a mudanca na hora.
+            De 2 a 64 caracteres. Todo mundo do grupo ve a mudança na hora.
           </p>
         </div>
 
@@ -237,7 +237,7 @@ export function IdentidadeDoGrupo({ groupId }: { groupId: string }): ReactNode {
             <div>
               <h3 className="text-[15px] font-semibold text-danger">Apagar o grupo</h3>
               <p className="mt-1 text-[13px] text-fg-muted">
-                Apaga os canais, as conversas, os anexos e os cargos. Nao tem volta.
+                Apaga os canais, as conversas, os anexos e os cargos. Não tem volta.
               </p>
             </div>
             <div>
@@ -245,7 +245,7 @@ export function IdentidadeDoGrupo({ groupId }: { groupId: string }): ReactNode {
                 titulo={`Apagar ${grupo.name}?`}
                 descricao={
                   'Os canais, as conversas e os arquivos deste grupo somem para todo mundo. '
-                  + 'Nao existe desfazer.'
+                  + 'Não existe desfazer.'
                 }
                 confirmar="Apagar para sempre"
                 aoConfirmar={() => { void apagarGrupo() }}

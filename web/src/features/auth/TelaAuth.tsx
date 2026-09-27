@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { Login } from './Login.js'
 import { Cadastro } from './Cadastro.js'
-import { PreviaConvite } from './PreviaConvite.js'
 import { EsqueciASenha } from './EsqueciASenha.js'
 import { RedefinirSenha } from './RedefinirSenha.js'
 import { VerificarEmail } from './VerificarEmail.js'
@@ -25,17 +24,15 @@ export function TelaAuth({ aoEntrar }: {
   return (
     <Porta>
       {rota.nome === 'convite' && (
-        <>
-          <PreviaConvite codigo={rota.codigo} />
-          <Cadastro codigo={rota.codigo} aoEntrar={aoEntrar} />
-        </>
+        <Cadastro codigo={rota.codigo} aoEntrar={aoEntrar} />
       )}
 
-      {rota.nome === 'criar-conta' && <Cadastro aoEntrar={aoEntrar} />}
+      {rota.nome === 'criar-conta' && <Cadastro codigo={rota.convite} aoEntrar={aoEntrar} />}
       {rota.nome === 'esqueci-a-senha' && <EsqueciASenha />}
       {rota.nome === 'redefinir' && <RedefinirSenha token={rota.token} />}
       {rota.nome === 'verificar' && <VerificarEmail token={rota.token} />}
-      {rota.nome === 'entrar' && <Login aoEntrar={aoEntrar} />}
+      {rota.nome === 'entrar' && <Login convite={rota.convite} aoEntrar={aoEntrar} />}
+      {rota.nome === 'app' && <Login aoEntrar={aoEntrar} />}
     </Porta>
   )
 }

@@ -79,7 +79,7 @@ describe('criar grupo e ja sair com o convite na mao', () => {
    * grupo. Falhar no segundo pedido nao pode virar um erro sobre um grupo que
    * na verdade foi criado.
    */
-  it('convite que falha nao apaga o grupo que deu certo', async () => {
+  it('convite que falha não apaga o grupo que deu certo', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (entrada: RequestInfo | URL) => {
       const url = String(entrada)
       if (url.endsWith('/api/groups')) {
@@ -102,7 +102,7 @@ describe('criar grupo e ja sair com o convite na mao', () => {
     await waitFor(() => {
       expect(screen.getByText(/Anticorp esta pronto/)).toBeInTheDocument()
     })
-    expect(screen.getByText(/gera nas configuracoes/)).toBeInTheDocument()
+    expect(screen.getByText(/gera nas configurações/)).toBeInTheDocument()
     expect(screen.queryByLabelText(/Link de convite/)).not.toBeInTheDocument()
   })
 
@@ -119,17 +119,17 @@ describe('criar grupo e ja sair com o convite na mao', () => {
   it('no teto o gatilho desabilita dizendo por que', () => {
     comCota({ used: 3, max: 3 })
     desenhar()
-    const botao = screen.getByRole('button', { name: /ja criou o maximo de 3 grupos/ })
+    const botao = screen.getByRole('button', { name: /já criou o máximo de 3 grupos/ })
     expect(botao).toBeDisabled()
   })
 
-  it('administrador da plataforma nao ve teto nenhum', () => {
+  it('administrador da plataforma não ve teto nenhum', () => {
     comCota({ used: 9, max: null })
     desenhar()
     expect(screen.getByRole('button', { name: 'Criar grupo' })).toBeEnabled()
   })
 
-  it('servidor que nao fala de cota nao inventa um teto', () => {
+  it('servidor que não fala de cota não inventa um teto', () => {
     comCota(null)
     desenhar()
     expect(screen.getByRole('button', { name: 'Criar grupo' })).toBeEnabled()

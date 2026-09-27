@@ -40,7 +40,7 @@ describe('cliente REST', () => {
     expect(erro).toMatchObject({ code: 'invite_expired', status: 410, requestId: 'r1' })
   })
 
-  it('envia credenciais em toda requisicao', async () => {
+  it('envia credenciais em toda requisição', async () => {
     vi.mocked(fetch).mockResolvedValue(resposta(200, { ok: true }))
     await correr(api.get('/auth/me'))
 
@@ -50,7 +50,7 @@ describe('cliente REST', () => {
     expect(opcoes).toMatchObject({ credentials: 'include' })
   })
 
-  it('repete automaticamente em falha de rede, ate 3 tentativas', async () => {
+  it('repete automaticamente em falha de rede, até 3 tentativas', async () => {
     vi.mocked(fetch)
       .mockRejectedValueOnce(new TypeError('failed to fetch'))
       .mockRejectedValueOnce(new TypeError('failed to fetch'))
@@ -68,7 +68,7 @@ describe('cliente REST', () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(3)
   })
 
-  it('NAO repete em 4xx', async () => {
+  it('NÃO repete em 4xx', async () => {
     vi.mocked(fetch).mockResolvedValue(resposta(422, envelope('validation_failed')))
 
     await correr(api.post('/groups', { name: '' }).catch(() => null))
@@ -77,7 +77,7 @@ describe('cliente REST', () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
   })
 
-  it('repete em 5xx, porque o servidor pode ter tropecado uma vez so', async () => {
+  it('repete em 5xx, porque o servidor pode ter tropecado uma vez só', async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(resposta(500, envelope('internal_error')))
       .mockResolvedValue(resposta(200, { ok: true }))
@@ -86,7 +86,7 @@ describe('cliente REST', () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2)
   })
 
-  it('em 401 dispara o evento de sessao expirada uma unica vez', async () => {
+  it('em 401 dispara o evento de sessão expirada uma única vez', async () => {
     vi.mocked(fetch).mockResolvedValue(resposta(401, envelope('unauthenticated')))
     const ouvinte = vi.fn()
     window.addEventListener(SESSAO_EXPIROU, ouvinte)

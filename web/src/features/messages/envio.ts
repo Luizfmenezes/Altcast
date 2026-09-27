@@ -1,5 +1,5 @@
 import { uuidv7 } from 'uuidv7'
-import { api } from '../../lib/api.js'
+import { ApiError, api } from '../../lib/api.js'
 import { useStore } from '../../lib/store.js'
 import type { Anexo, Mensagem } from '../../lib/tipos.js'
 
@@ -55,10 +55,35 @@ export async function enviarMensagem(
     // A versao do servidor substitui o eco pelo mesmo ID: horario real, autor
     // canonico, e sem o marcador de envio.
     registrarEco(confirmada)
-  } catch {
+  } catch (erro) {
+    // 409 no mesmo ID e SUCESSO atrasado: a primeira tentativa chegou e so a
+    // resposta se perdeu. A mensagem existe no servidor, e marca-la como falha
+    // convidaria a pessoa a reenviar o que todo mundo ja leu.
+    if (erro instanceof ApiError && erro.code === 'message_id_taken') {
+      marcarEnvio(id, undefined)
+      return
+    }
     // Nunca some em silencio. O texto continua na tela, marcado como falho e
     // recuperavel - a pessoa achar que falou sem ninguem ter recebido e a
     // falha mais corrosiva de confianca num chat.
     marcarEnvio(id, 'falhou')
   }
+}
+
+/**
+ * Reenvia um eco que falhou, com TUDO o que ele levava.
+ *
+ * O botao "Tentar de novo" chamava `enviarMensagem` so com o texto: a segunda
+ * tentativa saia sem os anexos e sem a citacao, e a foto que era o motivo da
+ * mensagem sumia justamente na hora em que a pessoa insistiu em manda-la. O
+ * eco ja guarda os anexos e o `replyToId` — reenviar e repetir o eco inteiro.
+ */
+export function reenviarMensagem(mensagem: Mensagem): Promise<void> {
+  return enviarMensagem(
+    mensagem.channelId,
+    mensagem.content,
+    mensagem.id,
+    mensagem.attachments ?? [],
+    mensagem.replyToId ?? undefined,
+  )
 }
