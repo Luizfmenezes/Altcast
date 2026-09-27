@@ -135,7 +135,17 @@ function ItemDeCanal({ canal, ativo, naoLidas, naSala, aoEscolher }: {
         voce estar olhando para ela.
       */}
       {naSala > 0 ? (
-        <span className="shrink-0 font-mono text-[11px] tabular-nums text-fg-muted">
+        <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs tabular-nums text-fg-muted">
+          {/*
+            O ponto "no ar": sala com gente e a unica coisa da lista que esta
+            acontecendo AGORA. Pulsa devagar (2s) — o bastante para ser visto,
+            devagar demais para competir com a leitura. Parado sob movimento
+            reduzido.
+          */}
+          <span
+            aria-hidden="true"
+            className="size-1.5 rounded-full bg-accent-live motion-safe:animate-[pulse_2s_ease-in-out_infinite]"
+          />
           <Contador para={naSala} />
           <span className="sr-only">
             {naSala === 1 ? ' pessoa na chamada' : ' pessoas na chamada'}
@@ -171,7 +181,7 @@ function Secao({ titulo, quantidade, children }: {
         id={idTitulo}
         onClick={() => setAberta(a => !a)}
         aria-expanded={aberta}
-        className={`flex items-center gap-1 rounded px-1 py-1 text-[11px] font-semibold
+        className={`flex items-center gap-1 rounded px-1 py-1 text-xs font-semibold
                     uppercase tracking-wider text-fg-muted transition-colors
                     hover:text-fg`}
       >

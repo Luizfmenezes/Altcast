@@ -95,7 +95,7 @@ export function MenuDoGrupo({ grupo, variante = 'linha' }: {
                 <span className="block truncate text-[13px] font-semibold leading-tight text-fg">
                   {grupo.name}
                 </span>
-                <span className="block truncate text-[11px] leading-tight text-fg-muted">
+                <span className="block truncate text-xs leading-tight text-fg-muted">
                   {PAPEL_POR_EXTENSO[grupo.role]}
                 </span>
               </span>
@@ -126,7 +126,7 @@ export function MenuDoGrupo({ grupo, variante = 'linha' }: {
             align="start"
             sideOffset={6}
             className="z-50 min-w-52 rounded-lg border border-border-subtle bg-bg-raised p-1
-                       shadow-[0_8px_16px_-8px_rgb(0_0_0/0.28),0_24px_48px_-12px_rgb(0_0_0/0.32)]"
+                       shadow-popover"
           >
             {podeConvidar && (
               <Menu.Item
@@ -216,9 +216,9 @@ export function MenuDoGrupo({ grupo, variante = 'linha' }: {
           <Dialog.Overlay className="fixed inset-0 z-40 bg-bg/70 backdrop-blur-sm" />
           <Dialog.Content
             className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[min(94vw,58rem)]
-                       -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border
+                       -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border
                        border-border-subtle bg-bg-raised p-4
-                       shadow-[0_8px_16px_-8px_rgb(0_0_0/0.28),0_24px_48px_-12px_rgb(0_0_0/0.32)]"
+                       shadow-popover"
           >
             <div className="mb-3 flex items-start justify-between gap-4">
               <Dialog.Title className="text-[15px] font-semibold text-fg">

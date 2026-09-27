@@ -149,9 +149,9 @@ export function CriarGrupo({ gatilho }: { gatilho?: ReactNode }): ReactNode {
                                     data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <Dialogo.Content
           className="fixed left-1/2 top-1/2 z-50 w-[min(26rem,calc(100vw-2rem))]
-                     -translate-x-1/2 -translate-y-1/2 rounded-xl border
+                     -translate-x-1/2 -translate-y-1/2 rounded-lg border
                      border-border-subtle bg-bg-raised p-6
-                     shadow-[0_8px_16px_-8px_rgb(0_0_0/0.28),0_24px_48px_-12px_rgb(0_0_0/0.32)]
+                     shadow-dialog
                      data-[state=open]:animate-in data-[state=open]:fade-in-0
                      data-[state=open]:zoom-in-95"
         >
@@ -204,7 +204,7 @@ export function CriarGrupo({ gatilho }: { gatilho?: ReactNode }): ReactNode {
                 <div className="flex flex-col gap-2">
                   <label
                     htmlFor="link-do-convite"
-                    className="text-[11px] uppercase tracking-wide text-fg-muted"
+                    className="text-xs uppercase tracking-wide text-fg-muted"
                   >
                     Link de convite
                   </label>

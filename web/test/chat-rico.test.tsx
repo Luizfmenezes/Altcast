@@ -3,7 +3,7 @@ import { createRef } from 'react'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Conversa } from '../src/features/channels/Conversa.js'
-import { Reacoes } from '../src/features/messages/Reacoes.js'
+import { Reacoes, SeletorDeReacao } from '../src/features/messages/Reacoes.js'
 import { useStore } from '../src/lib/store.js'
 import { violacoes } from './helpers/axe.js'
 import type { Mensagem, Ready } from '../src/lib/tipos.js'
@@ -91,7 +91,9 @@ describe('reacoes na tela', () => {
 
   it('a barra de escolha abre e fecha pelo teclado', async () => {
     const pessoa = userEvent.setup()
-    render(<Reacoes messageId="m1" reacoes={[]} eu="u1" />)
+    // O seletor saiu do corpo da mensagem e foi para a barra de acoes
+    // flutuante; as pilulas continuam em `Reacoes`.
+    render(<SeletorDeReacao messageId="m1" reacoes={[]} eu="u1" />)
 
     await pessoa.click(screen.getByRole('button', { name: 'Reagir a esta mensagem' }))
     expect(screen.getByRole('group', { name: 'Escolher reação' })).toBeInTheDocument()

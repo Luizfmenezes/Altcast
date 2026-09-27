@@ -92,7 +92,6 @@ export function RedefinirSenha({ token }: { token: string }): ReactNode {
           erro={campos['password']?.[0]}
         />
         <div className="envio-da-porta">
-          <span className="gota" aria-hidden="true" />
           <Botao type="submit" tamanho="lg" largura="cheia" disabled={enviando}>
             {enviando ? 'Trocando…' : 'Trocar senha'}
           </Botao>

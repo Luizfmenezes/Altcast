@@ -120,7 +120,11 @@ test.describe('os controles da chamada sao alcancaveis', () => {
 
       await abrirCanalDeVoz(page)
 
-      const entrar = page.getByRole('button', { name: 'Entrar na chamada' })
+      // "Tentar de novo" ocupa o lugar de "Entrar na chamada" quando o SFU nao
+      // responde — e o que acontece aqui, sem as portas UDP do LiveKit. O que
+      // se mede e o mesmo: a acao primaria do rodape do painel esta ao alcance.
+      const entrar = page.getByRole('region', { name: /^Chamada de/ })
+        .getByRole('button', { name: /^(Entrar na chamada|Entrando…|Tentar de novo)$/ })
       await expect(entrar).toBeVisible()
       // O teste que o defeito teria reprovado: o botao existia no DOM e era
       // "visivel" para o Playwright, mas estava fora da regiao pintada pelo
@@ -141,7 +145,8 @@ test.describe('os controles da chamada sao alcancaveis', () => {
     await page.reload()
 
     await abrirCanalDeVoz(page)
-    await expect(page.getByRole('button', { name: 'Entrar na chamada' })).toBeVisible()
+    await expect(page.getByRole('region', { name: /^Chamada de/ })
+      .getByRole('button', { name: /^(Entrar na chamada|Entrando…|Tentar de novo)$/ })).toBeVisible()
 
     const painel = await page.evaluate(() => {
       const s = document.querySelector('section[aria-label^="Chamada"]')

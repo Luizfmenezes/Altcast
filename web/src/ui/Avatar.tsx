@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { cn } from '../lib/utils.js'
 
 const TAMANHOS = {
-  sm: 'size-6 text-[10px]',
+  sm: 'size-6 text-xs',
   md: 'size-8 text-[12px]',
   lg: 'size-10 text-[14px]',
   xl: 'size-16 text-[22px]',
@@ -21,8 +21,9 @@ const TAMANHOS = {
  *
  * Duas faixas ficaram de fora de proposito. Vermelho, porque nesta paleta ele
  * significa erro e destruicao, e um avatar vermelho diria isso de uma pessoa.
- * E a faixa do azul do acento, para que um avatar nunca seja lido como o item
- * selecionado.
+ * E a faixa do ambar do acento, para que um avatar nunca seja lido como o item
+ * selecionado ou como algo "no ar". (Quando o acento era azul, era o azul que
+ * ficava de fora; a troca para ambar devolveu os azuis e tirou os ocres.)
  *
  * O teste de contraste em test/avatar.test.ts e quem garante as duas coisas.
  */
@@ -31,8 +32,8 @@ export const CORES_DE_AVATAR = [
   '#228174',
   '#238551',
   '#498323',
-  '#8b7125',
-  '#a5652c',
+  '#3d63c4',
+  '#a0527a',
   '#cc3e6d',
   '#ca389e',
   '#b83ccb',

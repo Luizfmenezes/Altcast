@@ -70,7 +70,7 @@ export function ConfirmarAcao({
         <AlertDialog.Content
           className="fixed left-1/2 top-1/2 z-[70] w-[min(92vw,28rem)] -translate-x-1/2
                      -translate-y-1/2 rounded border border-border bg-bg-raised p-4
-                     text-fg shadow-lg"
+                     text-fg shadow-dialog"
         >
           <AlertDialog.Title className="text-sm font-semibold">{titulo}</AlertDialog.Title>
           <AlertDialog.Description className="mt-2 text-sm text-fg-muted">

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
-import type { ReactNode } from 'react'
-import { useStore } from '../../lib/store.js'
+import type { CSSProperties, ReactNode } from 'react'
+import { corDoMembro, useStore } from '../../lib/store.js'
+import { usePerfilAberto } from './perfilAberto.js'
 import { cn } from '../../lib/utils.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { Contador } from '../../ui/bits/Contador.js'
@@ -35,32 +36,47 @@ function agrupar(membros: Membro[]): Map<Chave, Membro[]> {
 }
 
 function LinhaDeMembro({ membro }: { membro: Membro }): ReactNode {
+  const abrirPerfil = usePerfilAberto(e => e.abrirPerfil)
+  const cor = useStore(e => corDoMembro(e, membro.groupId, membro.userId))
   return (
-    <li
-      // Nome e estado num unico rotulo: 'Ana, online' e uma frase; nome e
-      // estado separados obrigariam quem ouve a costurar os dois.
-      aria-label={`${membro.displayName}, ${membro.status}`}
-      className={cn(
-        'group/membro flex items-center gap-2 rounded-md px-2 text-sm transition-colors',
-        'hover:bg-bg-hover',
-        // Quem esta offline fica presente mas recuado. Sumir com a pessoa
-        // esconderia a informacao de que ela existe no grupo; deixa-la com o
-        // mesmo peso faria trinta ausentes competirem com tres presentes.
-        membro.status === 'online' ? 'text-fg' : 'text-fg-muted',
-      )}
-      style={{ minHeight: 'var(--height-row)' }}
-    >
-      <span
+    <li>
+      {/*
+        Um botao: clicar na pessoa abre o cartao dela. A linha era so texto, e
+        "quem e essa pessoa, de onde a conheco" nao tinha resposta na tela.
+      */}
+      <button
+        type="button"
+        onClick={() => { abrirPerfil(membro.userId) }}
+        // Nome e estado num unico rotulo: 'Ana, online' e uma frase; nome e
+        // estado separados obrigariam quem ouve a costurar os dois.
+        aria-label={`${membro.displayName}, ${membro.status}`}
         className={cn(
-          'relative flex shrink-0 transition-opacity',
-          membro.status === 'online' ? 'opacity-100' : 'opacity-60',
+          'group/membro flex w-full items-center gap-2 rounded-md px-2 text-left text-sm transition-colors',
+          'hover:bg-bg-hover focus-visible:bg-bg-hover',
+          // Quem esta offline fica presente mas recuado. Sumir com a pessoa
+          // esconderia a informacao de que ela existe no grupo; deixa-la com o
+          // mesmo peso faria trinta ausentes competirem com tres presentes.
+          membro.status === 'online' ? 'text-fg' : 'text-fg-muted',
         )}
+        style={{ minHeight: 'var(--height-row)' }}
       >
-        <Avatar nome={membro.displayName} url={membro.avatarUrl} tamanho="sm" />
-        <Presenca status={membro.status} modo="cracha" />
-      </span>
+        <span
+          className={cn(
+            'relative flex shrink-0 transition-opacity',
+            membro.status === 'online' ? 'opacity-100' : 'opacity-60',
+          )}
+        >
+          <Avatar nome={membro.displayName} url={membro.avatarUrl} tamanho="sm" />
+          <Presenca status={membro.status} modo="cracha" />
+        </span>
 
-      <span className="min-w-0 flex-1 truncate">{membro.displayName}</span>
+        <span
+          className={cn('min-w-0 flex-1 truncate', membro.status === 'online' && 'cor-de-cargo')}
+          style={cor === null ? undefined : { '--cor-cargo': cor } as CSSProperties}
+        >
+          {membro.displayName}
+        </span>
+      </button>
     </li>
   )
 }
@@ -114,7 +130,7 @@ export function PainelMembros({ sobreposicao = false }: {
         ...(sobreposicao ? { width: 'var(--w-members)' } : {}),
       }}
     >
-      <h2 className="flex items-baseline gap-2 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
+      <h2 className="flex items-baseline gap-2 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-fg-muted">
         Membros
         {/*
           O numero ANDA ate o valor novo em vez de saltar. Numa lista de
@@ -141,7 +157,7 @@ export function PainelMembros({ sobreposicao = false }: {
             */}
             <h3
               id={id}
-              className="px-2 pb-0.5 pt-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted"
+              className="px-2 pb-0.5 pt-2 text-xs font-semibold uppercase tracking-wide text-fg-muted"
             >
               {titulo}
               <span className="font-mono normal-case tabular-nums"> — <Contador para={doGrupo.length} /></span>

@@ -74,7 +74,7 @@ export function Configuracoes({ groupId, podeAdministrar }: {
         <Dialog.Content
           className={cn(
             `fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] -translate-x-1/2 -translate-y-1/2
-             flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised
+             flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised
              text-fg shadow-dialog`,
             // A aba de grupo carrega a propria barra de secoes, e dentro dela
             // os cargos ainda abrem lista mais editor. Em 46rem isso virava

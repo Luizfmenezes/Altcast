@@ -41,7 +41,7 @@ export function Campo(props: {
         className={cn(
           'text-fg',
           aparencia === 'linha'
-            ? 'font-tecnica text-[11px] uppercase tracking-[0.22em] text-fg-muted'
+            ? 'font-tecnica text-xs uppercase tracking-[0.22em] text-fg-muted'
             : 'text-[13px] font-medium',
         )}
       >
@@ -63,7 +63,7 @@ export function Campo(props: {
           className={cn(
             'w-full bg-transparent text-fg placeholder:text-fg-muted/70',
             'transition-[border-color,background-color,box-shadow] duration-200 ease-out',
-            aparencia === 'caixa' && `h-9 rounded-md border border-border-subtle bg-bg px-3
+            aparencia === 'caixa' && `h-9 rounded-md border border-border-subtle bg-bg-sunken px-3
                                       hover:border-border
                                       focus:border-accent aria-[invalid]:border-danger`,
             aparencia === 'linha' && `border-0 border-b border-border-subtle px-0 pb-2.5

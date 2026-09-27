@@ -37,7 +37,7 @@ export function CartaoDePerfil(): ReactNode {
         <Dialogo.Overlay className="fixed inset-0 z-40 bg-bg/60" />
         <Dialogo.Content
           className="fixed left-1/2 top-1/2 z-50 w-[min(22rem,calc(100%-2rem))] -translate-x-1/2
-                     -translate-y-1/2 rounded-xl border border-border-subtle bg-bg-raised p-5
+                     -translate-y-1/2 rounded-lg border border-border-subtle bg-bg-raised p-5
                      shadow-dialog"
         >
           {pessoa !== undefined && (

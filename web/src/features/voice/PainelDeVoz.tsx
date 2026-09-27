@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Grid2x2, HeadphoneOff, Headphones, Loader2, Mic, MicOff, MonitorUp, Pin, RotateCw,
-  Settings2, Video, VideoOff, PhoneOff, Volume2,
+  Video, VideoOff, PhoneOff, Volume2, WifiOff,
 } from 'lucide-react'
 import { Botao } from '../../ui/Botao.js'
+import { Avatar } from '../../ui/Avatar.js'
+import { AnelDeFala } from '../../ui/bits/AnelDeFala.js'
 import { useStore } from '../../lib/store.js'
 import { ControleDeVolume, FaixaDeMidia } from './FaixaDeMidia.js'
 import { useChamada } from './useChamada.js'
@@ -284,17 +286,27 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
         era o microfone.
       */}
       {situacao === 'falhou' && (
-        <div role="alert" className="flex flex-col gap-3 rounded-lg border border-danger/60 p-3">
-          <p className="text-sm text-fg">{estado.erro ?? 'Não foi possível conectar à chamada.'}</p>
-          <div className="flex flex-wrap gap-2">
-            <Botao tamanho="sm" onClick={tentarDeNovo}>
-              <RotateCw aria-hidden="true" />
-              Tentar de novo
-            </Botao>
-            <Botao tamanho="sm" variante="discreto" onClick={() => abrirConfiguracoes('midia')}>
-              <Settings2 aria-hidden="true" />
-              Configurar dispositivos
-            </Botao>
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-danger/60 p-3">
+          <WifiOff aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-danger" />
+          <div className="min-w-0">
+            <p className="text-sm text-fg">{estado.erro ?? 'Não foi possível conectar à chamada.'}</p>
+            {/*
+              As duas saidas moram onde ja estavam: "Tentar de novo" no rodape,
+              no lugar de "Entrar", e os dispositivos no painel logo abaixo —
+              um segundo botao com o mesmo nome aqui dizia a mesma coisa duas
+              vezes, a um palmo de distancia.
+            */}
+            <p className="mt-1 text-xs text-fg-muted">
+              Tente de novo pelo botão abaixo, ou confira microfone e saída de som em{' '}
+              <button
+                type="button"
+                onClick={() => abrirConfiguracoes('midia')}
+                className="font-medium text-accent underline underline-offset-2"
+              >
+                Áudio e vídeo
+              </button>
+              .
+            </p>
           </div>
         </div>
       )}
@@ -441,14 +453,24 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
               decorativo: anuncia-lo de novo seria ouvir a mesma coisa duas
               vezes.
             */}
-            {p.microfone
-              ? <Mic aria-hidden="true" className="size-4 text-fg" />
-              : <MicOff aria-hidden="true" className="size-4 text-fg-muted" />}
-            <span
-              className={`truncate ${estado.falando.includes(p.userId) ? 'text-accent' : 'text-fg'}`}
+            {/*
+              O anel "no ar" em volta de quem fala: a assinatura do sistema. O
+              proprio nivel e medido; o dos outros vem do SFU como "falando".
+            */}
+            <AnelDeFala
+              falando={estado.falando.includes(p.userId)}
+              nivel={p.userId === eu?.id ? estado.nivel * 4 : 1}
             >
-              {nomeDe(p.userId)}
-            </span>
+              <Avatar
+                nome={nomeDe(p.userId)}
+                url={members.find(m => m.userId === p.userId)?.avatarUrl ?? null}
+                tamanho="sm"
+              />
+            </AnelDeFala>
+            <span className="min-w-0 truncate text-fg">{nomeDe(p.userId)}</span>
+            {p.microfone
+              ? <Mic aria-hidden="true" className="size-3.5 shrink-0 text-fg-muted" />
+              : <MicOff aria-hidden="true" className="size-3.5 shrink-0 text-fg-muted/70" />}
             {p.tela && <MonitorUp aria-hidden="true" className="size-4 text-fg-muted" />}
 
             {/*
@@ -534,10 +556,18 @@ export function PainelDeVoz({ channelId, nomeDoCanal }: {
       >
         {!dentro ? (
           situacao === 'falhou' ? (
-            <Botao variante="discreto" onClick={sair}>
-              <PhoneOff aria-hidden="true" className="size-4" />
-              Desistir
-            </Botao>
+            // O mesmo lugar do "Entrar na chamada": quem falhou procura a
+            // tentativa seguinte onde a primeira estava.
+            <>
+              <Botao onClick={tentarDeNovo}>
+                <RotateCw aria-hidden="true" className="size-4" />
+                Tentar de novo
+              </Botao>
+              <Botao variante="discreto" onClick={sair}>
+                <PhoneOff aria-hidden="true" className="size-4" />
+                Desistir
+              </Botao>
+            </>
           ) : (
             <Botao onClick={entrar} disabled={situacao === 'conectando'}>
               {situacao === 'conectando' ? 'Entrando…' : 'Entrar na chamada'}

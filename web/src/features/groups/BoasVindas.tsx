@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { MailWarning, Plus, Ticket } from 'lucide-react'
+import { LogOut, MailWarning, Plus, Ticket } from 'lucide-react'
 import { CriarGrupo } from './CriarGrupo.js'
 import { Botao } from '../../ui/Botao.js'
 import { Campo } from '../../ui/Campo.js'
@@ -8,6 +8,8 @@ import { EntrarComGoogle } from '../auth/EntrarComGoogle.js'
 import { useReenviarVerificacao } from '../auth/useReenviarVerificacao.js'
 import { normalizarCodigoDeConvite } from '../../lib/convite.js'
 import { irPara } from '../../lib/rota.js'
+import { useStore } from '../../lib/store.js'
+import { sairDaConta } from '../auth/sairDaConta.js'
 import { TituloFatiado } from '../../ui/bits/TituloFatiado.js'
 
 /** `ogl` so entra no pacote de quem chega a esta tela. */
@@ -46,6 +48,7 @@ const Aurora = lazy(async () => ({ default: (await import('../../ui/bits/Aurora.
 export function BoasVindas(): ReactNode {
   const { estado, reenviar, endereco, precisaConfirmar } = useReenviarVerificacao()
   const [codigo, setCodigo] = useState('')
+  const nome = useStore(e => e.user?.displayName ?? null)
 
   function entrarPorConvite(evento: FormEvent): void {
     evento.preventDefault()
@@ -75,6 +78,20 @@ export function BoasVindas(): ReactNode {
         <div className="absolute inset-0 bg-bg/60" />
       </div>
 
+      {/*
+        Quem esta logado, e a saida. Uma conta sem grupo nenhum nao ve o
+        painel do usuario — ele mora na coluna de canais, que aqui nao existe —,
+        e ficava sem ter como sair da conta.
+      */}
+      <div className="fixed right-4 top-4 flex items-center gap-2 rounded-lg border
+                      border-border-subtle bg-bg-raised/95 py-1 pl-3 pr-1 text-sm backdrop-blur">
+        {nome !== null && <span className="max-w-48 truncate text-fg-muted">{nome}</span>}
+        <Botao variante="fantasma" tamanho="sm" onClick={() => { void sairDaConta() }}>
+          <LogOut aria-hidden="true" />
+          Sair
+        </Botao>
+      </div>
+
       <div className="flex w-full max-w-xl flex-col gap-5">
         <header className="text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-fg">
@@ -87,7 +104,7 @@ export function BoasVindas(): ReactNode {
         </header>
 
         {precisaConfirmar && (
-          <div className="flex flex-col gap-3 rounded-xl border border-border bg-bg-raised/95 p-4
+          <div className="flex flex-col gap-3 rounded-lg border border-border bg-bg-raised/95 p-4
                           backdrop-blur">
             <p className="flex items-start gap-2 text-[13px] text-fg">
               <MailWarning aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-muted" />
@@ -117,7 +134,7 @@ export function BoasVindas(): ReactNode {
                   : estado === 'enviado' ? 'E-mail enviado'
                     : 'Reenviar e-mail'}
               </Botao>
-              <span aria-hidden="true" className="text-[11px] uppercase tracking-wider text-fg-muted">
+              <span aria-hidden="true" className="text-xs uppercase tracking-wider text-fg-muted">
                 ou
               </span>
               {/*
@@ -151,7 +168,7 @@ export function BoasVindas(): ReactNode {
           mais empurra so o proprio botao, e a fileira fica torta.
         */}
         <div className="grid items-stretch gap-4 sm:grid-cols-2">
-          <section className="flex flex-col gap-3 rounded-xl border border-border-subtle
+          <section className="flex flex-col gap-3 rounded-lg border border-border-subtle
                               bg-bg-raised/95 p-5 backdrop-blur">
             <span className="flex size-9 items-center justify-center rounded-lg bg-accent/12
                              text-accent">
@@ -178,7 +195,7 @@ export function BoasVindas(): ReactNode {
             </div>
           </section>
 
-          <section className="flex flex-col gap-3 rounded-xl border border-border-subtle
+          <section className="flex flex-col gap-3 rounded-lg border border-border-subtle
                               bg-bg-raised/95 p-5 backdrop-blur">
             <span className="flex size-9 items-center justify-center rounded-lg bg-fg/[0.06]
                              text-fg-muted">

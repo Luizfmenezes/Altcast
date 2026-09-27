@@ -1,7 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { api } from '../../lib/api.js'
-import { useStore } from '../../lib/store.js'
+import { corDoMembro, useStore } from '../../lib/store.js'
+import { cn } from '../../lib/utils.js'
+import { Avatar } from '../../ui/Avatar.js'
+import { usePerfilAberto } from '../presence/perfilAberto.js'
+import { AcoesDaMensagem } from './AcoesDaMensagem.js'
 import { Anexos } from './Anexos.js'
 import { Reacoes } from './Reacoes.js'
 import { reenviarMensagem } from './envio.js'
@@ -87,6 +91,25 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
     autorId === null
       ? 'usuário removido'
       : members.find(m => m.userId === autorId)?.displayName ?? 'usuário removido'
+
+  const grupoDoCanal = useStore(e => e.channels.find(c => c.id === e.canalAtivo)?.groupId ?? null)
+  const cargos = useStore(e => e.cargos)
+  const cargosDoMembro = useStore(e => e.cargosDoMembro)
+  const abrirPerfil = usePerfilAberto(e => e.abrirPerfil)
+  /** A mensagem com as acoes reveladas pelo toque. */
+  const [ativa, setAtiva] = useState<string | null>(null)
+
+  /** Nome, avatar e cor de cargo de quem escreveu, no grupo deste canal. */
+  const pessoaDe = (autorId: string | null): { nome: string; avatarUrl: string | null; cor: string | null } => {
+    if (autorId === null) return { nome: 'usuário removido', avatarUrl: null, cor: null }
+    const membro = members.find(m => m.userId === autorId && m.groupId === grupoDoCanal)
+      ?? members.find(m => m.userId === autorId)
+    return {
+      nome: membro?.displayName ?? 'usuário removido',
+      avatarUrl: membro?.avatarUrl ?? null,
+      cor: grupoDoCanal === null ? null : corDoMembro({ cargos, cargosDoMembro }, grupoDoCanal, autorId),
+    }
+  }
 
   /**
    * Marcar como lido enquanto a pessoa esta olhando o fim da conversa.
@@ -187,8 +210,12 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
         aria-label="Mensagens"
         aria-live={escrevendo ? 'off' : 'polite'}
         aria-relevant="additions"
+        // Sem `gap` uniforme: o ritmo vem da propria mensagem (Design System
+        // v2). Linhas do mesmo autor ficam coladas; um autor novo abre espaco.
+        // Com o `gap` de antes, a segunda linha de uma pessoa ficava tao longe
+        // da primeira quanto a fala de outra pessoa.
         className="flex flex-1 flex-col overflow-y-auto"
-        style={{ padding: 'var(--space-gutter)', gap: 'var(--space-row)' }}
+        style={{ padding: 'var(--space-gutter)' }}
       >
         {historico?.anteriores === 'carregando' && (
           <p role="status" className="py-2 text-center text-xs text-fg-muted">
@@ -259,13 +286,18 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
             && mensagem.id > marcoDeAbertura.current
             && (anterior === undefined || anterior.id <= marcoDeAbertura.current)
 
+          const autor = pessoaDe(mensagem.authorId)
+          const meMenciona = eu !== null && mensagem.authorId !== eu
+            && (mensagem.mentionsEveryone === true || (mensagem.mentions ?? []).includes(eu))
+          const confirmada = mensagem.envio === undefined
+
           return (
             <div key={mensagem.id} className="flex flex-col">
               {primeiraNova && (
                 <div
                   role="separator"
                   aria-label="Novas mensagens"
-                  className="my-2 flex items-center gap-2 text-[11px] font-semibold text-accent"
+                  className="my-2 flex items-center gap-2 text-xs font-semibold text-accent"
                 >
                   <span className="h-px flex-1 bg-accent" />
                   Novas mensagens
@@ -275,7 +307,7 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
               {trocouDeDia && (
                 <div
                   role="separator"
-                  className="my-2 flex items-center gap-2 text-[11px] text-fg-muted"
+                  className="my-3 flex items-center gap-2 text-xs font-medium text-fg-muted"
                 >
                   <span className="h-px flex-1 bg-border-subtle" />
                   {DIA.format(new Date(mensagem.createdAt))}
@@ -283,94 +315,145 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
                 </div>
               )}
 
+              {/*
+                Mensagem v2: avatar na primeira linha do bloco, hora no hover
+                das seguintes, acoes numa barra flutuante.
+
+                A mensagem que me menciona ganha o fundo `accentSubtle` e a
+                faixa lateral do acento — e a unica linha da conversa que e
+                COMIGO, e ela tem de se achar de relance num canal de cem.
+              */}
               <article
                 aria-busy={mensagem.envio === 'enviando' ? 'true' : undefined}
-                className={mensagem.envio === 'enviando' ? 'opacity-60' : undefined}
-              >
-                {/*
-                  A citacao vem ANTES do cabecalho porque e ela que da o
-                  contexto: ler o nome de quem falou antes de saber a que se
-                  responde inverte a ordem em que a frase faz sentido.
-
-                  `replyToId` presente com a citada ausente e o caso normal de
-                  mensagem apagada — o `SET NULL` do banco preserva a resposta
-                  de proposito, e a linha diz isso em vez de sumir.
-                */}
-                {(mensagem.replyToId !== null && mensagem.replyToId !== undefined) && (
-                  <p className="truncate border-l-2 border-border pl-2 text-[11px] text-fg-muted">
-                    {citada === undefined
-                      ? 'Em resposta a uma mensagem apagada'
-                      : `Em resposta a ${nomeDe(citada.authorId)}: ${citada.content.slice(0, 80)}`}
-                  </p>
+                aria-label={meMenciona ? `Menciona você: ${autor.nome}` : undefined}
+                onPointerUp={evento => {
+                  // No toque nao ha hover: tocar na mensagem revela as acoes.
+                  if (evento.pointerType === 'touch') setAtiva(mensagem.id)
+                }}
+                className={cn(
+                  `group/mensagem relative -mx-2 flex gap-3 rounded-md border-l-2 px-2
+                   hover:bg-bg-hover/40 focus-within:bg-bg-hover/40`,
+                  agrupada ? 'py-px' : 'mt-3 pb-0.5 pt-1 first:mt-0',
+                  meMenciona ? 'border-accent bg-accent-subtle hover:bg-accent-subtle' : 'border-transparent',
+                  mensagem.envio === 'enviando' && 'opacity-60',
                 )}
-                {!agrupada && (
-                  <p className="flex items-baseline gap-2">
-                    <span className="text-[13px] font-semibold text-fg">
-                      {nomeDe(mensagem.authorId)}
-                    </span>
+              >
+                <div className="w-8 shrink-0">
+                  {agrupada ? (
                     <time
                       dateTime={mensagem.createdAt}
-                      className="font-mono text-[11px] text-fg-muted"
+                      aria-hidden="true"
+                      className="numerico -ml-1 block whitespace-nowrap pt-0.5 text-right font-mono
+                                 text-xs leading-5 tracking-tight text-fg-muted opacity-0 group-hover/mensagem:opacity-100
+                                 group-focus-within/mensagem:opacity-100"
                     >
                       {HORA.format(new Date(mensagem.createdAt))}
                     </time>
-                  </p>
-                )}
-                {/*
-                  Foto sem legenda e mensagem legitima, e o servidor a aceita.
-                  Um paragrafo vazio abriria um buraco de linha entre o nome e a
-                  imagem, entao ele so existe quando ha texto.
-                */}
-                {mensagem.content !== '' && (
-                  <p className="whitespace-pre-wrap break-words text-sm text-fg">
-                    {mensagem.content}
-                    {mensagem.editedAt !== null && (
-                      <span className="ml-1 text-[11px] text-fg-muted">(editada)</span>
-                    )}
-                  </p>
-                )}
-                <Anexos anexos={mensagem.attachments ?? []} />
+                  ) : (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      onClick={() => { if (mensagem.authorId !== null) abrirPerfil(mensagem.authorId) }}
+                      className="mt-0.5 block rounded-full"
+                    >
+                      <Avatar nome={autor.nome} url={autor.avatarUrl} tamanho="md" />
+                    </button>
+                  )}
+                </div>
 
-                {/*
-                  Reagir e responder so existem para mensagem JA CONFIRMADA:
-                  um eco otimista ainda nao tem id no servidor, e reagir a ele
-                  bateria num 404.
-                */}
-                {mensagem.envio === undefined && (
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  {/*
+                    A citacao vem ANTES do cabecalho porque e ela que da o
+                    contexto. O texto inteiro vai para o elemento e o corte e do
+                    CSS, com reticencias: cortar a string em 80 caracteres
+                    deixava a frase terminar no meio de uma palavra, sem aviso.
+
+                    `replyToId` presente com a citada ausente e o caso normal de
+                    mensagem apagada — o `SET NULL` do banco preserva a resposta
+                    de proposito, e a linha diz isso em vez de sumir.
+                  */}
+                  {(mensagem.replyToId !== null && mensagem.replyToId !== undefined) && (
+                    <p className="mb-0.5 max-w-[72ch] truncate border-l-2 border-border pl-2 text-xs text-fg-muted">
+                      {citada === undefined
+                        ? 'Em resposta a uma mensagem apagada'
+                        : `Em resposta a ${nomeDe(citada.authorId)}: ${citada.content}`}
+                    </p>
+                  )}
+                  {!agrupada && (
+                    <p className="flex items-baseline gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { if (mensagem.authorId !== null) abrirPerfil(mensagem.authorId) }}
+                        className="cor-de-cargo text-sm font-semibold text-fg hover:underline"
+                        style={autor.cor === null ? undefined : { '--cor-cargo': autor.cor } as CSSProperties}
+                      >
+                        {autor.nome}
+                      </button>
+                      <time
+                        dateTime={mensagem.createdAt}
+                        className="numerico font-mono text-xs text-fg-muted"
+                      >
+                        {HORA.format(new Date(mensagem.createdAt))}
+                      </time>
+                    </p>
+                  )}
+                  {/*
+                    Foto sem legenda e mensagem legitima, e o servidor a aceita.
+                    Um paragrafo vazio abriria um buraco de linha entre o nome e
+                    a imagem, entao ele so existe quando ha texto.
+
+                    72 caracteres de largura, e nao a coluna inteira: numa janela
+                    de 1440px a linha passava de 110, e o olho perde a volta.
+                  */}
+                  {mensagem.content !== '' && (
+                    <p className="max-w-[72ch] whitespace-pre-wrap break-words text-corpo text-fg">
+                      {mensagem.content}
+                      {mensagem.editedAt !== null && (
+                        <span className="ml-1 text-xs text-fg-muted">(editada)</span>
+                      )}
+                    </p>
+                  )}
+                  <Anexos anexos={mensagem.attachments ?? []} />
+
+                  {confirmada && (
                     <Reacoes
                       messageId={mensagem.id}
                       reacoes={mensagem.reactions ?? []}
                       eu={eu}
                     />
-                    {aoResponder !== undefined && (
+                  )}
+                  {mensagem.envio === 'falhou' && (
+                    <p className="flex items-center gap-2 text-xs text-danger">
+                      Não foi enviada.
+                      {/*
+                        O reenvio leva o mesmo ID: se a primeira tentativa
+                        chegou e so a resposta se perdeu, o servidor recusa a
+                        duplicata em vez de aceitar duas vezes a mesma fala.
+                      */}
                       <button
                         type="button"
-                        onClick={() => { aoResponder(mensagem) }}
-                        className="text-[11px] text-fg-muted underline underline-offset-2
-                                   hover:text-fg"
+                        onClick={() => void reenviarMensagem(mensagem)}
+                        className="font-medium underline underline-offset-2"
                       >
-                        Responder
+                        Tentar de novo
                       </button>
-                    )}
-                  </div>
-                )}
-                {mensagem.envio === 'falhou' && (
-                  <p className="flex items-center gap-2 text-xs text-danger">
-                    Não foi enviada.
-                    {/*
-                      O reenvio leva o mesmo ID: se a primeira tentativa chegou
-                      e so a resposta se perdeu, o servidor recusa a duplicata
-                      em vez de aceitar duas vezes a mesma fala.
-                    */}
-                    <button
-                      type="button"
-                      onClick={() => void reenviarMensagem(mensagem)}
-                      className="underline underline-offset-2"
-                    >
-                      Tentar de novo
-                    </button>
-                  </p>
+                    </p>
+                  )}
+                </div>
+
+                {/*
+                  Reagir e responder so existem para mensagem JA CONFIRMADA: um
+                  eco otimista ainda nao tem id no servidor, e reagir a ele
+                  bateria num 404.
+                */}
+                {confirmada && (
+                  <AcoesDaMensagem
+                    mensagem={mensagem}
+                    eu={eu}
+                    visivel={ativa === mensagem.id}
+                    {...(aoResponder === undefined ? {} : { aoResponder })}
+                  />
                 )}
               </article>
             </div>
@@ -383,7 +466,7 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
           type="button"
           onClick={irParaOFim}
           className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded border border-border
-                     bg-bg-raised px-3 py-1 text-xs text-fg shadow"
+                     bg-bg-raised px-3 py-1 text-xs text-fg shadow-popover"
         >
           Novas mensagens
         </button>
@@ -394,7 +477,7 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
         e altissima frequencia, e anuncia-la seria ruido puro.
       */}
       {digitando !== undefined && digitando.length > 0 && (
-        <p className="px-4 pb-1 text-[11px] text-fg-muted">
+        <p className="px-4 pb-1 text-xs text-fg-muted">
           {digitando.join(', ')} {digitando.length === 1 ? 'está digitando' : 'estão digitando'}...
         </p>
       )}

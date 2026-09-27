@@ -140,7 +140,7 @@ export function PaletaDeComandos({ aberta, aoFechar }: {
           aria-label="Buscar"
           className={cn(
             `fixed left-1/2 top-[12vh] z-50 flex w-[min(36rem,calc(100%-2rem))]
-             -translate-x-1/2 flex-col overflow-hidden rounded-xl border
+             -translate-x-1/2 flex-col overflow-hidden rounded-lg border
              border-border-subtle bg-bg-raised shadow-dialog
              data-[state=open]:animate-in data-[state=open]:fade-in-0
              data-[state=open]:zoom-in-95`,

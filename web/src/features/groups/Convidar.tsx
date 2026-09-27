@@ -166,7 +166,7 @@ export function Convidar({ groupId }: { groupId: string }): ReactNode {
                 <code className="font-mono text-[13px] tracking-wider text-fg">
                   {convite.code}
                 </code>
-                <span className="numerico text-[11px] text-fg-muted">
+                <span className="numerico text-xs text-fg-muted">
                   {convite.uses} de {convite.maxUses ?? 'sem limite'}
                 </span>
 

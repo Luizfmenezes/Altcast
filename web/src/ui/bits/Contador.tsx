@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { ReactNode } from 'react'
 import { motion } from 'motion/react'
 
@@ -42,10 +43,18 @@ export function Contador({ para, className }: {
   para: number
   className?: string
 }): ReactNode {
+  /**
+   * So anima quando o numero MUDA depois de montado (Design System v2: no modo
+   * de trabalho, movimento informa estado). Na montagem — trocar de grupo,
+   * abrir o painel — o numero nao mudou de nada; ele so apareceu, e anima-lo
+   * ali era enfeite repetido a cada clique.
+   */
+  const inicial = useRef(para)
+  const mudou = para !== inicial.current
   return (
     <motion.span
       key={para}
-      initial={{ y: '0.35em', opacity: 0.35 }}
+      initial={mudou ? { y: '0.35em', opacity: 0.35 } : false}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       className={`inline-block tabular-nums ${className ?? ''}`}

@@ -207,7 +207,7 @@ export function FaixaDeMidia({
       )}
 
       <figcaption
-        className={`truncate px-2 py-1 ${pequena ? 'text-[11px]' : 'text-xs'} ${
+        className={`truncate px-2 py-1 ${pequena ? 'text-xs' : 'text-xs'} ${
           cheia ? 'absolute bottom-0 left-0 bg-black/70 text-white' : 'text-fg-muted'}`}
       >
         {legenda}

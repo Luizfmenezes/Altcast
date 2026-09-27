@@ -88,7 +88,7 @@ export function Convites(): ReactNode {
             <span
               aria-hidden="true"
               className="numerico absolute -right-0.5 -top-0.5 flex min-w-4 items-center
-                         justify-center rounded-full bg-accent px-1 text-[10px]
+                         justify-center rounded-full bg-accent px-1 text-xs
                          font-semibold leading-4 text-accent-fg"
             >
               {convites.length}
@@ -106,8 +106,8 @@ export function Convites(): ReactNode {
         <Dialogo.Overlay className="fixed inset-0 z-40 bg-black/50" />
         <Dialogo.Content
           className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[min(92vw,30rem)]
-                     -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl
-                     border border-border-subtle bg-bg-raised p-6 text-fg shadow-lg"
+                     -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg
+                     border border-border-subtle bg-bg-raised p-6 text-fg shadow-dialog"
         >
           <Dialogo.Title className="text-[15px] font-semibold text-fg">
             Convites para você

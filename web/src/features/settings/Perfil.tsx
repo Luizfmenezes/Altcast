@@ -137,7 +137,7 @@ export function Perfil(): ReactNode {
   return (
     <div className="flex flex-col gap-6 p-4">
       <section className="flex flex-col gap-3">
-        <h3 className="text-[11px] uppercase tracking-wide text-fg-muted">Foto</h3>
+        <h3 className="text-xs uppercase tracking-wide text-fg-muted">Foto</h3>
         <div className="flex items-center gap-4">
           {/*
             A previa e o mesmo componente da barra lateral, e nao uma imagem
@@ -196,7 +196,7 @@ export function Perfil(): ReactNode {
       <Separador />
 
       <form onSubmit={evento => { void salvarNome(evento) }} className="flex flex-col gap-3" noValidate>
-        <h3 className="text-[11px] uppercase tracking-wide text-fg-muted">Nome de exibição</h3>
+        <h3 className="text-xs uppercase tracking-wide text-fg-muted">Nome de exibição</h3>
         <Campo
           rotulo="Como os outros te veem"
           valor={nome}
@@ -217,7 +217,7 @@ export function Perfil(): ReactNode {
       <Separador />
 
       <form onSubmit={evento => { void salvarHandle(evento) }} className="flex flex-col gap-3" noValidate>
-        <h3 className="text-[11px] uppercase tracking-wide text-fg-muted">Nome de usuário</h3>
+        <h3 className="text-xs uppercase tracking-wide text-fg-muted">Nome de usuário</h3>
         <Campo
           rotulo="Como te encontram"
           valor={handle}

@@ -349,8 +349,8 @@ export function Composer({
           onBlur={aoDesfocar}
           onPaste={aoColar}
           placeholder="Escrever..."
-          className="w-full resize-none rounded border border-border bg-bg px-3 py-2 text-sm
-                     text-fg placeholder:text-fg-muted"
+          className="w-full resize-none rounded-md border border-border bg-bg-sunken px-3 py-2
+                     text-corpo text-fg placeholder:text-fg-muted"
         />
         <Mencoes
           id={idDaLista}

@@ -125,14 +125,29 @@ export function Porta({ children }: { children: ReactNode }): ReactNode {
   )
 }
 
-/** Cabecalho da porta: a marca em mono espacada e o titulo em peso 800. */
-export function TituloDaPorta({ titulo, subtitulo }: {
+/**
+ * Cabecalho da porta: a marca em mono espacada e o titulo em peso 800.
+ *
+ * A marca leva o ponto "no ar" — o mesmo ambar vivo que, dentro do app, so
+ * aparece em volta de quem esta falando. E a ponte entre a porta e o produto:
+ * antes a identidade morria no login, e nada la dentro lembrava dela.
+ *
+ * `semMarca` existe para a tela em que o TITULO ja e a marca ("ALT/CAST"): o
+ * login dizia "Altcast" tres vezes — no rotulo, no titulo e no subtitulo.
+ */
+export function TituloDaPorta({ titulo, subtitulo, semMarca = false }: {
   titulo: ReactNode
   subtitulo?: string
+  semMarca?: boolean
 }): ReactNode {
   return (
     <header style={{ marginBlockEnd: '2rem' }}>
-      <span className="marca-da-porta">Altcast</span>
+      {!semMarca && (
+        <span className="marca-da-porta">
+          <span className="ponto-no-ar" aria-hidden="true" />
+          Altcast
+        </span>
+      )}
       <h1 className="titulo-da-porta">{titulo}</h1>
       {subtitulo !== undefined && <p className="subtitulo-da-porta">{subtitulo}</p>}
     </header>

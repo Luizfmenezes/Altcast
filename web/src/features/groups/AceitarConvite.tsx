@@ -88,7 +88,7 @@ export function AceitarConvite({ codigo, automatico = false }: {
         <Dialogo.Overlay className="fixed inset-0 z-40 bg-bg/70 backdrop-blur-sm" />
         <Dialogo.Content
           className="fixed left-1/2 top-1/2 z-50 w-[min(24rem,calc(100%-2rem))]
-                     -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-subtle
+                     -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border-subtle
                      bg-bg-raised p-6 text-center shadow-dialog"
         >
           {falhou || previa?.valid === false ? (
@@ -109,7 +109,7 @@ export function AceitarConvite({ codigo, automatico = false }: {
             // que a espera.
             <div className="flex flex-col items-center gap-3" aria-busy="true">
               <Dialogo.Title className="sr-only">Carregando convite</Dialogo.Title>
-              <div className="size-14 rounded-xl bg-bg-hover" />
+              <div className="size-14 rounded-lg bg-bg-hover" />
               <div className="h-4 w-36 rounded bg-bg-hover" />
               <div className="h-3 w-20 rounded bg-bg-hover" />
               <div className="mt-2 h-9 w-full rounded-md bg-bg-hover" />

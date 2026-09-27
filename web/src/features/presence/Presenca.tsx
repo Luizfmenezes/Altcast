@@ -57,7 +57,7 @@ export function Presenca({ status, modo = 'texto' }: {
   return (
     <span className="inline-flex items-center gap-1.5">
       {ponto}
-      <span className="text-[11px] text-fg-muted">{status}</span>
+      <span className="text-xs text-fg-muted">{status}</span>
     </span>
   )
 }

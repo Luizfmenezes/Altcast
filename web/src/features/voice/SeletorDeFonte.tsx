@@ -113,8 +113,8 @@ export function SeletorDeFonte({ aberto, aoFechar, aoEscolher, listar }: {
         <Dialogo.Content
           className="fixed left-1/2 top-1/2 z-50 flex max-h-[min(85vh,44rem)]
                      w-[min(52rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2
-                     flex-col rounded-xl border border-border-subtle bg-bg-raised p-6
-                     shadow-[0_8px_16px_-8px_rgb(0_0_0/0.28),0_24px_48px_-12px_rgb(0_0_0/0.32)]
+                     flex-col rounded-lg border border-border-subtle bg-bg-raised p-6
+                     shadow-dialog
                      data-[state=open]:animate-in data-[state=open]:fade-in-0
                      data-[state=open]:zoom-in-95"
         >

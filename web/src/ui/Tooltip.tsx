@@ -50,7 +50,7 @@ export function Dica({
           className={cn(
             `z-50 flex items-center gap-2 rounded-md border border-border-subtle
              bg-bg-raised px-2.5 py-1.5 text-[13px] font-medium text-fg
-             shadow-[0_2px_4px_-2px_rgb(0_0_0/0.20),0_6px_16px_-4px_rgb(0_0_0/0.18)]
+             shadow-popover
              select-none
              data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0
              data-[state=delayed-open]:zoom-in-95
@@ -59,7 +59,7 @@ export function Dica({
         >
           {texto}
           {atalho !== undefined && (
-            <span className="font-mono text-[10px] text-fg-muted">{atalho}</span>
+            <span className="font-mono text-xs text-fg-muted">{atalho}</span>
           )}
           <Primitiva.Arrow className="fill-bg-raised" width={10} height={5} />
         </Primitiva.Content>

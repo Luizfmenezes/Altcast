@@ -32,7 +32,25 @@ const PARES: Array<[keyof typeof LIGHT, keyof typeof LIGHT, number]> = [
   ['accentLive', 'bgRaised', 3],
   ['warning', 'bg', 4.5],
   ['warning', 'bgRaised', 4.5],
+  // O campo de escrita e os formularios afundam no `bgSunken`.
+  ['fg', 'bgSunken', 4.5],
+  ['fgMuted', 'bgSunken', 4.5],
+  ['border', 'bgSunken', 3],
+  ['accent', 'bgSunken', 4.5],
 ]
+
+/**
+ * `accentSubtle` e translucido no escuro (um veu de ambar). O contraste que
+ * importa e o do texto sobre o RESULTADO — o veu composto sobre o fundo em que
+ * ele aparece —, e nao sobre um hexadecimal com alfa que ninguem ve sozinho.
+ */
+function sobre(cor: string, fundo: string): string {
+  if (cor.length !== 9) return cor
+  const a = parseInt(cor.slice(7, 9), 16) / 255
+  const canal = (h: string, i: number): number => parseInt(h.slice(i, i + 2), 16)
+  return '#' + [1, 3, 5].map(i => Math.round(canal(cor, i) * a + canal(fundo, i) * (1 - a))
+    .toString(16).padStart(2, '0')).join('')
+}
 
 describe('contraste WCAG 2.2 AA', () => {
   for (const [a, b, min] of PARES) {
@@ -42,6 +60,16 @@ describe('contraste WCAG 2.2 AA', () => {
     it(`${a} sobre ${b} no tema escuro atinge ${min}:1`, () => {
       expect(contrast(DARK[a], DARK[b])).toBeGreaterThanOrEqual(min)
     })
+  }
+
+  for (const [nome, tema] of [['claro', LIGHT], ['escuro', DARK]] as const) {
+    for (const fundo of ['bg', 'bgRaised'] as const) {
+      it(`texto sobre a mencao (accentSubtle em ${fundo}) no tema ${nome} atinge 4.5:1`, () => {
+        const composto = sobre(tema.accentSubtle, tema[fundo])
+        expect(contrast(tema.fg, composto)).toBeGreaterThanOrEqual(4.5)
+        expect(contrast(tema.fgMuted, composto)).toBeGreaterThanOrEqual(4.5)
+      })
+    }
   }
 
   it('os dois temas definem exatamente as mesmas chaves', () => {

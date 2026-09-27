@@ -2,21 +2,20 @@ import type { HTMLAttributes, ReactNode } from 'react'
 import { cn } from '../lib/utils.js'
 
 /**
- * Superficie elevada.
+ * Uma secao agrupada.
  *
- * A sombra tem deslocamento vertical e desfoque porque e assim que sombra
- * funciona; um halo sem deslocamento e so um contorno colorido fingindo
- * profundidade. Ela e discreta de proposito: no tema escuro quem separa a
- * superficie do fundo e a borda, nao a sombra, que praticamente some sobre
- * preto.
+ * AFUNDADA, e nao elevada (Design System v2). Quase todo cartao do app mora
+ * dentro de algo ja elevado — um dialogo, uma coluna —, e cartao elevado
+ * dentro de superficie elevada e o "cartao dentro de cartao": duas bordas, duas
+ * sombras e nenhuma hierarquia. O fundo `bgSunken` diz "isto e um grupo" sem
+ * competir com o dialogo que o contem.
  */
 export function Card({ className, children, ...resto }: HTMLAttributes<HTMLDivElement>): ReactNode {
   return (
     <div
       {...resto}
       className={cn(
-        `rounded-xl border border-border-subtle bg-bg-raised
-         shadow-[0_1px_2px_-1px_rgb(0_0_0/0.12),0_2px_8px_-2px_rgb(0_0_0/0.10)]`,
+        'rounded-lg border border-border-subtle bg-bg-sunken',
         className,
       )}
     >
@@ -37,7 +36,7 @@ export function CardCabecalho({ className, children, ...resto }: HTMLAttributes<
 
 export function CardTitulo({ className, children, ...resto }: HTMLAttributes<HTMLHeadingElement>): ReactNode {
   return (
-    <h2 {...resto} className={cn('text-[15px] font-semibold leading-tight text-fg', className)}>
+    <h2 {...resto} className={cn('text-base font-semibold leading-tight text-fg', className)}>
       {children}
     </h2>
   )
@@ -45,7 +44,7 @@ export function CardTitulo({ className, children, ...resto }: HTMLAttributes<HTM
 
 export function CardDescricao({ className, children, ...resto }: HTMLAttributes<HTMLParagraphElement>): ReactNode {
   return (
-    <p {...resto} className={cn('text-[13px] leading-relaxed text-fg-muted', className)}>
+    <p {...resto} className={cn('text-sm leading-relaxed text-fg-muted', className)}>
       {children}
     </p>
   )

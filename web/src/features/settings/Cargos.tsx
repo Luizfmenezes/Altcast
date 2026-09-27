@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Plus, Shield, Trash2, TriangleAlert } from 'lucide-react'
 import { ApiError, api } from '../../lib/api.js'
 import { useStore, possoNoGrupo } from '../../lib/store.js'
@@ -33,10 +33,26 @@ import type { Acao, Cargo, DescricaoDeAcao } from '../../lib/tipos.js'
  * interruptor que nao muda nada so ensina que os interruptores mentem.
  */
 
-const PALETA = [
-  '#5865F2', '#3BA55D', '#FAA81A', '#ED4245', '#EB459E',
-  '#9B59B6', '#1ABC9C', '#E67E22', '#95A5A6', '#11806A',
+/**
+ * A paleta de cargos, propria do Altcast.
+ *
+ * Eram os hexadecimais do Discord — `#5865F2`, `#3BA55D`, `#ED4245` —, e com
+ * eles um cargo "Moderador" vermelho era indistinguivel do vermelho de erro, e
+ * um verde, da bolinha de online. A v2 gera a escala em OKLCH (L 0,72, C 0,14)
+ * e descarta os matizes a menos de 15 de distancia OKLab do `danger` e do
+ * `presenceOnline`: sobram o ocre e a faixa azul-violeta, completados por tres
+ * tons claros (L 0,84) para chegar a dez. Mais que isso nao caberia sem voltar
+ * a encostar no vermelho ou no verde — e o plano que pedia dez cores a cada
+ * 36 graus nao sobrevive a essa medida.
+ *
+ * O NOME colorido passa por `.cor-de-cargo`, que segura a claridade de cada cor
+ * numa faixa legivel no tema claro e no escuro.
+ */
+export const PALETA_DE_CARGOS = [
+  '#c0a320', '#00b6e6', '#4dacf6', '#79a1fc', '#9c96f8',
+  '#b98cea', '#cb86db', '#dfca7d', '#9ed0ff', '#d3befd',
 ] as const
+const PALETA = PALETA_DE_CARGOS
 
 const SECOES: DescricaoDeAcao['secao'][] = ['Grupo', 'Canais', 'Mensagens', 'Voz']
 
@@ -50,8 +66,10 @@ const SECOES: DescricaoDeAcao['secao'][] = ['Grupo', 'Canais', 'Mensagens', 'Voz
 function ChipDeCor({ cor, nome }: { cor: string | null; nome: string }): ReactNode {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[12px] font-medium"
-      style={cor === null ? undefined : { color: cor, backgroundColor: `${cor}1f` }}
+      className="cor-de-cargo inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs font-medium"
+      style={cor === null
+        ? undefined
+        : { '--cor-cargo': cor, backgroundColor: `${cor}1f` } as CSSProperties}
     >
       <span
         aria-hidden="true"
@@ -263,7 +281,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
                   />
                   <span className="min-w-0 flex-1 truncate">{cargo.name}</span>
                   {cargo.isDefault && (
-                    <span className="shrink-0 text-[10px] uppercase tracking-wide text-fg-muted">
+                    <span className="shrink-0 text-xs uppercase tracking-wide text-fg-muted">
                       todos
                     </span>
                   )}
@@ -354,7 +372,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
                 </div>
 
                 <fieldset disabled={!posso || !alcanco} className="flex flex-col gap-2">
-                  <legend className="text-[11px] uppercase tracking-wide text-fg-muted">
+                  <legend className="text-xs uppercase tracking-wide text-fg-muted">
                     Cor
                   </legend>
                   <div className="flex flex-wrap gap-1.5">
@@ -381,7 +399,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
                       aria-pressed={atual.color === null}
                       className={cn(
                         `flex size-7 items-center justify-center rounded-md border-2
-                         text-[10px] text-fg-muted transition-transform hover:scale-110`,
+                         text-xs text-fg-muted transition-transform hover:scale-110`,
                         atual.color === null ? 'border-fg' : 'border-border-subtle',
                       )}
                     >
@@ -398,7 +416,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
                 if (itens.length === 0) return null
                 return (
                   <fieldset key={secao} disabled={!posso || !alcanco} className="flex flex-col gap-1">
-                    <legend className="mb-1 text-[11px] uppercase tracking-wide text-fg-muted">
+                    <legend className="mb-1 text-xs uppercase tracking-wide text-fg-muted">
                       {secao}
                     </legend>
                     {itens.map(d => {
@@ -429,7 +447,7 @@ export function Cargos({ groupId }: { groupId: string }): ReactNode {
                               {d.sensivel === true && (
                                 <span
                                   className="inline-flex items-center gap-1 rounded bg-danger/12
-                                             px-1.5 py-0.5 text-[10px] font-medium text-danger"
+                                             px-1.5 py-0.5 text-xs font-medium text-danger"
                                 >
                                   <TriangleAlert aria-hidden="true" className="size-3" />
                                   poder sobre pessoas

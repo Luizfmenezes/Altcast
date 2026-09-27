@@ -8,7 +8,9 @@
  * precisa dela num chamado de suporte.
  *
  * Nao e deteccao de navegador para decidir comportamento — isso seria fragil
- * e errado. E so um rotulo, e um rotulo que erra diz "Navegador".
+ * e errado. E so um rotulo. Quando nada e reconhecido, o rotulo e o proprio
+ * texto cru, encurtado: um cliente de API ou um app desconhecido se reconhece
+ * melhor pelo nome que ele mesmo se deu do que por um "Navegador" generico.
  */
 
 type Regra = [RegExp, string]
@@ -44,7 +46,7 @@ export function descreverAparelho(ua: string | null): string {
   const navegador = primeiro(NAVEGADORES, ua)
   const sistema = primeiro(SISTEMAS, ua)
   if (navegador !== null && sistema !== null) return `${navegador} no ${sistema}`
-  return navegador ?? sistema ?? 'Navegador'
+  return navegador ?? sistema ?? (ua.length > 40 ? `${ua.slice(0, 40)}…` : ua)
 }
 
 const RELATIVO = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' })

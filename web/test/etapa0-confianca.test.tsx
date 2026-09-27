@@ -488,3 +488,20 @@ describe('0.10 · sessões legíveis', () => {
     expect(haQuanto('2026-09-25T12:00:00Z', agora)).toBe('ontem')
   })
 })
+
+describe('B13 · sair também sem grupo nenhum', () => {
+  it('a tela de boas-vindas oferece "Sair"', async () => {
+    const { BoasVindas } = await import('../src/features/groups/BoasVindas.js')
+    const pessoa = userEvent.setup()
+    const expirou = vi.fn()
+    window.addEventListener(SESSAO_EXPIROU, expirou)
+    render(<BoasVindas />)
+    await pessoa.click(screen.getByRole('button', { name: 'Sair' }))
+    await waitFor(() => expect(expirou).toHaveBeenCalledTimes(1))
+    window.removeEventListener(SESSAO_EXPIROU, expirou)
+  })
+
+  it('user-agent desconhecido aparece cru, e não como "Navegador"', () => {
+    expect(descreverAparelho('AparelhoDeTeste-123')).toBe('AparelhoDeTeste-123')
+  })
+})

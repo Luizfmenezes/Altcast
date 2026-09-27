@@ -108,7 +108,6 @@ export function Cadastro({ codigo, aoEntrar }: {
         />
 
         <div className="envio-da-porta">
-          <span className="gota" aria-hidden="true" />
           <Botao type="submit" tamanho="lg" largura="cheia" disabled={enviando}>
             {enviando ? 'Criando…' : 'Criar conta e entrar'}
           </Botao>

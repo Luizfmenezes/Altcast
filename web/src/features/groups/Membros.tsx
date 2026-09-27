@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode, CSSProperties } from 'react'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { Check, Crown, ShieldCheck, Tags, UserMinus, UserPlus } from 'lucide-react'
 import { ApiError, api } from '../../lib/api.js'
@@ -30,10 +30,10 @@ function ChipsDeCargo({ cargos }: { cargos: Cargo[] }): ReactNode {
       {cargos.map(c => (
         <span
           key={c.id}
-          className="inline-flex items-center gap-1 rounded px-1.5 py-px text-[11px] font-medium"
+          className="cor-de-cargo inline-flex items-center gap-1 rounded px-1.5 py-px text-xs font-medium"
           style={c.color === null
             ? undefined
-            : { color: c.color, backgroundColor: `${c.color}1f` }}
+            : { '--cor-cargo': c.color, backgroundColor: `${c.color}1f` } as CSSProperties}
         >
           <span
             aria-hidden="true"
@@ -194,7 +194,7 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
                   {membro.displayName}
                   {souEu && <span className="ml-1.5 text-fg-muted">(você)</span>}
                 </p>
-                <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-fg-muted">
+                <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-fg-muted">
                   {ehDono && <Crown aria-hidden="true" className="size-3" />}
                   {membro.role === 'admin' && <ShieldCheck aria-hidden="true" className="size-3" />}
                   {PAPEL_POR_EXTENSO[membro.role]}
@@ -222,7 +222,7 @@ export function Membros({ groupId }: { groupId: string }): ReactNode {
                         align="end"
                         sideOffset={6}
                         className="z-[60] max-h-64 min-w-48 overflow-y-auto rounded-lg border
-                                   border-border-subtle bg-bg-raised p-1 shadow-lg"
+                                   border-border-subtle bg-bg-raised p-1 shadow-popover"
                       >
                         {atribuiveis.map(cargo => {
                           const tem = cargosDe(membro.userId).some(c => c.id === cargo.id)

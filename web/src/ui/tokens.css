@@ -26,6 +26,8 @@
   --color-border-subtle: var(--color-border-subtle);
   --color-accent: var(--color-accent);
   --color-accent-fg: var(--color-accent-fg);
+  --color-accent-subtle: var(--color-accent-subtle);
+  --color-bg-sunken: var(--color-bg-sunken);
   --color-focus-ring: var(--color-focus-ring);
   --color-danger: var(--color-danger);
   --color-danger-fg: var(--color-danger-fg);
@@ -57,13 +59,25 @@
   --color-input: var(--color-border);
   --color-ring: var(--color-focus-ring);
 
-  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
   /* Monoespacada nos codigos de convite nao e estetica: 'K7M2P9XQ' assim e
      ditavel por telefone sem erro, e e literalmente como esse codigo circula. */
-  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
-  /* Reservada aos rotulos maiusculos e espacados da porta de entrada. Separada
-     de --font-mono porque ali a monoespacada e legibilidade, e aqui e voz. */
-  --font-tecnica: 'Space Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --font-mono: 'Geist Mono', ui-monospace, 'Cascadia Code', monospace;
+  /* Os rotulos maiusculos e espacados da porta de entrada. Era uma terceira
+     familia (Space Mono); agora e a mesma mono, e a voz da porta e a do app. */
+  --font-tecnica: 'Geist Mono', ui-monospace, monospace;
+
+  /* A escala da v2: 12 legenda minima, 13 meta, 14 UI, 15 corpo da mensagem,
+     16 titulo de secao, 20 titulo de tela, 24 titulo de dialogo. Nada
+     funcional abaixo de 12px. */
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.25rem;
+  --text-corpo: 0.9375rem;
+  --text-corpo--line-height: 1.5;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
 }
 
 /**
@@ -204,4 +218,21 @@ a { text-underline-offset: 0.2em; text-decoration-thickness: from-font; }
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: 4px;
+}
+
+/**
+ * O nome pintado pela cor do cargo, legivel nos dois temas.
+ *
+ * A cor do cargo e escolhida uma vez, mas desenhada sobre dois fundos opostos.
+ * Um amarelo que se le no escuro some no branco (1,9:1), e um azul escuro que
+ * se le no claro some no preto. A sintaxe de cor relativa segura a CLARIDADE
+ * numa faixa legivel para cada tema e preserva matiz e croma — a identidade da
+ * cor. Navegador sem a sintaxe fica com a primeira declaracao, a cor crua.
+ */
+.cor-de-cargo[style*='--cor-cargo'] {
+  color: var(--cor-cargo);
+  color: oklch(from var(--cor-cargo) clamp(0.72, l, 0.92) c h);
+}
+:root[data-theme='light'] .cor-de-cargo[style*='--cor-cargo'] {
+  color: oklch(from var(--cor-cargo) min(l, 0.5) c h);
 }

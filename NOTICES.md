@@ -41,3 +41,13 @@ substanciais do software — e o que este arquivo faz.
 | `motion` | MIT | `MotionConfig` na raiz, a pilula do grupo ativo e o contador. |
 | `gsap` + `@gsap/react` | Licenca padrao do GSAP (gratuita para uso nao-comercial de assinatura; os plugins antes exclusivos do Club, incluindo `SplitText`, passaram a ser gratuitos a partir do 3.13) | Apenas `TituloFatiado`, que usa `SplitText`. |
 | `ogl` | MIT | Apenas `Aurora`. |
+
+## Fontes
+
+| Fonte | Arquivos | Licenca |
+|---|---|---|
+| **Geist** e **Geist Mono** — Copyright 2024 The Geist Project Authors (<https://github.com/vercel/geist-font>) | `web/public/fontes/geist-*.woff2` (eixo variavel de peso, subsets latin e latin-ext, obtidos do pacote `@fontsource-variable/geist*` 5.3.0) | SIL Open Font License 1.1 |
+
+A OFL permite usar, embutir e redistribuir as fontes junto com o software,
+inclusive comercialmente; so proibe vende-las sozinhas e reutilizar o nome
+reservado numa versao modificada. Os arquivos sao os originais, sem alteracao.

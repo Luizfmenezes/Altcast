@@ -69,7 +69,11 @@ export function Login({ aoEntrar, convite }: {
 
   return (
     <>
-      <TituloDaPorta titulo={<>ALT<br />CAST</>} subtitulo="Entrar no Altcast" />
+      <TituloDaPorta
+        semMarca
+        titulo={<>ALT<span className="ponto-no-ar ponto-no-ar--titulo" aria-hidden="true" /><br />CAST</>}
+        subtitulo="Entre na sua conta."
+      />
 
       {convite !== undefined && <PreviaConvite codigo={convite} porta="login" />}
 
@@ -90,7 +94,6 @@ export function Login({ aoEntrar, convite }: {
         />
 
         <div className="envio-da-porta">
-          <span className="gota" aria-hidden="true" />
           <Botao type="submit" tamanho="lg" largura="cheia" disabled={enviando}>
             {enviando ? 'Entrando…' : 'Entrar'}
           </Botao>

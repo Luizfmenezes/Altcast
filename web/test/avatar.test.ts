@@ -15,7 +15,7 @@ describe('cores de avatar', () => {
     })
   }
 
-  // Nesta paleta o vermelho significa erro e o azul do acento significa
+  // Nesta paleta o vermelho significa erro e o ambar do acento significa
   // selecionado. Um avatar que caia em qualquer um dos dois passa a dizer
   // sobre a pessoa algo que o sistema reservou para outra coisa.
   const distancia = (a: string, b: string): number => {
@@ -26,8 +26,9 @@ describe('cores de avatar', () => {
 
   for (const [nome, reservada] of [
     ['o vermelho de erro', LIGHT.danger],
-    ['o azul do acento claro', LIGHT.accent],
-    ['o azul do acento escuro', DARK.accent],
+    ['o ambar do acento claro', LIGHT.accent],
+    ['o ambar do "no ar" claro', LIGHT.accentLive],
+    ['o ambar do acento escuro', DARK.accent],
   ] as const) {
     it(`nenhuma se confunde com ${nome}`, () => {
       for (const cor of CORES_DE_AVATAR) {

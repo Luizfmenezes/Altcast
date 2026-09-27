@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Download, MonitorSpeaker } from 'lucide-react'
+import { Download, MonitorSpeaker, X } from 'lucide-react'
 import { Botao } from '../../ui/Botao.js'
 import { nativo } from '../../lib/nativo.js'
 
@@ -42,16 +43,35 @@ export function ehWindows(): boolean {
   return /Windows/.test(navigator.userAgent)
 }
 
+const CHAVE_DISPENSADA = 'altcast:faixa-de-instalacao'
+
+function dispensadaAntes(): boolean {
+  try { return localStorage.getItem(CHAVE_DISPENSADA) === '1' } catch { return false }
+}
+
 export function FaixaDeInstalacao(): ReactNode {
+  /**
+   * Dispensavel, e lembrada. A faixa ocupava uma linha inteira do topo em
+   * TODA visita, para sempre, de quem ja tinha decidido nao instalar — e em
+   * janela estreita, cinco linhas. Um convite que nao aceita "nao, obrigado"
+   * vira ruido que se aprende a ignorar.
+   */
+  const [dispensada, setDispensada] = useState(dispensadaAntes)
   if (nativo() !== null) return null
   if (!ehWindows()) return null
+  if (dispensada) return null
+
+  function dispensar(): void {
+    setDispensada(true)
+    try { localStorage.setItem(CHAVE_DISPENSADA, '1') } catch { /* so nesta visita */ }
+  }
 
   return (
     <div
       role="complementary"
       aria-label="Aplicativo para Windows"
       className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b
-                 border-accent/30 bg-accent/10 px-3 py-2 text-[13px]"
+                 border-accent/30 bg-accent/10 px-3 py-2 text-sm"
     >
       <MonitorSpeaker
         aria-hidden="true"
@@ -67,7 +87,9 @@ export function FaixaDeInstalacao(): ReactNode {
       <p className="min-w-0 flex-1 text-fg">
         <strong className="font-semibold">Transmita com o som do jogo.</strong>
         {' '}
-        <span className="text-fg-muted">
+        {/* Em tela estreita, so a chamada: o porque inteiro empurrava a
+            conversa cinco linhas para baixo. */}
+        <span className="hidden text-fg-muted sm:inline">
           No navegador, compartilhar a janela de um programa nunca leva áudio. O
           aplicativo para Windows resolve isso, e ainda deixa a tecla de falar
           funcionando fora da janela.
@@ -85,6 +107,10 @@ export function FaixaDeInstalacao(): ReactNode {
           <Download aria-hidden="true" />
           Baixar o aplicativo
         </a>
+      </Botao>
+      <Botao variante="fantasma" tamanho="iconeSm" onClick={dispensar}>
+        <X aria-hidden="true" />
+        <span className="sr-only">Dispensar o aviso do aplicativo</span>
       </Botao>
     </div>
   )

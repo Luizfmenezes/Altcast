@@ -28,7 +28,7 @@ export function cargosPadrao(groupId: string): (typeof roles.$inferInsert)[] {
       permissions: [...PERMISSOES_DE_TODOS], isDefault: true,
     },
     {
-      id: newId(), groupId, name: 'Administrador', color: '#5865F2', position: 10,
+      id: newId(), groupId, name: 'Administrador', color: '#9c96f8', position: 10,
       permissions: [...PERMISSOES_DE_ADMIN], isDefault: false,
     },
   ]

@@ -8,13 +8,18 @@
  * documento em tempo de execucao: o que e testado e exatamente o que e servido.
  *
  * Paleta multidimensional, jamais dominada por um matiz (spec 05 secao 4):
- * neutro frio como estrutura, azul como unico acento de acao, verde apenas
+ * neutro frio como estrutura, AMBAR como unico acento de acao, verde apenas
  * para presenca, vermelho apenas para erro e destruicao. Quando o vermelho
  * aparece, ele significa alguma coisa.
  *
- * Os neutros sao levemente azulados (familia slate, e nao zinc) porque o
- * acento e azul: um cinza morto ao lado de um azul saturado le como sujeira,
- * e um cinza que compartilha o matiz do acento le como a mesma familia.
+ * O ambar e a luz de "no ar" de um estudio (Design System v2, decisao D1-B do
+ * super plano). O acento era o azul padrao do Tailwind, e com ele o app era
+ * intercambiavel com qualquer clone; o ambar liga o nome do produto — cast,
+ * transmissao — a forma. O tom mais vivo dele (`accentLive`) e reservado ao
+ * que esta no ar AGORA: quem fala, o que transmite.
+ *
+ * Os neutros continuam slate, levemente frios: o contraste de temperatura com
+ * um acento quente e o que faz o ambar ler como sinal, e nao como decoracao.
  */
 export type Palette = {
   /** Fundo da aplicacao. */
@@ -35,6 +40,14 @@ export type Palette = {
   accent: string
   /** Texto sobre o acento. */
   accentFg: string
+  /**
+   * Fundo discreto do acento: a mencao a mim, o canal com mencao, o item
+   * escolhido de uma lista. Nunca carrega texto em `accent` por cima — so
+   * `fg`, que e o que garante leitura nos dois temas.
+   */
+  accentSubtle: string
+  /** Fundo afundado: o campo de escrita e os campos de formulario. */
+  bgSunken: string
   /** Anel de foco, 2px com deslocamento (SC 2.4.11). */
   focusRing: string
   /** Exclusivo de erro e destruicao. */
@@ -54,11 +67,11 @@ export type Palette = {
 }
 
 /**
- * O azul do tema claro e bem mais escuro que o do escuro, e nao por gosto: ele
- * precisa alcancar 4.5:1 duas vezes - com texto branco por cima, quando e fundo
- * de botao, e sobre `bgHover`, quando e o nome do canal ativo. Um azul vibrante
- * como #3b82f6 passa no primeiro caso e da 3.1:1 no segundo, reprovando. A
- * conformidade decide o tom, e nao o inverso.
+ * O ambar do tema claro e bem mais escuro que o do escuro, e nao por gosto: ele
+ * precisa alcancar 4.5:1 duas vezes — com texto branco por cima, quando e fundo
+ * de botao, e sobre `bgHover`, quando e o nome do canal ativo. O `#b45309` do
+ * desenho original passa no primeiro caso e da 4.07:1 no segundo, reprovando.
+ * A conformidade decide o tom, e nao o inverso.
  */
 export const LIGHT: Palette = {
   bg: '#ffffff',
@@ -68,13 +81,15 @@ export const LIGHT: Palette = {
   fgMuted: '#475569',
   border: '#64748b',
   borderSubtle: '#cbd5e1',
-  accent: '#1d4ed8',
+  accent: '#a14a06',
   accentFg: '#ffffff',
-  focusRing: '#1d4ed8',
+  accentSubtle: '#fef3c7',
+  bgSunken: '#f8fafc',
+  focusRing: '#a14a06',
   danger: '#b91c1c',
   dangerFg: '#ffffff',
   presenceOnline: '#047857',
-  accentLive: '#b45309',
+  accentLive: '#c2610a',
   warning: '#9a5c06',
 }
 
@@ -87,9 +102,11 @@ export const DARK: Palette = {
   fgMuted: '#94a3b8',
   border: '#64748b',
   borderSubtle: '#2a313d',
-  accent: '#60a5fa',
-  accentFg: '#0a1020',
-  focusRing: '#60a5fa',
+  accent: '#f59e0b',
+  accentFg: '#1a1204',
+  accentSubtle: '#f59e0b1f',
+  bgSunken: '#040507',
+  focusRing: '#f59e0b',
   danger: '#f87171',
   dangerFg: '#0f172a',
   presenceOnline: '#34d399',

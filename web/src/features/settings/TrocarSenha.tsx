@@ -45,7 +45,7 @@ export function TrocarSenha(): ReactNode {
 
   return (
     <div>
-      <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
         Senha
       </h2>
 

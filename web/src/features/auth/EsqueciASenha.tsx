@@ -66,7 +66,6 @@ export function EsqueciASenha(): ReactNode {
           aparencia="linha" autoComplete="email" referencia={campo} obrigatorio
         />
         <div className="envio-da-porta">
-          <span className="gota" aria-hidden="true" />
           <Botao type="submit" tamanho="lg" largura="cheia" disabled={enviando}>
             {enviando ? 'Enviando...' : 'Enviar link'}
           </Botao>

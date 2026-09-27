@@ -202,7 +202,7 @@ export function ConvidarPessoa({ groupId }: { groupId: string }): ReactNode {
                 >
                   <span className="min-w-0 flex-1 truncate text-[13px] text-fg">{p.email}</span>
                   {p.role === 'admin' && (
-                    <span className="text-[11px] text-fg-muted">administrador</span>
+                    <span className="text-xs text-fg-muted">administrador</span>
                   )}
                   <ConfirmarAcao
                     gatilho={

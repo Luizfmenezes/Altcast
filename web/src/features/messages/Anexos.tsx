@@ -68,7 +68,7 @@ function CartaoDeDownload({ anexo }: { anexo: Anexo }): ReactNode {
       <FileText aria-hidden="true" className="size-5 shrink-0 text-fg-muted" />
       <span className="min-w-0 flex-1">
         <span className="block truncate">{anexo.filename}</span>
-        <span className="block font-mono text-[11px] text-fg-muted">
+        <span className="block font-mono text-xs text-fg-muted">
           {formatarTamanho(anexo.byteSize)}
         </span>
       </span>
@@ -99,7 +99,7 @@ function Um({ anexo }: { anexo: Anexo }): ReactNode {
   if (ehAudio(anexo)) {
     return (
       <figure className="max-w-sm">
-        <figcaption className="truncate text-[11px] text-fg-muted">{anexo.filename}</figcaption>
+        <figcaption className="truncate text-xs text-fg-muted">{anexo.filename}</figcaption>
         <audio src={urlDoAnexo(anexo.id)} controls preload="metadata" className="w-full" />
       </figure>
     )

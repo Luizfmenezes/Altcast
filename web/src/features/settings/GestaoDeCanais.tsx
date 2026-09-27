@@ -127,7 +127,7 @@ export function GestaoDeCanais({ groupId }: { groupId: string }): ReactNode {
 
   return (
     <div>
-      <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
         Canais
       </h2>
 
@@ -222,7 +222,7 @@ export function GestaoDeCanais({ groupId }: { groupId: string }): ReactNode {
                     {canal.type === 'voice' ? 'voz' : '#'}
                   </span>
                   <span>{canal.name}</span>
-                  <span className="text-[11px] text-fg-muted">
+                  <span className="text-xs text-fg-muted">
                     {canal.visibility === 'private' ? 'privado' : 'publico'}
                   </span>
                 </span>
@@ -230,7 +230,7 @@ export function GestaoDeCanais({ groupId }: { groupId: string }): ReactNode {
                 <span className="flex items-center gap-2">
                   {!canal.contentAccessible && (
                     <span
-                      className="rounded border border-border-subtle px-2 py-0.5 text-[11px]
+                      className="rounded border border-border-subtle px-2 py-0.5 text-xs
                                  text-fg-muted"
                     >
                       Conteúdo inacessível

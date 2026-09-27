@@ -73,8 +73,10 @@ Paleta **multidimensional**, jamais dominada por uma família de matiz:
 
 | Papel | Uso |
 |---|---|
-| Neutro frio (zinc) | Estrutura, fundos, texto, bordas — a maior parte da tela |
-| **Âmbar** | Único acento de ação: botão primário, canal ativo, menção |
+| Neutro frio (slate) | Estrutura, fundos, texto, bordas — a maior parte da tela |
+| **Âmbar** (`accent`) | Único acento de ação: botão primário, canal ativo, menção |
+| **Âmbar vivo** (`accentLive`) | Só o "no ar": quem fala, a sala com gente, a marca |
+| Amarelo (`warning`) | Aviso — sempre com ícone e texto |
 | Verde discreto | Exclusivamente presença online |
 | Vermelho | Exclusivamente erro e destruição |
 
@@ -89,15 +91,19 @@ variables; **nenhum componente escreve cor literal**.
 
 | Fonte | Onde | Por quê |
 |---|---|---|
-| **Inter** | Toda a interface | Legibilidade em tamanho pequeno, altura de x generosa |
-| **JetBrains Mono** | Códigos de convite, IDs, horários | Ver abaixo |
+| **Geist** | Toda a interface | Uma voz só, auto-hospedada, eixo variável |
+| **Geist Mono** | Códigos de convite, IDs, horários, rótulos da porta | Ver abaixo |
 
 A troca para monoespaçada nos códigos **não é estética**: `K7M2P9XQ` em
 monoespaçada é ditável por telefone sem erro — e é literalmente assim que esse
 código vai circular. A escolha do alfabeto (base32 de Crockford, sem as letras
 ambíguas) e a escolha da fonte servem à mesma finalidade.
 
-Escalas contextuais, entre 12 e 20 px. **Nenhum texto gigante decorativo.**
+Escala 12 · 13 · 14 · **15 (corpo da mensagem)** · 16 · 20 · 24 px, nada
+funcional abaixo de 12. **Nenhum texto gigante decorativo** fora da porta.
+
+Os valores, as regras de uso e os componentes do Design System v2 estão em
+`web/DESIGN.md`; as cores, em `web/src/ui/tokens.ts`.
 
 ## 6. Acessibilidade — WCAG 2.2 nível AA
 

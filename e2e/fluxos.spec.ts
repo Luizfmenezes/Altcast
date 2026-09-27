@@ -153,11 +153,12 @@ test.describe('fluxos da Fatia 1', () => {
     execSync('docker compose restart api', { stdio: 'ignore', env: AMBIENTE_COMPOSE })
 
     await expect(offline.getByRole('status', { name: 'Estado da conexão' }))
-      .toContainText('reconectando', { timeout: 60_000 })
+      .toContainText(/Reconectando|Sem conexão/, { timeout: 60_000 })
 
-    // A outra aba reconecta sozinha e volta a falar.
+    // A outra aba reconecta sozinha e volta a falar. Conectada, a calha se
+    // cala: a regiao viva fica vazia, pronta para anunciar a proxima queda.
     await expect(online.getByRole('status', { name: 'Estado da conexão' }))
-      .toContainText('conectado', { timeout: 60_000 })
+      .toHaveText('', { timeout: 60_000 })
 
     const marca = Date.now()
     for (const n of [1, 2, 3]) {
@@ -329,8 +330,9 @@ test.describe('confianca (Etapa 0)', () => {
     await contaNova(pessoa, 'saulo')
     await pessoa.goto('/')
 
-    await pessoa.getByRole('button', { name: /^Conta de / }).click()
-    await pessoa.getByRole('menuitem', { name: 'Sair' }).click()
+    // Conta nova ainda nao tem grupo: e a tela de boas-vindas, que tambem
+    // precisa deixar sair. (Com grupo, o "Sair" mora no menu do avatar.)
+    await pessoa.getByRole('button', { name: 'Sair' }).click()
 
     await expect(pessoa.getByLabel('Senha')).toBeVisible()
     const me = await pessoa.request.get('/api/auth/me')
