@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 /** As abas do dialogo de configuracoes. */
-export type AbaDeConfiguracoes = 'perfil' | 'conta' | 'midia' | 'grupo'
+export type AbaDeConfiguracoes = 'perfil' | 'conta' | 'midia' | 'atalhos' | 'grupo'
 
 /**
  * Aberto ou fechado, e em qual aba — fora do componente.

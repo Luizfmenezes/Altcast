@@ -50,7 +50,27 @@ export async function withTestDb(
   try {
     await fn(db)
   } finally {
-    await pool!.query(`TRUNCATE ${TABELAS} CASCADE`)
+    await esvaziar()
+  }
+}
+
+/**
+ * O TRUNCATE pede trava exclusiva em dezenas de tabelas, e um teste que
+ * inunda o servidor de proposito ainda pode ter leituras em voo quando ele
+ * chega: leitura segura a tabela A e espera a B, o TRUNCATE segura a B e
+ * espera a A, e o Postgres mata um dos dois (40P01). Nao e defeito do produto
+ * — e a limpeza competindo com o proprio teste —, e o remedio e tentar de
+ * novo quando as leituras terminarem.
+ */
+async function esvaziar(): Promise<void> {
+  for (let tentativa = 1; ; tentativa++) {
+    try {
+      await pool!.query(`TRUNCATE ${TABELAS} CASCADE`)
+      return
+    } catch (erro) {
+      if ((erro as { code?: string }).code !== '40P01' || tentativa >= 5) throw erro
+      await new Promise(r => setTimeout(r, 100 * tentativa))
+    }
   }
 }
 

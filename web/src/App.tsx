@@ -4,6 +4,7 @@ import { AppShell } from './AppShell.js'
 import { TelaAuth } from './features/auth/TelaAuth.js'
 import { AceitarConvite } from './features/groups/AceitarConvite.js'
 import { trocarPor, usarRota } from './lib/rota.js'
+import { useRotaDoCanal } from './lib/rotaDoCanal.js'
 import { Porta } from './features/auth/PalcoMercurio.js'
 import { VerificarEmail } from './features/auth/VerificarEmail.js'
 import { RedefinirSenha } from './features/auth/RedefinirSenha.js'
@@ -11,7 +12,9 @@ import { api, SESSAO_EXPIROU } from './lib/api.js'
 import { conectarSocket, type Conexao } from './lib/socket.js'
 import { canaisComHistorico, useStore } from './lib/store.js'
 import { cueDeEvento } from './features/voice/cues.js'
-import type { Ready, Usuario } from './lib/tipos.js'
+import type { Mensagem, Ready, Usuario } from './lib/tipos.js'
+import { avisarAtencaoSugerida, avisarMensagem, useIndicadorDeAtencao } from './lib/notificacoes.js'
+import { useOciosidade } from './lib/ociosidade.js'
 import { carregarHistorico } from './features/messages/historico.js'
 
 type Sessao = 'verificando' | 'fora' | 'dentro'
@@ -87,6 +90,10 @@ export function App(): ReactNode {
         // ver mudar. E so aqui, porque este e o unico lugar do sistema onde
         // "veio do servidor" e um fato estrutural — e nao uma suposicao.
         cueDeEvento(evento)
+        if (evento.t === 'message.created') avisarMensagem(evento.d as Mensagem)
+        if (evento.t === 'attention.suggested') {
+          avisarAtencaoSugerida(evento.d as { channelId: string; messageId: string })
+        }
       },
     })
 
@@ -110,6 +117,13 @@ export function App(): ReactNode {
   }, [sessao, canalAtivo])
 
   const entrou = useCallback(() => setSessao('dentro'), [])
+
+  // O canal aberto vive na URL (links diretos, Voltar do navegador).
+  useRotaDoCanal(rota, sessao === 'dentro')
+  // Titulo, favicon e icone do app contam as mencoes e as nao lidas.
+  useIndicadorDeAtencao(sessao === 'dentro')
+  // Dez minutos sem uso: os outros passam a ver "ausente".
+  useOciosidade(sessao === 'dentro')
 
   /**
    * Com sessao, os enderecos da porta nao significam mais nada.

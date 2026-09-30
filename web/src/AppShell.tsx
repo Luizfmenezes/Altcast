@@ -33,6 +33,9 @@ import { BoasVindas } from './features/groups/BoasVindas.js'
 import { Botao } from './ui/Botao.js'
 import { Kbd, teclaModificadora } from './ui/Kbd.js'
 import { CartaoDePerfil } from './features/presence/CartaoDePerfil.js'
+import { FaixaDeNotificacoes } from './features/presence/FaixaDeNotificacoes.js'
+import { MenuDeNotificacao } from './features/presence/MenuDeNotificacao.js'
+import { canalSilenciado } from './lib/atencao.js'
 
 /**
  * Quatro colunas: 64px fixos, e as outras tres negociaveis.
@@ -215,8 +218,16 @@ export function AppShell({ aoDigitar, latenciaMs }: {
   )
   const rodapeNaColuna = canaisFixos && canaisAbertos
 
+  const canalDoCabecalho = channels.find(c => c.id === canalAtivo) ?? null
   const acoesDoCanal = (
     <>
+      {canalDoCabecalho !== null && (
+        <MenuDeNotificacao
+          scopeType="channel"
+          scopeId={canalDoCabecalho.id}
+          groupId={canalDoCabecalho.groupId}
+        />
+      )}
       <button
         type="button"
         onClick={() => setBuscaAberta(true)}
@@ -287,6 +298,24 @@ export function AppShell({ aoDigitar, latenciaMs }: {
     if (destino && destino.id !== canalAtivo) escolherCanal(destino.id)
   }, [doGrupo, canalAtivo, escolherCanal])
 
+  /** Na ordem da barra: grupos na ordem do trilho, canais na ordem da lista. */
+  const irParaProximaNaoLida = useCallback((passo: 1 | -1) => {
+    const e = useStore.getState()
+    const ordem = e.groups.flatMap(g => e.channels.filter(c => c.groupId === g.id))
+    const acesos = ordem.filter(c => c.id !== e.canalAtivo
+      && ((e.naoLidas[c.id]?.n ?? 0) > 0 || (e.naoLidas[c.id]?.mentions ?? 0) > 0)
+      && !canalSilenciado(e, c))
+    if (acesos.length === 0) return
+    const aqui = ordem.findIndex(c => c.id === e.canalAtivo)
+    const depois = (c: typeof ordem[number]): number => {
+      const i = ordem.indexOf(c)
+      return ((i - aqui) * passo + ordem.length) % ordem.length
+    }
+    const destino = [...acesos].sort((a, b) => depois(a) - depois(b))[0]!
+    if (destino.groupId !== e.grupoAtivo) e.escolherGrupo(destino.groupId)
+    e.escolherCanal(destino.id)
+  }, [])
+
   useEffect(() => {
     const aoTeclar = (evento: KeyboardEvent): void => {
       // Ctrl+K no Windows e no Linux, Cmd+K no mac. Vale de qualquer lugar,
@@ -297,12 +326,19 @@ export function AppShell({ aoDigitar, latenciaMs }: {
         return
       }
       if (!evento.altKey) return
+      // Alt+Shift+seta: o proximo canal NAO LIDO, em qualquer grupo (2.8).
+      // E o atalho de quem volta de uma reuniao com dez canais acesos.
+      if (evento.shiftKey && (evento.key === 'ArrowDown' || evento.key === 'ArrowUp')) {
+        evento.preventDefault()
+        irParaProximaNaoLida(evento.key === 'ArrowDown' ? 1 : -1)
+        return
+      }
       if (evento.key === 'ArrowDown') { evento.preventDefault(); navegar(1) }
       if (evento.key === 'ArrowUp') { evento.preventDefault(); navegar(-1) }
     }
     window.addEventListener('keydown', aoTeclar)
     return () => window.removeEventListener('keydown', aoTeclar)
-  }, [navegar])
+  }, [navegar, irParaProximaNaoLida])
 
   /**
    * A chamada nao morre mais no desmonte de um componente — ela sobrevive a
@@ -360,6 +396,7 @@ export function AppShell({ aoDigitar, latenciaMs }: {
 
       <FaixaDeInstalacao />
       <FaixaDeVerificacao />
+      <FaixaDeNotificacoes />
 
       <div ref={areaDosPaineis} className="relative flex min-h-0 flex-1 overflow-hidden">
         {/*

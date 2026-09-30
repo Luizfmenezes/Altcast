@@ -8,7 +8,10 @@ import {
 import { validateSession } from '../auth/session.js'
 import { env } from '../env.js'
 import { registry } from './registry.js'
-import { presence } from './presence.js'
+import { presence, type StatusEscolhido } from './presence.js'
+import { anunciarSeMudou, statusEfetivo } from './status.js'
+import { naoLidasPorCanal } from '../atencao/naoLidas.js'
+import { preferenciasDe } from '../routes/atencao.routes.js'
 import { calls } from './calls.js'
 import { cotaDeGrupos } from '../groups/limite.js'
 import { leiturasDe } from '../routes/chatRico.routes.js'
@@ -31,10 +34,20 @@ const TAMANHO_MAXIMO_FRAME = 4 * 1024
  * vazasse, "invisivel" seria so uma palavra na barra lateral.
  */
 async function montarReady(userId: string): Promise<Record<string, unknown>> {
-  const [eu] = await db.select({
+  const [linhaDoEu] = await db.select({
     id: users.id, displayName: users.displayName, username: users.username,
     avatarUrl: users.avatarUrl, emailVerifiedAt: users.emailVerifiedAt,
+    status: users.status, statusText: users.statusText, statusEmoji: users.statusEmoji,
+    statusExpiresAt: users.statusExpiresAt,
+    bio: users.bio, pronouns: users.pronouns,
+    bannerColor: users.bannerColor, bannerUrl: users.bannerUrl,
   }).from(users).where(eq(users.id, userId)).limit(1)
+  // O proprio status vai inteiro — escolhido, frase e prazo — porque e a
+  // pessoa que o edita. Para os outros sai so o que `presence.visivel` deixa.
+  const eu = linhaDoEu === undefined ? undefined : {
+    ...linhaDoEu,
+    status: statusEfetivo(linhaDoEu.status, linhaDoEu.statusExpiresAt),
+  }
 
   const meusGrupos = await db.select({
     id: groups.id, name: groups.name, iconUrl: groups.iconUrl, role: groupMembers.role,
@@ -61,44 +74,42 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
     ))
     .orderBy(asc(channels.position), asc(channels.id))
 
-  const membros = ids.length === 0 ? [] : await db.select({
-    groupId: groupMembers.groupId,
-    userId: users.id,
-    displayName: users.displayName,
-    username: users.username,
-    avatarUrl: users.avatarUrl,
-    role: groupMembers.role,
-  })
-    .from(groupMembers)
-    .innerJoin(users, eq(users.id, groupMembers.userId))
-    .where(inArray(groupMembers.groupId, ids))
-
   /**
-   * Os cargos dos meus grupos, e quem tem cada um.
+   * O resto da fotografia sai em paralelo: sao sete perguntas independentes ao
+   * banco, e em serie elas somavam sete idas e voltas antes do primeiro quadro
+   * — o bastante para o `ready` atrasar segundos com o servidor ocupado.
    *
-   * Vem na fotografia, e nao por REST quando a tela de membros abre, porque
-   * nome colorido aparece na LISTA DE MEMBROS e no autor de cada mensagem —
-   * isto e, em toda a interface, o tempo todo. Buscar depois faria a primeira
-   * tela desenhar todo mundo em cinza e repintar um instante depois.
-   *
-   * As PERMISSOES de cada cargo vao junto de proposito: o cliente esconde
-   * botao que o servidor recusaria, e sem elas ele so poderia adivinhar. Isso
-   * nao vaza nada — sao as regras do grupo, visiveis a quem pertence a ele, e
-   * a autorizacao de verdade continua acontecendo em `can` a cada rota.
+   * Os cargos dos meus grupos vem aqui, e nao por REST quando a tela de
+   * membros abre, porque nome colorido aparece em toda a interface; e as
+   * permissoes de cada cargo vao junto porque o cliente esconde botao que o
+   * servidor recusaria — a autorizacao de verdade continua em `can`.
    */
-  const meusCargos = ids.length === 0 ? [] : await db.select().from(roles)
-    .where(inArray(roles.groupId, ids))
-    .orderBy(desc(roles.position), asc(roles.name))
-
-  const vinculos = ids.length === 0 ? [] : await db.select({
-    groupId: memberRoles.groupId, userId: memberRoles.userId, roleId: memberRoles.roleId,
-  }).from(memberRoles).where(inArray(memberRoles.groupId, ids))
-
-  // Lido ANTES do literal de proposito: assim `calls.participantes()` la
-  // embaixo e a ultima leitura antes de o quadro ser serializado, e nao uma
-  // que ainda espera um `await` do banco depois de si.
-  const leituras = await leiturasDe(userId)
-  const cota = await cotaDeGrupos(userId)
+  const semGrupo = ids.length === 0
+  const [membros, meusCargos, vinculos, leituras, naoLidas, preferencias, cota] = await Promise.all([
+    semGrupo ? [] : db.select({
+      groupId: groupMembers.groupId,
+      userId: users.id,
+      displayName: users.displayName,
+      username: users.username,
+      avatarUrl: users.avatarUrl,
+      role: groupMembers.role,
+      statusText: users.statusText,
+      statusEmoji: users.statusEmoji,
+    })
+      .from(groupMembers)
+      .innerJoin(users, eq(users.id, groupMembers.userId))
+      .where(inArray(groupMembers.groupId, ids)),
+    semGrupo ? [] : db.select().from(roles)
+      .where(inArray(roles.groupId, ids))
+      .orderBy(desc(roles.position), asc(roles.name)),
+    semGrupo ? [] : db.select({
+      groupId: memberRoles.groupId, userId: memberRoles.userId, roleId: memberRoles.roleId,
+    }).from(memberRoles).where(inArray(memberRoles.groupId, ids)),
+    leiturasDe(userId),
+    naoLidasPorCanal(userId, meusCanais.map(c => c.id)),
+    preferenciasDe(userId),
+    cotaDeGrupos(userId),
+  ])
 
   return {
     user: eu ?? null,
@@ -114,9 +125,21 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
       .filter(sala => sala.participants.length > 0),
     // `status` sai do registro em memoria, nunca do banco: presenca e um fato
     // sobre conexoes existentes agora.
-    members: membros.map(m => ({
-      ...m, status: presence.isOnline(m.userId) ? 'online' : 'offline',
-    })),
+    members: membros.map(m => {
+      const status = m.userId === userId && eu !== undefined
+        // A propria pessoa se ve pelo que escolheu: o invisivel se ve
+        // invisivel, e nao "offline", que seria mentira para quem esta aqui.
+        ? eu.status
+        : presence.visivel(m.userId)
+      // A frase do status so aparece para quem esta visivel.
+      const visivel = status !== 'offline'
+      return {
+        ...m,
+        status,
+        statusText: visivel ? m.statusText : null,
+        statusEmoji: visivel ? m.statusEmoji : null,
+      }
+    }),
     /**
      * Ate onde esta pessoa leu cada canal.
      *
@@ -126,6 +149,13 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
      * nova de cada canal, para cada pessoa conectada.
      */
     reads: leituras,
+    /**
+     * Quantas mensagens cada canal tem depois do marco, e quantas me mencionam
+     * (D3-C). Canal ausente e zero. Teto de 100 por canal.
+     */
+    unread: naoLidas,
+    /** O que esta pessoa quer ouvir de cada grupo e canal. So dela. */
+    notificationPrefs: preferencias,
     /**
      * Quantos grupos esta pessoa ja criou, e qual o teto dela.
      *
@@ -261,6 +291,7 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
       if (jaSaiu) return
       jaSaiu = true
       if (connectionId !== null) registry.remove(connectionId)
+      const visivelAntes = presence.visivel(userId)
       if (presence.disconnect(userId)) {
         // Só quando cai a ULTIMA conexao: fechar uma aba de cinco nao pode
         // tirar ninguem da chamada que continua aberta na outra.
@@ -272,7 +303,10 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         calls.agendarSaida(userId, env.VOICE_RECONNECT_GRACE_MS, channelId => {
           void sairDaChamada(userId, channelId)
         })
-        void emit.toPeersOf(userId, { t: 'presence.update', d: { userId, status: 'offline' } })
+        // Quem estava invisivel ja aparecia offline: nao ha o que anunciar.
+        if (visivelAntes !== 'offline') {
+          void emit.toPeersOf(userId, { t: 'presence.update', d: { userId, status: 'offline' } })
+        }
       }
     }
 
@@ -301,6 +335,13 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         return canal === null ? undefined : sairDaChamada(userId, canal)
       }
       if (tipo === 'voice.state') return atualizarMidia(userId, quadro)
+      if (tipo === 'presence.idle') {
+        // O cliente avisa "fiquei dez minutos sem uso" e "voltei". So vale
+        // um booleano: qualquer outra coisa e ignorada, como todo frame torto.
+        const ocioso = (quadro as { d?: { idle?: unknown } })?.d?.idle
+        if (typeof ocioso !== 'boolean') return
+        return anunciarSeMudou(userId, presence.ocioso(userId, ocioso))
+      }
       req.log.warn({ connectionId, tipo }, 'frame de tipo desconhecido descartado')
     })
 
@@ -330,12 +371,17 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
     // A ordem importa: `add` pode derrubar a aba mais antiga do mesmo usuario,
     // e o `close` dela chega depois. Contar a nova primeiro evita um `offline`
     // espurio no meio de uma troca de aba.
-    const ficouOnline = presence.connect(userId)
+    const escolhido = ((fotografia.user as { status?: StatusEscolhido } | null)?.status) ?? 'online'
+    const ficouOnline = presence.connect(userId, escolhido)
 
     socket.send(JSON.stringify({ t: 'ready', d: fotografia }))
 
-    if (ficouOnline) {
-      void emit.toPeersOf(userId, { t: 'presence.update', d: { userId, status: 'online' } })
+    // A chegada e anunciada com o status VISIVEL: o invisivel chega calado, e
+    // quem escolheu "nao perturbe" chega assim, e nao como "online".
+    if (ficouOnline && presence.visivel(userId) !== 'offline') {
+      void emit.toPeersOf(userId, {
+        t: 'presence.update', d: { userId, status: presence.visivel(userId) },
+      })
     }
   })
 }

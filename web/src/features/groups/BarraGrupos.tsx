@@ -7,6 +7,8 @@ import { Separador } from '../../ui/Separador.js'
 import { CriarGrupo } from './CriarGrupo.js'
 import { Convites } from './Convites.js'
 import { cn } from '../../lib/utils.js'
+import { Badge } from '../../ui/Badge.js'
+import { canalSilenciado } from '../../lib/atencao.js'
 
 /**
  * Coluna de 64px, largura fixa. Nao muda de largura com nome longo nem com
@@ -22,9 +24,19 @@ export function BarraGrupos(): ReactNode {
   const leituras = useStore(e => e.leituras)
   const user = useStore(e => e.user)
 
+  const naoLidas = useStore(e => e.naoLidas)
+  const contagemDoServidor = useStore(e => e.contagemDoServidor)
+  const preferencias = useStore(e => e.preferencias)
+
+  // Canal silenciado nao acende o grupo: silenciar e pedir para nao ver.
   const temNovidade = (groupId: string): boolean => channels
+    .filter(c => c.groupId === groupId && !canalSilenciado({ preferencias }, c))
+    .some(c => naoLidasDoCanal({ mensagens, leituras, user, naoLidas, contagemDoServidor }, c.id) > 0)
+
+  /** Mencoes a mim no grupo inteiro — essas atravessam o silencio. */
+  const mencoesNoGrupo = (groupId: string): number => channels
     .filter(c => c.groupId === groupId)
-    .some(c => naoLidasDoCanal({ mensagens, leituras, user }, c.id) > 0)
+    .reduce((soma, c) => soma + (naoLidas[c.id]?.mentions ?? 0), 0)
 
   return (
     <nav
@@ -39,6 +51,7 @@ export function BarraGrupos(): ReactNode {
       {groups.map(grupo => {
         const ativo = grupo.id === grupoAtivo
         const novidade = !ativo && temNovidade(grupo.id)
+        const mencoes = mencoesNoGrupo(grupo.id)
         return (
           <Dica key={grupo.id} texto={grupo.name} lado="right">
             <button
@@ -99,8 +112,16 @@ export function BarraGrupos(): ReactNode {
                     : 'group-hover/grupo:rounded-[14px]',
                 )}
               />
+              {/* A mencao no canto do icone, como em todo chat: e o sinal que
+                  faz alguem trocar de grupo agora. */}
+              {mencoes > 0 && (
+                <Badge className="absolute -bottom-0.5 -right-0.5 ring-2 ring-bg-raised">
+                  {mencoes > 99 ? '99+' : mencoes}
+                </Badge>
+              )}
               <span className="sr-only">
                 {grupo.name}
+                {mencoes > 0 ? ` (${String(mencoes)} ${mencoes === 1 ? 'menção' : 'menções'})` : ''}
                 {novidade ? ' (mensagens não lidas)' : ''}
               </span>
             </button>

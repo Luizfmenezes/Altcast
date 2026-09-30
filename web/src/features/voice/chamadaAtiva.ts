@@ -1,8 +1,10 @@
 import { create } from 'zustand'
-import { criarChamada, ESTADO_INICIAL } from '../../lib/midia.js'
+import {
+  criarChamada, ESTADO_INICIAL, guardarProcessamento, lerProcessamento,
+} from '../../lib/midia.js'
 import type {
   Chamada, EstadoDaChamada, PapelSonoro, QualidadeDaTela, QualidadeDeRecepcao,
-  TipoDeDispositivo,
+  Supressao, TipoDeDispositivo,
 } from '../../lib/midia.js'
 import { useStore } from '../../lib/store.js'
 import { destravarSons, tocar } from '../../lib/sons.js'
@@ -58,6 +60,11 @@ export type EstadoDaChamadaAtiva = {
   definirQualidade: (qualidade: QualidadeDaTela) => void
   definirQualidadeDeRecepcao: (sid: string, nivel: QualidadeDeRecepcao) => void
   alternarSurdo: () => void
+  /**
+   * A supressao de ruido. Com chamada, vale na hora; sem, fica guardada para
+   * a proxima — o mesmo contrato de escolher o microfone antes de entrar.
+   */
+  definirSupressao: (modo: Supressao) => void
   /**
    * Liga e desliga o microfone SEM alternar: o push-to-talk precisa dizer
    * "agora ligado" e "agora desligado", e nao "o contrario do que estiver" —
@@ -211,6 +218,13 @@ export const useChamadaAtiva = create<EstadoDaChamadaAtiva>((set, get) => ({
   },
   definirMicrofone: ligado => { void viva?.definirMicrofone(ligado) },
   alternarSurdo: () => { void viva?.definirSurdo(!get().chamada.surdo) },
+  definirSupressao: modo => {
+    if (viva !== null) {
+      viva.definirSupressao(modo)
+      return
+    }
+    guardarProcessamento({ ...lerProcessamento(), supressao: modo })
+  },
   alternarCamera: () => { void viva?.definirCamera(!get().chamada.camera) },
   alternarTela: () => { void viva?.definirTela(!get().chamada.tela) },
   trocarDispositivo: (tipo, deviceId) => { void viva?.trocarDispositivo(tipo, deviceId) },

@@ -9,6 +9,7 @@ import { Botao } from '../../ui/Botao.js'
 import { Campo } from '../../ui/Campo.js'
 import { Separador } from '../../ui/Separador.js'
 import type { Usuario } from '../../lib/tipos.js'
+import { PersonalizarPerfil } from './PersonalizarPerfil.js'
 
 /**
  * Quem voce e, para os outros.
@@ -192,6 +193,10 @@ export function Perfil(): ReactNode {
           </p>
         )}
       </section>
+
+      <Separador />
+
+      <PersonalizarPerfil aoConfirmar={setRecado} />
 
       <Separador />
 

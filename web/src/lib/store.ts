@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type {
-  Acao, Canal, Cargo, ConviteRecebido, CotaDeGrupos, Grupo, Membro, Mensagem, Papel,
-  Ready, Usuario, VinculoDeCargo,
+  Acao, Canal, Cargo, ConviteRecebido, CotaDeGrupos, Grupo, Membro, Mensagem, NaoLidas, Papel,
+  PreferenciaDeNotificacao, Ready, StatusDePresenca, StatusEscolhido, Usuario, VinculoDeCargo,
 } from './tipos.js'
 import type { QuadroCliente, ServerEvent, SocketStatus } from './socket.js'
 
@@ -36,6 +36,18 @@ type Estado = {
    */
   leituras: Record<string, string | null>
   marcarLido: (channelId: string, ateMensagem: string) => void
+  /**
+   * Nao lidas e mencoes por canal, contadas pelo SERVIDOR (Etapa 2, D3-C).
+   *
+   * A contagem em memoria errava o caso que mais importa — o canal nunca
+   * aberto nesta sessao, que nao tem historico local e contava zero. Agora o
+   * `ready` traz a contagem, cada mensagem nova soma, e ler zera.
+   */
+  naoLidas: Record<string, NaoLidas>
+  /** O servidor mandou `unread`? Sem isso, cai na contagem antiga em memoria. */
+  contagemDoServidor: boolean
+  /** O que esta pessoa quer ouvir de cada grupo e canal. */
+  preferencias: PreferenciaDeNotificacao[]
 
   /**
    * Convites dirigidos a mim, ainda sem resposta.
@@ -243,6 +255,9 @@ export const useStore = create<Estado>(set => ({
   cotaDeGrupos: null,
   cargos: {},
   cargosDoMembro: {},
+  naoLidas: {},
+  contagemDoServidor: false,
+  preferencias: [],
   enviarQuadro: () => false,
 
   aplicarReady: ready => set(estado => {
@@ -261,6 +276,11 @@ export const useStore = create<Estado>(set => ({
       user: ready.user,
       groups: ready.groups,
       leituras: ready.reads ?? {},
+      // Substitui, e nao funde: o `ready` e a fotografia, e uma contagem velha
+      // de antes da reconexao seria exatamente o numero errado.
+      naoLidas: ready.unread ?? {},
+      contagemDoServidor: ready.unread !== undefined,
+      ...(ready.notificationPrefs === undefined ? {} : { preferencias: ready.notificationPrefs }),
       /**
        * SUBSTITUI o mapa de chamadas, e nao funde.
        *
@@ -305,14 +325,82 @@ export const useStore = create<Estado>(set => ({
       case 'message.created':
       case 'message.updated': {
         const mensagem = d as unknown as Mensagem
-        return set(estado => ({
-          mensagens: {
-            ...estado.mensagens,
-            [mensagem.channelId]: fundirMensagem(
-              estado.mensagens[mensagem.channelId] ?? [], mensagem,
-            ),
-          },
-        }))
+        return set(estado => {
+          const eu = estado.user?.id ?? null
+          const lista = estado.mensagens[mensagem.channelId] ?? []
+          // So conta o que e NOVO e alheio. A confirmacao do proprio eco chega
+          // aqui tambem, e uma edicao nao e mensagem nova.
+          const nova = evento.t === 'message.created'
+            && mensagem.authorId !== eu
+            && !lista.some(m => m.id === mensagem.id)
+            && mensagem.id > (estado.leituras[mensagem.channelId] ?? '')
+          const meMenciona = eu !== null
+            && (mensagem.mentionsEveryone === true || (mensagem.mentions ?? []).includes(eu))
+          const atual = estado.naoLidas[mensagem.channelId] ?? { n: 0, mentions: 0 }
+          return {
+            mensagens: {
+              ...estado.mensagens,
+              [mensagem.channelId]: fundirMensagem(lista, mensagem),
+            },
+            ...(nova && estado.contagemDoServidor ? {
+              naoLidas: {
+                ...estado.naoLidas,
+                [mensagem.channelId]: {
+                  n: Math.min(atual.n + 1, TETO_DE_NAO_LIDAS),
+                  mentions: Math.min(atual.mentions + (meMenciona ? 1 : 0), TETO_DE_NAO_LIDAS),
+                },
+              },
+            } : {}),
+          }
+        })
+      }
+
+      /**
+       * Outra sessao minha leu este canal — a outra aba, o desktop. O servidor
+       * manda o marco e a contagem refeita; esta aba so obedece.
+       */
+      case 'unread.update': {
+        const u = d as { channelId: string; lastReadMessageId: string | null; n: number; mentions: number }
+        return set(estado => {
+          const { [u.channelId]: _velho, ...resto } = estado.naoLidas
+          return {
+            leituras: { ...estado.leituras, [u.channelId]: u.lastReadMessageId },
+            naoLidas: u.n > 0 || u.mentions > 0
+              ? { ...resto, [u.channelId]: { n: u.n, mentions: u.mentions } }
+              : resto,
+          }
+        })
+      }
+
+      case 'notification-prefs.updated': {
+        const p = d as unknown as PreferenciaDeNotificacao
+        return set(estado => {
+          const outras = estado.preferencias.filter(
+            x => !(x.scopeType === p.scopeType && x.scopeId === p.scopeId),
+          )
+          // Nivel e silencio nulos juntos = herdar de novo; a linha some.
+          return {
+            preferencias: p.level === null && p.mutedUntil === null ? outras : [...outras, p],
+          }
+        })
+      }
+
+      /** Troquei meu status em outra aba (ou nesta, pela resposta do eco). */
+      case 'user.status': {
+        const s = d as {
+          status: StatusEscolhido; statusText: string | null; statusEmoji: string | null
+          statusExpiresAt: string | null
+        }
+        return set(estado => {
+          if (estado.user === null) return {}
+          const eu = estado.user.id
+          return {
+            user: { ...estado.user, ...s },
+            members: estado.members.map(m => m.userId !== eu ? m : {
+              ...m, status: s.status, statusText: s.statusText, statusEmoji: s.statusEmoji,
+            }),
+          }
+        })
       }
       case 'message.deleted': {
         const { id, channelId } = d as { id: string; channelId: string }
@@ -560,9 +648,20 @@ export const useStore = create<Estado>(set => ({
         return set(estado => ({ convites: estado.convites.filter(c => c.id !== id) }))
       }
       case 'presence.update': {
-        const { userId, status } = d as { userId: string; status: Membro['status'] }
+        const p = d as {
+          userId: string; status: StatusDePresenca
+          statusText?: string | null; statusEmoji?: string | null
+        }
         return set(estado => ({
-          members: estado.members.map(m => m.userId === userId ? { ...m, status } : m),
+          members: estado.members.map(m => m.userId !== p.userId ? m : {
+            ...m,
+            status: p.status,
+            // A frase so vem quando mudou; offline a apaga, porque ninguem
+            // offline esta "em reuniao".
+            ...('statusText' in p ? { statusText: p.statusText ?? null } : {}),
+            ...('statusEmoji' in p ? { statusEmoji: p.statusEmoji ?? null } : {}),
+            ...(p.status === 'offline' ? { statusText: null, statusEmoji: null } : {}),
+          }),
         }))
       }
       /**
@@ -703,14 +802,16 @@ export const useStore = create<Estado>(set => ({
 
   escolherCanal: channelId => set({ canalAtivo: channelId }),
 
-  marcarLido: (channelId, ateMensagem) => set(estado => (
+  marcarLido: (channelId, ateMensagem) => set(estado => {
     // Nunca ANDA PARA TRAS. Rolar para cima no historico dispara leituras de
     // mensagens antigas, e aceitar a ultima recebida faria o contador de
     // nao-lidos subir sozinho enquanto a pessoa le.
-    (estado.leituras[channelId] ?? '') >= ateMensagem
-      ? {}
-      : { leituras: { ...estado.leituras, [channelId]: ateMensagem } }
-  )),
+    if ((estado.leituras[channelId] ?? '') >= ateMensagem) return {}
+    // Ler ate a ultima zera a contagem do canal. (So se chega aqui com a
+    // conversa no fim: e la que a lista chama `marcarLido`.)
+    const { [channelId]: _lidas, ...naoLidas } = estado.naoLidas
+    return { leituras: { ...estado.leituras, [channelId]: ateMensagem }, naoLidas }
+  }),
 
   carregarMensagens: (channelId, mensagens) => set(estado => ({
     mensagens: {
@@ -750,6 +851,7 @@ export const useStore = create<Estado>(set => ({
     user: null, groups: [], channels: [], members: [], mensagens: {},
     grupoAtivo: null, canalAtivo: null, chamadas: {}, leituras: {}, convites: [],
     cotaDeGrupos: null, cargos: {}, cargosDoMembro: {},
+    naoLidas: {}, contagemDoServidor: false, preferencias: [],
   }),
 }))
 
@@ -782,9 +884,13 @@ export function canaisComHistorico(): Record<string, string | null> {
  * escrever. Eco ainda nao confirmado tambem nao, pelo mesmo motivo.
  */
 export function naoLidasDoCanal(
-  estado: Pick<Estado, 'mensagens' | 'leituras' | 'user'>,
+  estado: Pick<Estado, 'mensagens' | 'leituras' | 'user'>
+    & Partial<Pick<Estado, 'naoLidas' | 'contagemDoServidor'>>,
   channelId: string,
 ): number {
+  // O servidor contou: a resposta e a dele (com o teto de 100).
+  if (estado.contagemDoServidor === true) return estado.naoLidas?.[channelId]?.n ?? 0
+
   const historico = estado.mensagens[channelId]
   if (!historico || historico.length === 0) return 0
 
@@ -802,4 +908,14 @@ export function naoLidasDoCanal(
     total++
   }
   return total
+}
+
+/** O teto da contagem do servidor; a interface mostra "99+" a partir dai. */
+export const TETO_DE_NAO_LIDAS = 100
+
+/** Quantas das nao lidas de um canal me mencionam. */
+export function mencoesDoCanal(
+  estado: Pick<Estado, 'naoLidas'>, channelId: string,
+): number {
+  return estado.naoLidas[channelId]?.mentions ?? 0
 }

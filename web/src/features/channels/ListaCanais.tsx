@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ChevronRight, Hash, Lock, Mic, MicOff, MonitorUp, Volume2 } from 'lucide-react'
+import { ChevronRight, Hash, Lock, Mic, MicOff, MonitorUp, Volume2, BellOff } from 'lucide-react'
 import { useStore, naoLidasDoCanal } from '../../lib/store.js'
 import type { ParticipanteDeVoz } from '../../lib/store.js'
 import type { Canal, Membro } from '../../lib/tipos.js'
 import { Badge } from '../../ui/Badge.js'
 import { Avatar } from '../../ui/Avatar.js'
+import { AnelDeFala } from '../../ui/bits/AnelDeFala.js'
 import { Contador } from '../../ui/bits/Contador.js'
 import { MenuDoGrupo } from '../groups/MenuDoGrupo.js'
+import { MenuDeNotificacao } from '../presence/MenuDeNotificacao.js'
 import { useChamadaAtiva } from '../voice/chamadaAtiva.js'
+import { canalSilenciado } from '../../lib/atencao.js'
 import { ConfirmarAcao } from '../../ui/ConfirmarAcao.js'
 import { cn } from '../../lib/utils.js'
 
@@ -16,6 +19,7 @@ import { cn } from '../../lib/utils.js'
  *  zustand concluir que mudou a cada quadro. Mesmo motivo do `NINGUEM` do
  *  painel de voz. */
 const VAZIO: ParticipanteDeVoz[] = []
+const NINGUEM_FALANDO: string[] = []
 
 /**
  * Quem esta dentro do canal de voz, listado sob ele.
@@ -25,10 +29,15 @@ const VAZIO: ParticipanteDeVoz[] = []
  * dado ja estava todo aqui — `chamadas[canalId]` da os participantes e
  * `members` da nome e foto —, sem uma rota nova sequer.
  */
-function RosterDeVoz({ participantes, membros, canal }: {
+function RosterDeVoz({ participantes, membros, canal, falando }: {
   participantes: ParticipanteDeVoz[]
   membros: Membro[]
   canal: string
+  /**
+   * Quem fala agora. So existe para a sala em que EU estou: quem fala e um
+   * dado do SFU, e o cliente so esta ligado ao SFU da propria chamada.
+   */
+  falando: string[]
 }): ReactNode {
   if (participantes.length === 0) return null
 
@@ -46,7 +55,9 @@ function RosterDeVoz({ participantes, membros, canal }: {
             key={p.userId}
             className="flex items-center gap-2 rounded px-2 py-1 text-[12px] text-fg-muted"
           >
-            <Avatar nome={nome} url={fotoDe(p.userId)} tamanho="sm" className="size-5 text-[9px]" />
+            <AnelDeFala falando={falando.includes(p.userId)}>
+              <Avatar nome={nome} url={fotoDe(p.userId)} tamanho="sm" className="size-5 text-[9px]" />
+            </AnelDeFala>
             <span className="min-w-0 flex-1 truncate">{nome}</span>
             {/* O icone repete o que o rotulo da linha ja diz por extenso, entao
                 e decorativo: anunciar duas vezes so atrapalha quem ouve. */}
@@ -55,6 +66,7 @@ function RosterDeVoz({ participantes, membros, canal }: {
               : <MicOff aria-hidden="true" className="size-3 shrink-0 text-danger" />}
             {p.tela ? <MonitorUp aria-hidden="true" className="size-3 shrink-0 text-accent" /> : null}
             <span className="sr-only">
+              {falando.includes(p.userId) ? ', falando' : ''}
               {p.microfone ? ', microfone ligado' : ', microfone desligado'}
               {p.tela ? ', transmitindo a tela' : ''}
             </span>
@@ -77,10 +89,14 @@ function RosterDeVoz({ participantes, membros, canal }: {
  * e navegacao se anuncia com `aria-current`. O Alt com seta nao dependia dos
  * papeis: ele vive no AppShell e anda pela store.
  */
-function ItemDeCanal({ canal, ativo, naoLidas, naSala, aoEscolher }: {
+function ItemDeCanal({ canal, ativo, naoLidas, mencoes = 0, silenciado = false, naSala, aoEscolher }: {
   canal: Canal
   ativo: boolean
   naoLidas: number
+  /** Quantas das nao lidas me mencionam. */
+  mencoes?: number
+  /** Silenciado pelo proprio canal ou pelo grupo: sem destaque, so mencao. */
+  silenciado?: boolean
   /** Quantas pessoas ja estao na chamada. Sempre 0 em canal de texto. */
   naSala: number
   aoEscolher: () => void
@@ -88,7 +104,11 @@ function ItemDeCanal({ canal, ativo, naoLidas, naSala, aoEscolher }: {
   const Icone = canal.type === 'voice' ? Volume2 : Hash
   // Negrito no canal com novidade, e nao so a pilula: contar com a cor sozinha
   // deixaria de fora quem nao a distingue (SC 1.4.1).
-  const destacado = naoLidas > 0 && !ativo
+  //
+  // Silenciado nao ganha negrito nem ponto: e exatamente o que a pessoa pediu
+  // para parar de ver. A mencao, porem, continua — ela e sobre a pessoa, e o
+  // numero dela e a unica coisa que o silencio nao apaga da lista.
+  const destacado = naoLidas > 0 && !ativo && !silenciado
 
   return (
     <button
@@ -101,8 +121,9 @@ function ItemDeCanal({ canal, ativo, naoLidas, naSala, aoEscolher }: {
         ativo
           ? 'bg-bg-hover font-medium text-accent'
           : destacado
-            ? 'font-medium text-fg hover:bg-bg-hover'
+            ? 'font-semibold text-fg hover:bg-bg-hover'
             : 'text-fg-muted hover:bg-bg-hover hover:text-fg',
+        silenciado && !ativo && 'opacity-60',
       )}
       style={{ minHeight: 'var(--height-row)' }}
     >
@@ -153,11 +174,32 @@ function ItemDeCanal({ canal, ativo, naoLidas, naSala, aoEscolher }: {
         </span>
       ) : null}
 
-      {naoLidas > 0 && !ativo ? (
+      {silenciado && (
         <>
-          <Badge>{naoLidas > 99 ? '99+' : naoLidas}</Badge>
+          <BellOff aria-hidden="true" strokeWidth={1.75} className="size-3.5 shrink-0 text-fg-muted" />
+          <span className="sr-only">(silenciado)</span>
+        </>
+      )}
+
+      {/*
+        Mencao e numero; nao lida e so um ponto. O numero de nao lidas num canal
+        movimentado ("47") nao muda decisao nenhuma — o que muda e "tem algo
+        novo" e "alguem falou comigo", e sao exatamente esses dois sinais.
+      */}
+      {mencoes > 0 && !ativo ? (
+        <>
+          <Badge>{mencoes > 99 ? '99+' : mencoes}</Badge>
           <span className="sr-only">
-            {naoLidas === 1 ? '1 mensagem não lida' : `${naoLidas} mensagens não lidas`}
+            {mencoes === 1 ? '1 menção a você' : `${mencoes} menções a você`}
+          </span>
+        </>
+      ) : destacado ? (
+        <>
+          <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-fg" />
+          <span className="sr-only">
+            {naoLidas === 1 ? '1 mensagem não lida'
+              : naoLidas >= 100 ? 'mais de 99 mensagens não lidas'
+                : `${naoLidas} mensagens não lidas`}
           </span>
         </>
       ) : null}
@@ -250,6 +292,7 @@ export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactN
   const members = useStore(e => e.members)
 
   const canalEmChamada = useChamadaAtiva(e => e.canal)
+  const falandoNaMinhaSala = useChamadaAtiva(e => e.chamada.falando)
   const entrarNaChamada = useChamadaAtiva(e => e.entrar)
   const sairDaChamada = useChamadaAtiva(e => e.sair)
   /** O canal que a pessoa clicou enquanto estava em outra chamada. Guardar o
@@ -270,8 +313,11 @@ export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactN
   const texto = doGrupo.filter(c => c.type === 'text')
   const voz = doGrupo.filter(c => c.type === 'voice')
 
+  const naoLidasMap = useStore(e => e.naoLidas)
+  const contagemDoServidor = useStore(e => e.contagemDoServidor)
+  const preferencias = useStore(e => e.preferencias)
   const naoLidas = (canal: Canal): number =>
-    naoLidasDoCanal({ mensagens, leituras, user }, canal.id)
+    naoLidasDoCanal({ mensagens, leituras, user, naoLidas: naoLidasMap, contagemDoServidor }, canal.id)
 
   const item = (canal: Canal): ReactNode => (
     <li key={canal.id}>
@@ -279,6 +325,8 @@ export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactN
         canal={canal}
         ativo={canal.id === canalAtivo}
         naoLidas={naoLidas(canal)}
+        mencoes={naoLidasMap[canal.id]?.mentions ?? 0}
+        silenciado={canalSilenciado({ preferencias }, canal)}
         naSala={(chamadas[canal.id] ?? VAZIO).length}
         aoEscolher={() => {
           escolherCanal(canal.id)
@@ -296,6 +344,7 @@ export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactN
           participantes={chamadas[canal.id] ?? VAZIO}
           membros={members}
           canal={canal.name}
+          falando={canal.id === canalEmChamada ? falandoNaMinhaSala : NINGUEM_FALANDO}
         />
       ) : null}
     </li>
@@ -312,7 +361,19 @@ export function ListaCanais({ aoEscolher }: { aoEscolher?: () => void }): ReactN
         Transformar o que a pessoa ja olha no lugar onde ela ja procura custa
         zero componente novo.
       */}
-      {grupo === undefined ? null : <MenuDoGrupo grupo={grupo} variante="cabecalho" />}
+      {grupo === undefined ? null : (
+        // O sino do grupo mora ao lado do nome, e nao dentro do menu: e o
+        // ajuste que se faz de passagem, e um submenu dentro de outro menu
+        // esconderia o gesto mais frequente atras de dois cliques.
+        <div className="flex items-stretch border-b border-border-subtle">
+          <div className="min-w-0 flex-1 [&>button]:border-b-0">
+            <MenuDoGrupo grupo={grupo} variante="cabecalho" />
+          </div>
+          <div className="flex items-center pr-2">
+            <MenuDeNotificacao scopeType="group" scopeId={grupo.id} groupId={grupo.id} />
+          </div>
+        </div>
+      )}
 
       <div
         className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto"

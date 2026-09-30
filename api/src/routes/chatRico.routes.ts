@@ -9,6 +9,7 @@ import { requireAuth } from '../auth/middleware.js'
 import { assertCan, loadChannelActor } from '../permissions/context.js'
 import { AppError } from '../shared/errors.js'
 import { emit } from '../realtime/emit.js'
+import { naoLidasPorCanal } from '../atencao/naoLidas.js'
 import { parse, uuidOu404 } from './groups.routes.js'
 
 /**
@@ -215,6 +216,14 @@ export async function chatRicoRoutes(app: FastifyInstance): Promise<void> {
         target: [channelReads.channelId, channelReads.userId],
         set: { lastReadMessageId, updatedAt: new Date() },
       })
+
+    // As OUTRAS sessoes da mesma pessoa — a outra aba, o desktop — ficam
+    // sabendo na hora, com a contagem refeita pelo servidor. Continua sendo
+    // estado da pessoa: vai so para ela, nunca para a sala.
+    const contagem = (await naoLidasPorCanal(userId, [channelId]))[channelId] ?? { n: 0, mentions: 0 }
+    emit.toUser(userId, {
+      t: 'unread.update', d: { channelId, lastReadMessageId, ...contagem },
+    })
 
     return reply.status(204).send()
   })

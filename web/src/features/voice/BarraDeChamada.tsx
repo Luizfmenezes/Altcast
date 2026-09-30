@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react'
 import {
-  Headphones, HeadphoneOff, Loader2, Mic, MicOff, PhoneOff, RotateCw, WifiOff,
+  AudioWaveform, Headphones, HeadphoneOff, Loader2, Mic, MicOff, PhoneOff, RotateCw, WifiOff,
 } from 'lucide-react'
+import { modeloDaSupressao } from '../../lib/midia.js'
 import { useStore } from '../../lib/store.js'
 import { cn } from '../../lib/utils.js'
+import { Avatar } from '../../ui/Avatar.js'
+import { AnelDeFala } from '../../ui/bits/AnelDeFala.js'
 import { useChamadaAtiva } from './chamadaAtiva.js'
 import { rotuloDaSituacao, situacaoDaChamada } from './situacao.js'
 
@@ -31,20 +34,29 @@ export function BarraDeChamada(): ReactNode {
   const alternarSurdo = useChamadaAtiva(e => e.alternarSurdo)
   const tentarDeNovo = useChamadaAtiva(e => e.tentarDeNovo)
   const sair = useChamadaAtiva(e => e.sair)
+  const definirSupressao = useChamadaAtiva(e => e.definirSupressao)
 
   const nome = useStore(e => e.channels.find(c => c.id === canal)?.name ?? null)
   const escolherCanal = useStore(e => e.escolherCanal)
   const canalAberto = useStore(e => e.canalAtivo)
   const members = useStore(e => e.members)
+  const eu = useStore(e => e.user)
+  const naSala = useStore(e => (canal === null ? undefined : e.chamadas[canal]))
 
   if (canal === null) return null
 
   const situacao = situacaoDaChamada(canal, chamada)
-  const naSala = situacao === 'conectado' || situacao === 'reconectando'
+  const conectada = situacao === 'conectado' || situacao === 'reconectando'
+  const comIa = modeloDaSupressao(chamada.supressao) !== null
 
-  const falando = chamada.falando
-    .map(id => members.find(m => m.userId === id)?.displayName)
-    .filter((n): n is string => n !== undefined)
+  /** Um membro por pessoa: a mesma pessoa aparece uma vez por grupo em comum. */
+  const pessoaDe = (userId: string): { nome: string; avatarUrl: string | null } => {
+    const m = members.find(x => x.userId === userId)
+    if (m !== undefined) return { nome: m.displayName, avatarUrl: m.avatarUrl }
+    if (eu !== null && eu.id === userId) return { nome: eu.displayName, avatarUrl: eu.avatarUrl ?? null }
+    return { nome: 'Alguém', avatarUrl: null }
+  }
+  const participantes = naSala ?? []
 
   return (
     <div
@@ -74,7 +86,7 @@ export function BarraDeChamada(): ReactNode {
           </span>
         </button>
 
-        {naSala && (
+        {conectada && (
           <>
             {/*
               O estado do microfone, sempre que ha sala. `aria-pressed` porque
@@ -92,6 +104,24 @@ export function BarraDeChamada(): ReactNode {
               {chamada.microfone
                 ? <Mic aria-hidden="true" className="size-4" />
                 : <MicOff aria-hidden="true" className="size-4" />}
+            </button>
+
+            {/*
+              A supressao de ruido por IA, a um clique — o botao do "Krisp".
+              Liga no modo IA e desliga para o filtro do navegador; os outros
+              modos moram nas configuracoes de voz.
+            */}
+            <button
+              type="button"
+              onClick={() => { definirSupressao(comIa ? 'navegador' : 'ia') }}
+              aria-pressed={comIa}
+              aria-label={comIa ? 'Supressão de ruído por IA ligada' : 'Supressão de ruído por IA desligada'}
+              title={comIa
+                ? chamada.supressaoAtiva ? 'Supressão de ruído por IA: ligada' : 'Supressão de ruído por IA: aguardando o microfone'
+                : 'Supressão de ruído por IA: desligada'}
+              className={cn(BOTAO_DE_ICONE, comIa ? 'text-speaking' : 'text-fg-muted')}
+            >
+              <AudioWaveform aria-hidden="true" className="size-4" />
             </button>
 
             {/*
@@ -142,13 +172,28 @@ export function BarraDeChamada(): ReactNode {
       )}
 
       {/*
-        Quem esta falando, em texto. E o unico sinal da barra que responde "a
-        sala ainda esta viva?" para quem esta em outra tela.
+        Quem esta na sala, pelas fotos — e quem fala acende em verde. E o
+        sinal da barra que responde "a sala ainda esta viva?" para quem esta em
+        outra tela, sem um texto piscando a cada silaba.
       */}
-      {situacao === 'conectado' && falando.length > 0 && (
-        <p className="truncate px-1.5 text-xs text-fg-muted">
-          {falando.join(', ')} falando
-        </p>
+      {situacao === 'conectado' && participantes.length > 0 && (
+        <ul aria-label="Pessoas na chamada" className="flex flex-wrap items-center gap-2 px-1.5 pb-0.5 pt-1">
+          {participantes.map(p => {
+            const pessoa = pessoaDe(p.userId)
+            const fala = chamada.falando.includes(p.userId)
+            return (
+              <li key={p.userId} title={fala ? `${pessoa.nome} (falando)` : pessoa.nome}>
+                <AnelDeFala
+                  falando={fala}
+                  nivel={p.userId === eu?.id ? chamada.nivel * 4 : 1}
+                >
+                  <Avatar nome={pessoa.nome} url={pessoa.avatarUrl} tamanho="sm" />
+                </AnelDeFala>
+                <span className="sr-only">{fala ? `${pessoa.nome}, falando` : pessoa.nome}</span>
+              </li>
+            )
+          })}
+        </ul>
       )}
     </div>
   )

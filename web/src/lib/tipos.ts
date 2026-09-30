@@ -65,6 +65,29 @@ export type Usuario = {
    * nao autoriza nem a pergunta.
    */
   emailVerifiedAt?: string | null
+  status?: StatusEscolhido
+  statusText?: string | null
+  statusEmoji?: string | null
+  statusExpiresAt?: string | null
+  /** O perfil personalizavel. Ausente em servidor anterior a ele. */
+  bio?: string | null
+  pronouns?: string | null
+  /** `#rrggbb`. */
+  bannerColor?: string | null
+  bannerUrl?: string | null
+}
+
+/** O perfil de alguem, como o cartao o mostra (`GET /users/:id/profile`). */
+export type PerfilPublico = {
+  userId: string
+  displayName: string
+  username: string | null
+  avatarUrl: string | null
+  bio: string | null
+  pronouns: string | null
+  bannerColor: string | null
+  bannerUrl: string | null
+  createdAt: string
 }
 
 export type Grupo = {
@@ -101,14 +124,43 @@ export type Canal = {
   position: number
 }
 
+/**
+ * O status de presenca como a interface o desenha.
+ *
+ * `idle`, `dnd` e `offline` chegam do servidor para os OUTROS; `invisible` so
+ * aparece para a propria pessoa — para os outros ela e `offline`, e o servidor
+ * nunca diz o contrario.
+ */
+export type StatusDePresenca = 'online' | 'idle' | 'dnd' | 'offline' | 'invisible'
+
 export type Membro = {
   groupId: string
   userId: string
   displayName: string
   avatarUrl: string | null
   role: Papel
-  status: 'online' | 'offline'
+  status: StatusDePresenca
+  /** A frase do status ("Em reuniao"). Nula quando nao ha, ou quando invisivel. */
+  statusText?: string | null
+  statusEmoji?: string | null
 }
+
+/** O status que a pessoa ESCOLHEU (nao o que os outros veem). */
+export type StatusEscolhido = 'online' | 'idle' | 'dnd' | 'invisible'
+
+/** Quanto um grupo ou canal pode interromper. `smart` e o nivel Inteligente (Jev). */
+export type NivelDeNotificacao = 'all' | 'mentions' | 'none' | 'smart'
+
+export type PreferenciaDeNotificacao = {
+  scopeType: 'group' | 'channel'
+  scopeId: string
+  /** Nulo e "herda do nivel de cima". */
+  level: NivelDeNotificacao | null
+  mutedUntil: string | null
+}
+
+/** Nao lidas de um canal, contadas pelo servidor. Teto de 100. */
+export type NaoLidas = { n: number; mentions: number }
 
 /**
  * Um arquivo preso a uma mensagem.
@@ -208,6 +260,13 @@ export type Ready = {
    */
   roles?: Cargo[]
   memberRoles?: VinculoDeCargo[]
+  /**
+   * Nao lidas por canal, contadas no servidor a partir do marco (D3-C). Canal
+   * ausente e zero. Opcional: servidor anterior conta no cliente, como antes.
+   */
+  unread?: Record<string, NaoLidas>
+  /** O que esta pessoa quer ouvir de cada grupo e canal. */
+  notificationPrefs?: PreferenciaDeNotificacao[]
   serverTime: string
 }
 

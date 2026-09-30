@@ -25,7 +25,7 @@ export const RESERVADOS: ReadonlySet<string> = new Set([
   'null', 'undefined', 'me', 'eu',
   // Os segmentos que a API ja serve.
   'api', 'auth', 'groups', 'channels', 'invites', 'invitations', 'attachments',
-  'avatars', 'icons', 'users', 'ws', 'health', 'metrics', 'entrar', 'convite',
+  'avatars', 'icons', 'banners', 'users', 'ws', 'health', 'metrics', 'entrar', 'convite',
 ])
 
 /** Apara e rebaixa. O handle guardado e sempre o normalizado. */

@@ -79,5 +79,25 @@ for (const tema of ['dark', 'light']) {
     },
   })
 }
+// Etapa 2: menu de status, menu de notificacoes e a secao de IA.
+for (const tema of ['dark', 'light']) {
+  await capturar('status', {
+    tema, largura: 1440, altura: 900, sessao: 'e2e/.auth/dono.json',
+    acao: async p => { await p.getByRole('button', { name: /^Conta de / }).click(); await p.waitForTimeout(300) },
+  })
+  await capturar('notificacoes', {
+    tema, largura: 1440, altura: 900, sessao: 'e2e/.auth/dono.json',
+    acao: async p => { await p.getByRole('button', { name: /^Notificações do canal/ }).click(); await p.waitForTimeout(300) },
+  })
+  await capturar('ia', {
+    tema, largura: 1440, altura: 900, sessao: 'e2e/.auth/dono.json',
+    acao: async p => {
+      await p.getByRole('button', { name: 'Configurações' }).click()
+      await p.getByRole('tab', { name: 'Grupo' }).click()
+      await p.getByRole('button', { name: /^IA/ }).click()
+      await p.waitForTimeout(300)
+    },
+  })
+}
 await navegador.close()
 console.log('ok', SAIDA)

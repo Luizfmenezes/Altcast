@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, render } from '@testing-library/react'
 import {
-  FOLGA_DE_SOLTURA_MS, escrevendoEm, guardarFala, lerFala, useAtalhosDaChamada,
+  FALA_PADRAO, FOLGA_DE_SOLTURA_MS, escrevendoEm, guardarFala, lerFala, rotuloDoAtalho,
+  semModificador, useAtalhosDaChamada,
 } from '../src/features/voice/atalhos.js'
 import {
   plantarChamadaParaTeste, useChamadaAtiva, zerarChamadaParaTeste,
@@ -103,6 +104,90 @@ describe('atalhos da chamada', () => {
     campo.remove()
   })
 
+  it('o atalho de mudo gravado nas configurações substitui o M', () => {
+    guardarFala({
+      ...FALA_PADRAO,
+      mudo: { code: 'KeyK', ctrl: true, alt: false, shift: true, meta: false },
+    })
+    const espioes = espionarChamada()
+    render(<Sonda />)
+
+    teclar('keydown', 'KeyM')
+    expect(espioes.definirMicrofone).not.toHaveBeenCalled()
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', {
+        code: 'KeyK', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true,
+      }))
+    })
+    expect(espioes.definirMicrofone).toHaveBeenCalledWith(true)
+  })
+
+  it('modificador exato: Ctrl+Shift+K não dispara um atalho gravado como Ctrl+K', () => {
+    guardarFala({
+      ...FALA_PADRAO,
+      mudo: { code: 'KeyK', ctrl: true, alt: false, shift: false, meta: false },
+    })
+    const espioes = espionarChamada()
+    render(<Sonda />)
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', {
+        code: 'KeyK', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true,
+      }))
+    })
+    expect(espioes.definirMicrofone).not.toHaveBeenCalled()
+  })
+
+  it('atalho com Ctrl vale até digitando no chat', () => {
+    guardarFala({
+      ...FALA_PADRAO,
+      mudo: { code: 'KeyM', ctrl: true, alt: false, shift: false, meta: false },
+    })
+    const espioes = espionarChamada()
+    render(<Sonda />)
+    const campo = document.createElement('textarea')
+    document.body.appendChild(campo)
+
+    act(() => {
+      campo.dispatchEvent(new KeyboardEvent('keydown', {
+        code: 'KeyM', ctrlKey: true, bubbles: true, cancelable: true,
+      }))
+    })
+
+    expect(espioes.definirMicrofone).toHaveBeenCalledWith(true)
+    campo.remove()
+  })
+
+  it('trocar o atalho no meio da chamada vale na hora', () => {
+    const espioes = espionarChamada()
+    render(<Sonda />)
+
+    act(() => { guardarFala({ ...FALA_PADRAO, mudo: semModificador('KeyJ') }) })
+    teclar('keydown', 'KeyM')
+    expect(espioes.definirMicrofone).not.toHaveBeenCalled()
+
+    teclar('keydown', 'KeyJ')
+    expect(espioes.definirMicrofone).toHaveBeenCalledWith(true)
+  })
+
+  it('atalho removido não dispara nada', () => {
+    guardarFala({ ...FALA_PADRAO, surdo: null })
+    const espioes = espionarChamada()
+    render(<Sonda />)
+
+    teclar('keydown', 'KeyD')
+    expect(espioes.definirSurdo).not.toHaveBeenCalled()
+  })
+
+  it('o rótulo diz a combinação como a pessoa a reconhece', () => {
+    expect(rotuloDoAtalho({ code: 'KeyM', ctrl: true, alt: false, shift: true, meta: false }))
+      .toBe('Ctrl + Shift + M')
+    expect(rotuloDoAtalho(semModificador('Space'))).toBe('Espaço')
+    expect(rotuloDoAtalho(semModificador('Digit1'))).toBe('1')
+    expect(rotuloDoAtalho(null)).toBe('Nenhum')
+  })
+
   it('sem chamada nenhuma os atalhos não existem', () => {
     const espioes = espionarChamada()
     act(() => { zerarChamadaParaTeste() })
@@ -117,7 +202,7 @@ describe('atalhos da chamada', () => {
 describe('apertar para falar', () => {
   beforeEach(() => {
     localStorage.clear()
-    guardarFala({ modo: 'apertar', tecla: 'Space' })
+    guardarFala({ ...FALA_PADRAO, modo: 'apertar', tecla: 'Space' })
     zerarChamadaParaTeste()
   })
 
@@ -169,7 +254,7 @@ describe('apertar para falar', () => {
   })
 
   it('no modo aberto a barra de espaço não mexe em nada', () => {
-    guardarFala({ modo: 'aberto', tecla: 'Space' })
+    guardarFala({ ...FALA_PADRAO, modo: 'aberto', tecla: 'Space' })
     const espioes = espionarChamada()
     render(<Sonda />)
 
@@ -182,12 +267,14 @@ describe('apertar para falar', () => {
 describe('preferencias de fala', () => {
   it('microfone aberto e o padrão de quem nunca escolheu', () => {
     localStorage.clear()
-    expect(lerFala()).toEqual({ modo: 'aberto', tecla: 'Space' })
+    expect(lerFala()).toMatchObject({ modo: 'aberto', tecla: 'Space' })
+    expect(lerFala().mudo?.code).toBe('KeyM')
+    expect(lerFala().surdo?.code).toBe('KeyD')
   })
 
   it('a tecla e guardada por posição fisica, e não por letra', () => {
     localStorage.clear()
-    guardarFala({ modo: 'apertar', tecla: 'KeyQ' })
+    guardarFala({ ...FALA_PADRAO, modo: 'apertar', tecla: 'KeyQ' })
 
     // `code` e nao `key`: a mesma tecla devolve "q" num QWERTY e "a" num
     // AZERTY, e um atalho gravado por letra morreria ao trocar de layout.

@@ -30,6 +30,14 @@ export type Rota =
   | { nome: 'redefinir'; token: string }
   | { nome: 'verificar'; token: string }
   | { nome: 'convite'; codigo: string }
+  /**
+   * Um canal, e opcionalmente uma mensagem dentro dele (Etapa 2, D2-A).
+   *
+   * E o que torna a notificacao clicavel, o "copiar link da mensagem"
+   * possivel e o Voltar do navegador util: antes, o canal aberto so existia
+   * na memoria da aba, e nenhum link levava a lugar nenhum dentro do app.
+   */
+  | { nome: 'canal'; grupo: string; canal: string; mensagem?: string }
 
 /** O `?convite=` da busca, quando ha um codigo plausivel. */
 function conviteDaBusca(search: string): { convite?: string } {
@@ -49,6 +57,9 @@ const PADROES: Array<[RegExp, (m: RegExpExecArray, search: string) => Rota]> = [
   [/^\/redefinir\/([A-Za-z0-9_-]+)\/?$/, m => ({ nome: 'redefinir', token: m[1]! })],
   [/^\/verificar\/([A-Za-z0-9_-]+)\/?$/, m => ({ nome: 'verificar', token: m[1]! })],
   [/^\/convite\/([0-9A-Za-z-]+)\/?$/, m => ({ nome: 'convite', codigo: m[1]! })],
+  [/^\/g\/([0-9a-f-]{36})\/c\/([0-9a-f-]{36})(?:\/m\/([0-9a-f-]{36}))?\/?$/, m => ({
+    nome: 'canal', grupo: m[1]!, canal: m[2]!, ...(m[3] === undefined ? {} : { mensagem: m[3] }),
+  })],
 ]
 
 export function lerRota(url: { pathname: string; search: string } = window.location): Rota {
@@ -76,6 +87,7 @@ export function caminhoDe(rota: Rota): string {
     case 'redefinir': return `/redefinir/${rota.token}`
     case 'verificar': return `/verificar/${rota.token}`
     case 'convite': return `/convite/${rota.codigo}`
+    case 'canal': return `/g/${rota.grupo}/c/${rota.canal}${rota.mensagem === undefined ? '' : `/m/${rota.mensagem}`}`
   }
 }
 

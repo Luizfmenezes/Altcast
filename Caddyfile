@@ -69,7 +69,9 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 		# connect-src inclui wss: porque o tempo real e o unico destino externo
 		# ao documento. Nenhum script de terceiro, nenhuma fonte remota.
-		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; media-src 'self' blob: mediastream:; frame-ancestors 'none'; base-uri 'self'"
+		# 'wasm-unsafe-eval' libera SO a compilacao de WebAssembly (nao `eval`):
+		# e o que roda a rede de supressao de ruido do microfone.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; media-src 'self' blob: mediastream:; frame-ancestors 'none'; base-uri 'self'"
 		-Server
 	}
 }

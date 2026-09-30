@@ -5,7 +5,7 @@ import { usePerfilAberto } from './perfilAberto.js'
 import { cn } from '../../lib/utils.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { Contador } from '../../ui/bits/Contador.js'
-import { Presenca } from './Presenca.js'
+import { Presenca, ROTULO_DE_PRESENCA, estaPresente } from './Presenca.js'
 import type { Membro } from '../../lib/tipos.js'
 
 const PESO_DO_PAPEL = { owner: 0, admin: 1, member: 2 } as const
@@ -30,7 +30,7 @@ type Chave = (typeof SECOES)[number]['chave']
 function agrupar(membros: Membro[]): Map<Chave, Membro[]> {
   const grupos = new Map<Chave, Membro[]>(SECOES.map(s => [s.chave, []]))
   for (const m of membros) {
-    grupos.get(m.status === 'online' ? m.role : 'offline')?.push(m)
+    grupos.get(estaPresente(m.status) ? m.role : 'offline')?.push(m)
   }
   return grupos
 }
@@ -49,32 +49,41 @@ function LinhaDeMembro({ membro }: { membro: Membro }): ReactNode {
         onClick={() => { abrirPerfil(membro.userId) }}
         // Nome e estado num unico rotulo: 'Ana, online' e uma frase; nome e
         // estado separados obrigariam quem ouve a costurar os dois.
-        aria-label={`${membro.displayName}, ${membro.status}`}
+        aria-label={`${membro.displayName}, ${ROTULO_DE_PRESENCA[membro.status]}`}
         className={cn(
           'group/membro flex w-full items-center gap-2 rounded-md px-2 text-left text-sm transition-colors',
           'hover:bg-bg-hover focus-visible:bg-bg-hover',
           // Quem esta offline fica presente mas recuado. Sumir com a pessoa
           // esconderia a informacao de que ela existe no grupo; deixa-la com o
           // mesmo peso faria trinta ausentes competirem com tres presentes.
-          membro.status === 'online' ? 'text-fg' : 'text-fg-muted',
+          estaPresente(membro.status) ? 'text-fg' : 'text-fg-muted',
         )}
         style={{ minHeight: 'var(--height-row)' }}
       >
         <span
           className={cn(
             'relative flex shrink-0 transition-opacity',
-            membro.status === 'online' ? 'opacity-100' : 'opacity-60',
+            estaPresente(membro.status) ? 'opacity-100' : 'opacity-60',
           )}
         >
           <Avatar nome={membro.displayName} url={membro.avatarUrl} tamanho="sm" />
           <Presenca status={membro.status} modo="cracha" />
         </span>
 
-        <span
-          className={cn('min-w-0 flex-1 truncate', membro.status === 'online' && 'cor-de-cargo')}
-          style={cor === null ? undefined : { '--cor-cargo': cor } as CSSProperties}
-        >
-          {membro.displayName}
+        <span className="flex min-w-0 flex-1 flex-col leading-tight">
+          <span
+            className={cn('truncate', estaPresente(membro.status) && 'cor-de-cargo')}
+            style={cor === null ? undefined : { '--cor-cargo': cor } as CSSProperties}
+          >
+            {membro.displayName}
+          </span>
+          {/* A frase do status, quando ha: "Em reunião", "De volta às 15h". */}
+          {(membro.statusText ?? '') !== '' && (
+            <span className="truncate text-xs text-fg-muted">
+              {membro.statusEmoji !== null && membro.statusEmoji !== undefined ? `${membro.statusEmoji} ` : ''}
+              {membro.statusText}
+            </span>
+          )}
         </span>
       </button>
     </li>
@@ -116,7 +125,7 @@ export function PainelMembros({ sobreposicao = false }: {
         || a.displayName.localeCompare(b.displayName)),
   ), [members, grupoAtivo])
 
-  const online = members.filter(m => m.groupId === grupoAtivo && m.status === 'online').length
+  const online = members.filter(m => m.groupId === grupoAtivo && estaPresente(m.status)).length
 
   return (
     <aside

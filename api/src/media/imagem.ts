@@ -15,6 +15,8 @@ export const LIMITE_DE_IMAGEM = 8 * 1024 * 1024
 
 export const LADO_DO_AVATAR = 256
 export const LADO_DO_ICONE = 512
+/** O banner do perfil: 5:2, o formato do topo do cartao. */
+export const BANNER = { largura: 960, altura: 384 } as const
 
 const ACEITOS = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 
@@ -33,13 +35,15 @@ const ACEITOS = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
  *    CPU barata de disparar e cara de servir — e a saida precisa ser um blob
  *    unico, de tamanho conhecido.
  */
-export async function normalizarImagem(dados: Buffer, lado: number): Promise<Buffer> {
+export async function normalizarImagem(
+  dados: Buffer, lado: number, altura: number = lado,
+): Promise<Buffer> {
   const tipo = detectarTipo(dados)
   if (!ACEITOS.has(tipo)) throw new AppError('unsupported_image')
 
   try {
     return await sharp(dados)
-      .resize(lado, lado, { fit: 'cover', position: 'centre' })
+      .resize(lado, altura, { fit: 'cover', position: 'centre' })
       .webp({ quality: 82 })
       .toBuffer()
   } catch {

@@ -33,6 +33,7 @@
   --color-danger-fg: var(--color-danger-fg);
   --color-presence-online: var(--color-presence-online);
   --color-accent-live: var(--color-accent-live);
+  --color-speaking: var(--color-speaking);
   --color-warning: var(--color-warning);
 
   /**

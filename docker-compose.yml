@@ -66,6 +66,8 @@ services:
       # senha sem caminho de volta. EMAIL_FROM precisa ser de um dominio
       # verificado no Resend, senao o envio e recusado.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+      IA_ORCAMENTO_DIARIO: ${IA_ORCAMENTO_DIARIO:-2000}
       EMAIL_FROM: ${EMAIL_FROM:-Altcast <nao-responda@altcast.local>}
       EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
       # Entrada pelo Google. Sem as duas a API sobe igual e o botao nao

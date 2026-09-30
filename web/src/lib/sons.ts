@@ -24,6 +24,7 @@ export type Cue =
   | 'mudo' | 'desmudo'
   | 'tela-ligou' | 'tela-desligou'
   | 'alguem-entrou' | 'alguem-saiu'
+  | 'mensagem' | 'mencao' | 'mensagem-dm'
 
 /**
  * Quem de fato emite o som.
@@ -79,6 +80,21 @@ const CUES: Record<Cue, { notas: Nota[]; ganho: number }> = {
   'alguem-saiu': { ganho: 0.12, notas: [
     { hz: 783.99, inicio: 0, duracao: 0.07 },
     { hz: 523.25, inicio: 0.06, duracao: 0.11 },
+  ] },
+  // Mensagem comum: uma nota curta e baixa. E o som mais frequente do app, e
+  // o mais frequente tem de ser o mais discreto.
+  mensagem: { ganho: 0.08, notas: [{ hz: 698.46, inicio: 0, duracao: 0.06 }] },
+  // Mencao: duas notas em quinta, mais alto — e sobre VOCE, e precisa se
+  // distinguir da conversa de fundo sem olhar.
+  mencao: { ganho: 0.16, notas: [
+    { hz: 783.99, inicio: 0, duracao: 0.08 },
+    { hz: 1174.66, inicio: 0.08, duracao: 0.12 },
+  ] },
+  // Conversa direta: tres notas, a mais pessoal das deixas.
+  'mensagem-dm': { ganho: 0.14, notas: [
+    { hz: 659.25, inicio: 0, duracao: 0.06 },
+    { hz: 880.00, inicio: 0.06, duracao: 0.06 },
+    { hz: 1046.50, inicio: 0.12, duracao: 0.10 },
   ] },
 }
 

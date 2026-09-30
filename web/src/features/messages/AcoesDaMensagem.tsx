@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Reply } from 'lucide-react'
+import { Check, Link2, Reply } from 'lucide-react'
+import { useStore } from '../../lib/store.js'
+import { enderecoDaMensagem } from '../../lib/rotaDoCanal.js'
 import { cn } from '../../lib/utils.js'
 import type { Mensagem } from '../../lib/tipos.js'
 import { SeletorDeReacao, useAlternarReacao } from './Reacoes.js'
@@ -31,6 +33,23 @@ export function AcoesDaMensagem({ mensagem, eu, visivel, aoResponder }: {
   const reacoes = mensagem.reactions ?? []
   const { alternar } = useAlternarReacao(mensagem.id, reacoes, eu)
   const [seletorAberto, setSeletorAberto] = useState(false)
+  const [copiado, setCopiado] = useState(false)
+  const grupo = useStore(e => e.channels.find(c => c.id === mensagem.channelId)?.groupId ?? null)
+
+  /**
+   * O link direto da mensagem (Etapa 2.1): quem abre cai no canal, com a
+   * mensagem rolada ate o meio da tela e realcada.
+   */
+  async function copiarLink(): Promise<void> {
+    if (grupo === null) return
+    try {
+      await navigator.clipboard.writeText(enderecoDaMensagem(grupo, mensagem.channelId, mensagem.id))
+      setCopiado(true)
+      setTimeout(() => { setCopiado(false) }, 1500)
+    } catch {
+      // Area de transferencia negada: o botao simplesmente nao confirma.
+    }
+  }
 
   return (
     <div
@@ -63,6 +82,20 @@ export function AcoesDaMensagem({ mensagem, eu, visivel, aoResponder }: {
         eu={eu}
         aoAbrir={setSeletorAberto}
       />
+      <button
+        type="button"
+        onClick={() => { void copiarLink() }}
+        aria-label={copiado ? 'Link copiado' : 'Copiar link da mensagem'}
+        title={copiado ? 'Link copiado' : 'Copiar link da mensagem'}
+        className="inline-flex size-8 items-center justify-center rounded text-fg-muted
+                   hover:bg-bg-hover hover:text-fg focus-visible:bg-bg-hover"
+      >
+        {copiado
+          ? <Check aria-hidden="true" className="size-4 text-presence-online" />
+          : <Link2 aria-hidden="true" className="size-4" />}
+      </button>
+      {/* A confirmacao falada, sem roubar o foco de quem copiou. */}
+      <span role="status" className="sr-only">{copiado ? 'Link copiado' : ''}</span>
       {aoResponder !== undefined && (
         <button
           type="button"

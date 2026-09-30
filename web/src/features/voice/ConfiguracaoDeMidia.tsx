@@ -5,9 +5,10 @@ import {
   listarDispositivos, QUALIDADES,
 } from '../../lib/midia.js'
 import type {
-  Dispositivo, Processamento, QualidadeDaTela, TipoDeDispositivo,
+  Dispositivo, Processamento, QualidadeDaTela, Supressao, TipoDeDispositivo,
 } from '../../lib/midia.js'
-import { guardarFala, lerFala } from './atalhos.js'
+import { useChamadaAtiva } from './chamadaAtiva.js'
+import { guardarFala, lerFala, nomeDaTecla } from './atalhos.js'
 import type { ModoDeFala } from './atalhos.js'
 import { AjusteDeSons } from './AjusteDeSons.js'
 
@@ -19,12 +20,7 @@ import { AjusteDeSons } from './AjusteDeSons.js'
  * transmite musica passaria a tarde procurando por que o instrumento sai
  * picotado.
  */
-const TRATAMENTOS: { chave: keyof Processamento; rotulo: string; nota: string }[] = [
-  {
-    chave: 'ruido',
-    rotulo: 'Supressão de ruido',
-    nota: 'Otima para voz. Desligue para transmitir música ou instrumento.',
-  },
+const TRATAMENTOS: { chave: 'eco' | 'ganho'; rotulo: string; nota: string }[] = [
   {
     chave: 'eco',
     rotulo: 'Cancelamento de eco',
@@ -34,6 +30,36 @@ const TRATAMENTOS: { chave: keyof Processamento; rotulo: string; nota: string }[
     chave: 'ganho',
     rotulo: 'Volume automático',
     nota: 'Nivela a voz, mas levanta o chiado no silencio.',
+  },
+]
+
+/**
+ * Os quatro modos da supressao de ruido, do mais forte ao nenhum.
+ *
+ * A nota de cada um diz o que ele custa. "IA leve" existe para maquina fraca,
+ * e "Desligada" existe para quem toca: toda supressao trata instrumento como
+ * ruido e o corta.
+ */
+export const SUPRESSOES: { valor: Supressao; rotulo: string; nota: string }[] = [
+  {
+    valor: 'ia',
+    rotulo: 'IA (recomendado)',
+    nota: 'Rede neural na sua máquina, como o Krisp. Tira teclado, ventilador e barulho da casa.',
+  },
+  {
+    valor: 'ia-leve',
+    rotulo: 'IA leve',
+    nota: 'Mais branda, para computador mais fraco. Quase não usa processador.',
+  },
+  {
+    valor: 'navegador',
+    rotulo: 'Padrão do navegador',
+    nota: 'Só tira chiado constante.',
+  },
+  {
+    valor: 'desligada',
+    rotulo: 'Desligada',
+    nota: 'Para música e instrumento, que toda supressão corta.',
   },
 ]
 
@@ -236,6 +262,9 @@ export function ConfiguracaoDeMidia({
     () => lerPreferencias(),
   )
   const [tratamento, setTratamento] = useState<Processamento>(lerProcessamento)
+  const definirSupressao = useChamadaAtiva(e => e.definirSupressao)
+  const supressaoAtiva = useChamadaAtiva(e => e.chamada.supressaoAtiva)
+  const naChamada = useChamadaAtiva(e => e.chamada.fase === 'dentro')
   const [fala, setFala] = useState(lerFala)
   const [recarga, setRecarga] = useState(0)
 
@@ -311,12 +340,13 @@ export function ConfiguracaoDeMidia({
             className="h-9 rounded border border-border bg-bg-raised px-2 text-sm text-fg"
           >
             <option value="aberto">Microfone aberto</option>
-            <option value="apertar">Apertar para falar (barra de espaço)</option>
+            <option value="apertar">Apertar para falar ({nomeDaTecla(fala.tecla)})</option>
           </select>
           {fala.modo === 'apertar' && (
             <span className="text-xs text-fg-muted">
-              Segure a barra de espaço para falar. Fora desta aba o navegador não
-              entrega a tecla, e o microfone fecha sozinho.
+              Segure {nomeDaTecla(fala.tecla)} para falar. Troque a tecla em
+              Configurações, Atalhos. Fora desta aba o navegador não entrega a
+              tecla, e o microfone fecha sozinho.
             </span>
           )}
         </label>
@@ -330,6 +360,48 @@ export function ConfiguracaoDeMidia({
         novo. Dizer isso custa uma linha e evita a conclusao de que o
         interruptor nao funciona.
       */}
+      {/*
+        A supressao de ruido vale NA HORA, ao contrario do eco e do ganho: a
+        rede e plugada no microfone ja capturado, sem pedir permissao de novo.
+      */}
+      <fieldset className="flex flex-col gap-2 border-t border-border-subtle p-3">
+        <legend className="float-left mb-1 text-[13px] font-medium text-fg">
+          Supressão de ruído
+        </legend>
+        <div className="clear-both grid gap-2 sm:grid-cols-2">
+          {SUPRESSOES.map(({ valor, rotulo, nota }) => (
+            <label
+              key={valor}
+              className="flex cursor-pointer items-start gap-2 rounded border border-border-subtle
+                         p-2 has-[:checked]:border-accent has-[:checked]:bg-accent-subtle"
+            >
+              <input
+                type="radio"
+                name="supressao"
+                value={valor}
+                checked={tratamento.supressao === valor}
+                onChange={() => {
+                  setTratamento({ ...tratamento, supressao: valor })
+                  definirSupressao(valor)
+                }}
+                className="mt-0.5 size-4 accent-accent"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-[13px] font-medium text-fg">{rotulo}</span>
+                <span className="text-xs text-fg-muted">{nota}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {naChamada && (tratamento.supressao === 'ia' || tratamento.supressao === 'ia-leve') && (
+          <p role="status" className="text-xs text-fg-muted">
+            {supressaoAtiva
+              ? 'A IA está limpando seu microfone agora.'
+              : 'Ligue o microfone para a IA começar a limpar o som.'}
+          </p>
+        )}
+      </fieldset>
+
       <fieldset className="flex flex-wrap gap-4 border-t border-border-subtle p-3">
         <legend className="sr-only">Tratamento do microfone</legend>
         {TRATAMENTOS.map(({ chave, rotulo, nota }) => (
@@ -351,7 +423,7 @@ export function ConfiguracaoDeMidia({
           </label>
         ))}
         <p className="basis-full text-xs text-fg-muted">
-          Vale na próxima vez que você entrar numa chamada.
+          Eco e volume automático valem na próxima vez que você entrar numa chamada.
         </p>
       </fieldset>
 

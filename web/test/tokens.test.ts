@@ -30,6 +30,10 @@ const PARES: Array<[keyof typeof LIGHT, keyof typeof LIGHT, number]> = [
   // aviso, tambem como texto curto ao lado do icone.
   ['accentLive', 'bg', 3],
   ['accentLive', 'bgRaised', 3],
+  // O anel verde de quem fala e forma sem texto: 3:1 (SC 1.4.11).
+  ['speaking', 'bg', 3],
+  ['speaking', 'bgRaised', 3],
+  ['speaking', 'bgHover', 3],
   ['warning', 'bg', 4.5],
   ['warning', 'bgRaised', 4.5],
   // O campo de escrita e os formularios afundam no `bgSunken`.

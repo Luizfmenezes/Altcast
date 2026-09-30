@@ -39,6 +39,14 @@ export type PonteNativa = {
   versao: string
   listarFontes: () => Promise<FonteDeTela[]>
   escolherFonte: (id: string, som: SomDaTela) => Promise<void>
+  /**
+   * Contador de nao lidas no icone do app, ou piscar para chamar atencao.
+   * Opcional: versoes antigas do desktop nao tem.
+   */
+  pedirAtencao?: (pedido:
+    | { tipo: 'chamada' }
+    | { tipo: 'nao-lidos'; quantidade: number }
+    | { tipo: 'nenhum' }) => Promise<void>
 }
 
 /**

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Hash, Link2, Settings2, ShieldCheck, Users } from 'lucide-react'
+import { Hash, Link2, Settings2, ShieldCheck, Sparkles, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore, possoNoGrupo } from '../../lib/store.js'
 import { Avatar } from '../../ui/Avatar.js'
@@ -10,6 +10,7 @@ import { IdentidadeDoGrupo } from './IdentidadeDoGrupo.js'
 import { Cargos } from './Cargos.js'
 import { Convidar } from '../groups/Convidar.js'
 import { Membros } from '../groups/Membros.js'
+import { IaDoGrupo } from './IaDoGrupo.js'
 
 /**
  * Configuracoes do grupo: um menu a esquerda, um assunto por vez a direita.
@@ -78,6 +79,14 @@ const SECOES: Secao[] = [
     icone: Link2,
     exige: 'group.invite',
     conteudo: groupId => <Convidar groupId={groupId} />,
+  },
+  {
+    id: 'ia',
+    rotulo: 'IA',
+    descricao: 'Recursos de julgamento automático, o que cada um envia e onde vale.',
+    icone: Sparkles,
+    exige: 'group.update',
+    conteudo: groupId => <IaDoGrupo groupId={groupId} />,
   },
   {
     id: 'membros',

@@ -1,4 +1,5 @@
 import { and, eq, isNull } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { db } from '../db/client.js'
@@ -25,7 +26,7 @@ import { cotaDeGrupos } from '../groups/limite.js'
 import {
   INTERVALO_DE_TROCA_MS, normalizarUsername, problemaNoUsername,
 } from '../auth/username.js'
-import { parse } from './groups.routes.js'
+import { parse, uuidOu404 } from './groups.routes.js'
 import { consumirConvite } from './invites.routes.js'
 import { resgatarConvites } from './invitations.routes.js'
 import { emit } from '../realtime/emit.js'
@@ -73,7 +74,29 @@ const perfilSchema = z.object({
    * nessa coluna e pela rota de upload, que tambem grava a chave do objeto.
    */
   avatarUrl: z.url().max(2048).nullable().optional(),
+  /**
+   * O perfil. Texto vazio vira `null`: "apaguei minha bio" e "nunca escrevi
+   * uma" sao a mesma coisa para quem le o cartao.
+   */
+  bio: z.string().trim().max(190).nullable().optional()
+    .transform(v => (v === '' ? null : v)),
+  pronouns: z.string().trim().max(40).nullable().optional()
+    .transform(v => (v === '' ? null : v)),
+  bannerColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional()
+    .transform(v => (typeof v === 'string' ? v.toLowerCase() : v)),
 })
+
+/**
+ * O proprio usuario, como a propria pessoa o ve — com o perfil inteiro, que e
+ * o que a tela de edicao precisa para abrir preenchida.
+ */
+function usuarioProprio(u: typeof users.$inferSelect): Record<string, unknown> {
+  return {
+    id: u.id, email: u.email, displayName: u.displayName, username: u.username,
+    avatarUrl: u.avatarUrl, emailVerifiedAt: u.emailVerifiedAt,
+    bio: u.bio, pronouns: u.pronouns, bannerColor: u.bannerColor, bannerUrl: u.bannerUrl,
+  }
+}
 
 const usernameSchema = z.object({ username: z.string().min(1).max(64) })
 
@@ -478,6 +501,9 @@ export async function authRoutes(app: FastifyInstance, opcoes?: {
 
     const mudancas: Record<string, unknown> = { updatedAt: new Date() }
     if (parsed.data.displayName !== undefined) mudancas['displayName'] = parsed.data.displayName
+    if (parsed.data.bio !== undefined) mudancas['bio'] = parsed.data.bio
+    if (parsed.data.pronouns !== undefined) mudancas['pronouns'] = parsed.data.pronouns
+    if (parsed.data.bannerColor !== undefined) mudancas['bannerColor'] = parsed.data.bannerColor
     if (parsed.data.avatarUrl !== undefined) {
       mudancas['avatarUrl'] = parsed.data.avatarUrl
       // Apontar a foto para outro lugar desliga a que estava hospedada aqui.
@@ -497,12 +523,7 @@ export async function authRoutes(app: FastifyInstance, opcoes?: {
       d: { userId: u.id, displayName: u.displayName, username: u.username, avatarUrl: u.avatarUrl },
     })
 
-    return {
-      user: {
-        id: u.id, email: u.email, displayName: u.displayName, username: u.username,
-        avatarUrl: u.avatarUrl, emailVerifiedAt: u.emailVerifiedAt,
-      },
-    }
+    return { user: usuarioProprio(u) }
   })
 
   /**
@@ -577,6 +598,43 @@ export async function authRoutes(app: FastifyInstance, opcoes?: {
     return u
   })
 
+  /**
+   * O perfil de outra pessoa: o que o cartao mostra alem do nome e da foto.
+   *
+   * Sai por aqui, sob demanda, e nao no `ready`: a bio de cada membro de cada
+   * grupo engordaria a primeira fotografia de todo mundo com texto que so e
+   * lido quando alguem abre um cartao.
+   *
+   * So para quem divide um grupo com a pessoa — a mesma fronteira de quem ja
+   * ve o nome e a foto dela. Fora disso a resposta e 404, e nao 403: dizer
+   * "existe, mas voce nao pode ver" confirmaria a existencia da conta.
+   */
+  app.get('/api/users/:id/profile', {
+    preHandler: requireAuth,
+    config: { rateLimit: { max: 120, timeWindow: '1 minute' } },
+  }, async req => {
+    const alvo = uuidOu404((req.params as { id: string }).id)
+    const eu = req.user!.id
+
+    if (alvo !== eu) {
+      const meu = alias(groupMembers, 'meu')
+      const [comum] = await db.select({ groupId: groupMembers.groupId })
+        .from(groupMembers)
+        .innerJoin(meu, and(eq(meu.groupId, groupMembers.groupId), eq(meu.userId, eu)))
+        .where(eq(groupMembers.userId, alvo))
+        .limit(1)
+      if (!comum) throw new AppError('not_found')
+    }
+
+    const [u] = await db.select({
+      userId: users.id, displayName: users.displayName, username: users.username,
+      avatarUrl: users.avatarUrl, bio: users.bio, pronouns: users.pronouns,
+      bannerColor: users.bannerColor, bannerUrl: users.bannerUrl, createdAt: users.createdAt,
+    }).from(users).where(eq(users.id, alvo)).limit(1)
+    if (!u) throw new AppError('not_found')
+    return { profile: u }
+  })
+
   app.get('/api/auth/me', { preHandler: requireAuth }, async req => {
     const id = req.user!.id
     const [u] = await db.select().from(users).where(eq(users.id, id)).limit(1)
@@ -591,10 +649,7 @@ export async function authRoutes(app: FastifyInstance, opcoes?: {
       .where(eq(groupMembers.userId, id))
 
     return {
-      user: {
-        id: u.id, email: u.email, displayName: u.displayName, username: u.username,
-        avatarUrl: u.avatarUrl, emailVerifiedAt: u.emailVerifiedAt,
-      },
+      user: usuarioProprio(u),
       groups: meus,
       // Para a tela poder dizer "2 de 3" e desabilitar o botao com um motivo,
       // em vez de deixar a pessoa clicar e levar um erro.

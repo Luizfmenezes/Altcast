@@ -1,5 +1,5 @@
 import {
-  boolean, customType, index, integer, pgEnum, pgTable, primaryKey,
+  boolean, customType, index, integer, jsonb, pgEnum, pgTable, primaryKey,
   text, timestamp, uniqueIndex, uuid,
 } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
@@ -55,6 +55,22 @@ export const users = pgTable('users', {
    * permissao.
    */
   isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
+  /**
+   * O status ESCOLHIDO (migracao 0014). `online` e o automatico; o ausente
+   * por inatividade nao mora aqui — e fato da conexao, e vive em memoria.
+   */
+  status: text('status', { enum: ['online', 'idle', 'dnd', 'invisible'] }).notNull().default('online'),
+  statusText: text('status_text'),
+  statusEmoji: text('status_emoji'),
+  statusExpiresAt: timestamp('status_expires_at', { withTimezone: true }),
+  /** O perfil (migracao 0016): "sobre mim", pronomes e o banner do cartao. */
+  bio: text('bio'),
+  pronouns: text('pronouns'),
+  /** `#rrggbb`, conferido tambem por CHECK no banco. */
+  bannerColor: text('banner_color'),
+  bannerUrl: text('banner_url'),
+  /** So para saber qual objeto apagar quando o banner for trocado. Nunca sai. */
+  bannerKey: text('banner_key'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, t => [
@@ -231,6 +247,7 @@ export const mentions = pgTable('mentions', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 }, t => [
   primaryKey({ columns: [t.messageId, t.userId] }),
+  index('mentions_user_idx').on(t.userId, t.messageId),
 ])
 
 /**
@@ -387,4 +404,56 @@ export const channelOverwrites = pgTable('channel_overwrites', {
   deny: text('deny').array().notNull().default(sql`'{}'`),
 }, t => [
   primaryKey({ columns: [t.channelId, t.subjectType, t.subjectId] }),
+])
+
+/**
+ * Preferencias de notificacao (migracao 0014), por grupo OU por canal.
+ *
+ * Duas FKs e um CHECK de "exatamente um", e nao um escopo polimorfico: apagar
+ * o grupo ou o canal apaga a preferencia (CASCADE), e o banco recusa sozinho
+ * a linha sem escopo ou com dois. `level` nulo e "herda".
+ */
+export const notificationPrefs = pgTable('notification_prefs', {
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  groupId: uuid('group_id').references(() => groups.id, { onDelete: 'cascade' }),
+  channelId: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
+  level: text('level', { enum: ['all', 'mentions', 'none', 'smart'] }),
+  mutedUntil: timestamp('muted_until', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  uniqueIndex('notification_prefs_grupo_key').on(t.userId, t.groupId).where(sql`channel_id IS NULL`),
+  uniqueIndex('notification_prefs_canal_key').on(t.userId, t.channelId).where(sql`channel_id IS NOT NULL`),
+])
+
+/** O que cada grupo ligou da camada de IA (migracao 0015). Ausente = desligado. */
+export const groupAiSettings = pgTable('group_ai_settings', {
+  groupId: uuid('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  recurso: text('recurso', {
+    enum: ['triagem', 'automod', 'rerank', 'ja_respondida', 'denuncias', 'cargos', 'sugestoes'],
+  }).notNull(),
+  ativo: boolean('ativo').notNull().default(false),
+  incluiPrivados: boolean('inclui_privados').notNull().default(false),
+  limiar: jsonb('limiar').notNull().default({}),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  primaryKey({ columns: [t.groupId, t.recurso] }),
+])
+
+/**
+ * Cada julgamento feito, e o que se fez com ele (migracao 0015). Guarda o
+ * hash da entrada, nunca o texto: existe para calibrar limiares.
+ */
+export const iaDecisoes = pgTable('ia_decisoes', {
+  id: uuid('id').primaryKey(),
+  groupId: uuid('group_id').references(() => groups.id, { onDelete: 'cascade' }),
+  recurso: text('recurso').notNull(),
+  versao: text('versao').notNull(),
+  entradaHash: text('entrada_hash').notNull(),
+  resposta: jsonb('resposta'),
+  latenciaMs: integer('latencia_ms'),
+  acao: text('acao').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  index('ia_decisoes_grupo_idx').on(t.groupId, t.recurso, t.createdAt.desc()),
 ])

@@ -177,3 +177,31 @@ da API, este mapa migra para Redis Pub/Sub. Nada mais no desenho precisa mudar.
 | Tamanho de mensagem WS recebida | 4 KB | O cliente só manda `pong` e `typing` |
 | Mensagens WS por segundo por conexão | 10 | Acima disso, desconecta |
 | Tempo máximo de conexão | sem limite | O heartbeat já cobre |
+
+## 11. Atenção (Etapa 2 do super plano)
+
+### Novos campos do `ready`
+
+| Campo | Conteúdo |
+|---|---|
+| `unread` | `{ [channelId]: { n, mentions } }` — não lidas depois do marco (ou da entrada no grupo, se nunca lido), teto de 100; canal ausente = zero |
+| `notificationPrefs` | `[{ scopeType, scopeId, level, mutedUntil }]` — só da própria pessoa |
+| `user.status`, `statusText`, `statusEmoji`, `statusExpiresAt` | O status **escolhido** (com o prazo já aplicado) |
+| `members[].status` | `online` · `idle` · `dnd` · `offline` (e `invisible` só na própria linha); `statusText`/`statusEmoji` só de quem está visível |
+
+### Eventos novos
+
+| Evento | Audiência | Conteúdo |
+|---|---|---|
+| `unread.update` | a própria pessoa (todas as sessões) | `{ channelId, lastReadMessageId, n, mentions }` — outra aba/aparelho leu |
+| `notification-prefs.updated` | a própria pessoa | a preferência gravada; `level` e `mutedUntil` nulos = voltou a herdar |
+| `user.status` | a própria pessoa | `{ status, statusText, statusEmoji, statusExpiresAt }` |
+| `presence.update` | pares | agora com `status` em `online/idle/dnd/offline` e, quando muda, `statusText`/`statusEmoji`. O invisível aparece `offline`; ninguém recebe "invisível" |
+| `attention.suggested` | leitores com nível Inteligente | `{ channelId, messageId }` — a triagem do Jev julgou que a mensagem pede atenção |
+| `group.ai_updated` | o grupo | `{ groupId, recurso, ativo, incluiPrivados }` |
+
+### Quadro novo do cliente
+
+`{ t: 'presence.idle', d: { idle: boolean } }` — só nas transições (ficou dez
+minutos sem uso / voltou). Qualquer outro valor é descartado como todo quadro
+torto. Reenviado na reconexão se a pessoa ainda estiver ausente.

@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { usePerfilAberto } from '../presence/perfilAberto.js'
 import { AcoesDaMensagem } from './AcoesDaMensagem.js'
+import { useRealce } from '../../lib/rotaDoCanal.js'
 import { Anexos } from './Anexos.js'
 import { Reacoes } from './Reacoes.js'
 import { reenviarMensagem } from './envio.js'
@@ -177,6 +178,16 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
       ancora.current = null
     }
 
+    /**
+     * A primeira vez que o canal ganha mensagens, a leitura comeca no PRIMEIRO
+     * NAO LIDO, e nao no fim (Etapa 2.8). Quem volta a um canal com trinta
+     * mensagens novas quer comecar pela primeira delas; cair no fim obrigava a
+     * rolar para cima procurando o separador.
+     */
+    if (antes.primeira === undefined && agora.primeira !== undefined) {
+      if (irParaPrimeiraNaoLida()) return
+    }
+
     const chegouNoFim = agora.ultima !== undefined && agora.ultima !== antes.ultima
       && (antes.ultima === undefined || agora.ultima > antes.ultima)
     if (!chegouNoFim) return
@@ -184,14 +195,58 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
     else setNovasAcima(true)
   }, [mensagens, noFim])
 
-  // Trocar de canal recomeca no fim: chegar num canal no meio do historico
-  // antigo nao e o que ninguem espera.
+  /** Rola ate o separador "Novas mensagens", se houver. Devolve se rolou. */
+  function irParaPrimeiraNaoLida(): boolean {
+    const el = caixa.current
+    const separador = el?.querySelector<HTMLElement>('[data-primeira-nova]')
+    if (el === null || el === undefined || separador === null || separador === undefined) return false
+    separador.scrollIntoView?.({ block: 'start' })
+    // Mede de verdade: se tudo cabe na tela, a pessoa ja esta "no fim", e a
+    // leitura tem de ser marcada — sem isto, um canal curto nunca zeraria.
+    medirRolagem()
+    return true
+  }
+
+  // Trocar de canal recomeca no primeiro nao lido — ou no fim, se nao ha.
   useEffect(() => {
-    setNoFim(true)
     setNovasAcima(false)
+    if (irParaPrimeiraNaoLida()) return
+    setNoFim(true)
     const el = caixa.current
     if (el !== null) el.scrollTop = el.scrollHeight
+    // So na troca de canal: `irParaPrimeiraNaoLida` le o DOM do momento.
   }, [canalAtivo])
+
+  /**
+   * A mensagem que um link pediu (Etapa 2.1).
+   *
+   * Se ela ainda nao esta carregada, busca paginas mais antigas ate acha-la —
+   * com um teto, para que um link para o comeco de um canal de dez anos nao
+   * vire duzentas requisicoes. Achada, rola ate ela e a realca por 2 s.
+   */
+  const realce = useRealce()
+  const [realcada, setRealcada] = useState<string | null>(null)
+  const tentativasDoRealce = useRef(0)
+  useEffect(() => {
+    if (realce.channelId !== canalAtivo || realce.messageId === null || canalAtivo === null) return
+    const alvo = document.getElementById(`mensagem-${realce.messageId}`)
+    if (alvo !== null) {
+      alvo.scrollIntoView?.({ block: 'center' })
+      setRealcada(realce.messageId)
+      realce.concluir()
+      tentativasDoRealce.current = 0
+      const t = setTimeout(() => { setRealcada(null) }, 2000)
+      return () => { clearTimeout(t) }
+    }
+    if (historico?.inicio === true || tentativasDoRealce.current >= 20) {
+      realce.concluir()
+      tentativasDoRealce.current = 0
+      return
+    }
+    if (historico?.primeira !== 'pronto' || historico.anteriores === 'carregando') return
+    tentativasDoRealce.current += 1
+    void buscarAnteriores(canalAtivo)
+  }, [realce, canalAtivo, mensagens, historico])
 
   function irParaOFim(): void {
     const el = caixa.current
@@ -297,7 +352,8 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
                 <div
                   role="separator"
                   aria-label="Novas mensagens"
-                  className="my-2 flex items-center gap-2 text-xs font-semibold text-accent"
+                  data-primeira-nova=""
+                  className="my-2 flex scroll-mt-4 items-center gap-2 text-xs font-semibold text-accent"
                 >
                   <span className="h-px flex-1 bg-accent" />
                   Novas mensagens
@@ -324,6 +380,8 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
                 COMIGO, e ela tem de se achar de relance num canal de cem.
               */}
               <article
+                id={`mensagem-${mensagem.id}`}
+                data-realcada={realcada === mensagem.id ? '' : undefined}
                 aria-busy={mensagem.envio === 'enviando' ? 'true' : undefined}
                 aria-label={meMenciona ? `Menciona você: ${autor.nome}` : undefined}
                 onPointerUp={evento => {
@@ -335,6 +393,9 @@ export function MessageList({ escrevendo, digitando, carregarAnteriores, aoRespo
                    hover:bg-bg-hover/40 focus-within:bg-bg-hover/40`,
                   agrupada ? 'py-px' : 'mt-3 pb-0.5 pt-1 first:mt-0',
                   meMenciona ? 'border-accent bg-accent-subtle hover:bg-accent-subtle' : 'border-transparent',
+                  // A mensagem aberta por link acende e apaga devagar: o olho
+                  // encontra onde pousou, e o realce nao fica pendurado.
+                  realcada === mensagem.id && 'bg-accent-subtle transition-colors duration-700',
                   mensagem.envio === 'enviando' && 'opacity-60',
                 )}
               >

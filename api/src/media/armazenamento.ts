@@ -33,6 +33,7 @@ export const COTA_POR_CANAL = 5 * 1024 * 1024 * 1024
  */
 export const chaveDoAvatar = (id: string): string => `avatares/${id.slice(0, 2)}/${id}`
 export const chaveDoIcone = (id: string): string => `icones/${id.slice(0, 2)}/${id}`
+export const chaveDoBanner = (id: string): string => `banners/${id.slice(0, 2)}/${id}`
 
 export type ConfiguracaoDeArmazenamento = {
   endPoint: string

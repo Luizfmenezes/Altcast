@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Headphones, Settings, ShieldCheck, UserRound, Users, X } from 'lucide-react'
+import { Headphones, Keyboard, Settings, ShieldCheck, UserRound, Users, X } from 'lucide-react'
 import { ConfiguracoesGrupo } from './ConfiguracoesGrupo.js'
 import { ConfiguracoesUsuario } from './ConfiguracoesUsuario.js'
 import { Perfil } from './Perfil.js'
 import { PreferenciasDeMidia } from '../voice/ConfiguracaoDeMidia.js'
+import { AtalhosDeVoz } from '../voice/AtalhosDeVoz.js'
 import { Abas, PainelDeAba } from '../../ui/Abas.js'
 import { cn } from '../../lib/utils.js'
 import type { Aba as DescricaoDeAba } from '../../ui/Abas.js'
@@ -46,6 +47,7 @@ export function Configuracoes({ groupId, podeAdministrar }: {
     { valor: 'perfil', rotulo: 'Perfil', icone: UserRound },
     { valor: 'conta', rotulo: 'Conta', icone: ShieldCheck },
     { valor: 'midia', rotulo: 'Áudio e vídeo', icone: Headphones },
+    { valor: 'atalhos', rotulo: 'Atalhos', icone: Keyboard },
     // O rotulo "Grupo" e consultado pelo teste de acessibilidade ponta a
     // ponta. Renomear quebra a suite, e com razao: e o nome que as pessoas
     // aprenderam.
@@ -126,6 +128,15 @@ export function Configuracoes({ groupId, podeAdministrar }: {
                   discordariam sobre o que esta selecionado.
                 */}
                 <PreferenciasDeMidia />
+              </section>
+            </PainelDeAba>
+            <PainelDeAba valor="atalhos">
+              <section aria-label="Atalhos de voz" className="flex flex-col gap-4 p-4">
+                <p className="text-sm text-fg-muted">
+                  As teclas que mutam, ensurdecem e abrem o microfone numa chamada.
+                  Valem na hora, inclusive com a chamada em curso.
+                </p>
+                <AtalhosDeVoz />
               </section>
             </PainelDeAba>
             {mostraGrupo && (

@@ -10,9 +10,11 @@ import { emit } from '../realtime/emit.js'
 import { emitirGrupoAtualizado } from '../groups/eventos.js'
 import { uuidOu404 } from './groups.routes.js'
 import {
-  chaveDoAvatar, chaveDoIcone, type Armazem,
+  chaveDoAvatar, chaveDoBanner, chaveDoIcone, type Armazem,
 } from '../media/armazenamento.js'
-import { LADO_DO_AVATAR, LADO_DO_ICONE, LIMITE_DE_IMAGEM, normalizarImagem } from '../media/imagem.js'
+import {
+  BANNER, LADO_DO_AVATAR, LADO_DO_ICONE, LIMITE_DE_IMAGEM, normalizarImagem,
+} from '../media/imagem.js'
 
 /**
  * Avatar de pessoa e icone de grupo, com bytes nossos por tras.
@@ -152,6 +154,53 @@ export function imagensRoutes(armazem: Armazem | null) {
     app.get('/api/avatars/:id', async (req, reply) => {
       const id = uuidOu404((req.params as { id: string }).id)
       return servir(reply, chaveDoAvatar(id))
+    })
+
+    // ---------------------------------------------------------------- banner
+    //
+    // O topo do cartao de perfil. Mesmo desenho do avatar — UUID novo por
+    // upload, GET sem sessao, objeto antigo apagado depois —, e pelos mesmos
+    // motivos, escritos no cabecalho deste arquivo.
+
+    app.post('/api/auth/me/banner', { preHandler: requireAuth }, async (req, reply) => {
+      const userId = req.user!.id
+      exigirArmazem()
+
+      const dados = await receber(req)
+      const webp = await normalizarImagem(dados, BANNER.largura, BANNER.altura)
+
+      const [u] = await db.select({ chave: users.bannerKey })
+        .from(users).where(eq(users.id, userId)).limit(1)
+
+      const mediaId = newId()
+      const chave = chaveDoBanner(mediaId)
+      await exigirArmazem().guardar(chave, webp, 'image/webp')
+
+      const bannerUrl = `/api/banners/${mediaId}`
+      await db.update(users)
+        .set({ bannerUrl, bannerKey: chave, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+      await apagarAntigo(u?.chave ?? null)
+
+      return reply.status(201).send({ bannerUrl })
+    })
+
+    app.delete('/api/auth/me/banner', { preHandler: requireAuth }, async (req, reply) => {
+      const userId = req.user!.id
+      const [u] = await db.select({ chave: users.bannerKey })
+        .from(users).where(eq(users.id, userId)).limit(1)
+
+      await db.update(users)
+        .set({ bannerUrl: null, bannerKey: null, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+      await apagarAntigo(u?.chave ?? null)
+
+      return reply.status(204).send()
+    })
+
+    app.get('/api/banners/:id', async (req, reply) => {
+      const id = uuidOu404((req.params as { id: string }).id)
+      return servir(reply, chaveDoBanner(id))
     })
 
     // ----------------------------------------------------------------- icone

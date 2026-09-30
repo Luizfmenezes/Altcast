@@ -59,6 +59,17 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   /**
+   * TypeSafe (System One / Jev) — a camada de julgamento (`src/ia/`).
+   * Opcional como tudo acima: sem a chave, todo recurso de IA aparece como
+   * "indisponivel" e o produto funciona inteiro pelo caminho sem IA. A chave
+   * nunca sai do servidor.
+   */
+  TYPESAFE_API_KEY: z.string().optional(),
+  TYPESAFE_URL: z.url().default('https://api.typesafe.ai/v1/systemone'),
+  TYPESAFE_MODEL: z.string().default('jev-latest'),
+  /** Teto de julgamentos por grupo por dia; acima dele, caminho sem IA. */
+  IA_ORCAMENTO_DIARIO: z.coerce.number().int().min(0).default(2000),
+  /**
    * Assina o cookie de dez minutos que carrega o `state` e o verificador PKCE
    * entre a ida ao Google e a volta.
    *

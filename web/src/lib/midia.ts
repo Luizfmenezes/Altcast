@@ -273,17 +273,28 @@ export type QualidadeDeRecepcao = 'automatica' | 'alta' | 'media' | 'baixa'
 export type Sinal = 'excelente' | 'bom' | 'ruim' | 'perdido'
 
 /**
- * O tratamento que o NAVEGADOR aplica ao microfone antes de o som subir.
+ * Como o ruido de fundo e tirado do microfone.
  *
- * Os tres ja existiam no `getUserMedia` e sempre estiveram ligados por padrao;
- * o sistema simplesmente nunca os ofereceu. Eles precisam poder ser
- * DESLIGADOS, e nao so ligados: a supressao de ruido destroi musica e
- * instrumento, e o ganho automatico bombeia o volume no silencio — quem
- * transmite som de verdade precisa dos tres fora do caminho.
+ * - `ia`: rede neural rodando na propria maquina (GTCRN). Tira teclado,
+ *   cachorro e ventilador sem mexer na voz. O padrao, como o Krisp do Discord:
+ *   num teste com ruido branco ela derruba o ruido em ~60 dB.
+ * - `ia-leve`: rede menor (RNNoise), para maquina fraca. Mais branda: ~7 dB
+ *   no mesmo teste, mas quase nao aparece no uso de CPU.
+ * - `navegador`: o filtro que o navegador ja tem. So tira chiado constante.
+ * - `desligada`: nada. E a escolha certa para musica e instrumento, que toda
+ *   supressao trata como ruido.
+ */
+export type Supressao = 'ia' | 'ia-leve' | 'navegador' | 'desligada'
+
+/**
+ * O tratamento aplicado ao microfone antes de o som subir.
+ *
+ * Os tres precisam poder ser DESLIGADOS, e nao so ligados: a supressao de
+ * ruido destroi musica e instrumento, e o ganho automatico bombeia o volume no
+ * silencio — quem transmite som de verdade precisa dos tres fora do caminho.
  */
 export type Processamento = {
-  /** Corta ruido de fundo. Otimo para voz, destrutivo para musica. */
-  ruido: boolean
+  supressao: Supressao
   /** Cancela o eco do proprio alto-falante. Indispensavel sem fone. */
   eco: boolean
   /** Nivela o volume sozinho. Bombeia o chiado quando ninguem fala. */
@@ -292,14 +303,30 @@ export type Processamento = {
 
 const CHAVE_DE_PROCESSAMENTO = 'altcast:processamento'
 
-export const PROCESSAMENTO_PADRAO: Processamento = { ruido: true, eco: true, ganho: true }
+export const PROCESSAMENTO_PADRAO: Processamento = { supressao: 'ia', eco: true, ganho: true }
 
-/** Preferencia de MAQUINA, como o dispositivo: depende do fone e da sala. */
+const SUPRESSOES: readonly Supressao[] = ['ia', 'ia-leve', 'navegador', 'desligada']
+
+/**
+ * Preferencia de MAQUINA, como o dispositivo: depende do fone e da sala.
+ *
+ * Le tambem o formato antigo, em que a supressao era um `ruido: boolean` do
+ * navegador. Quem tinha desligado de proposito — quem transmite musica —
+ * continua desligado; quem nunca mexeu passa a ganhar a supressao por IA.
+ */
 export function lerProcessamento(): Processamento {
   try {
     const bruto = localStorage.getItem(CHAVE_DE_PROCESSAMENTO)
     if (bruto === null) return PROCESSAMENTO_PADRAO
-    return { ...PROCESSAMENTO_PADRAO, ...JSON.parse(bruto) as Partial<Processamento> }
+    const lido = JSON.parse(bruto) as Partial<Processamento> & { ruido?: boolean }
+    const supressao = lido.supressao !== undefined && SUPRESSOES.includes(lido.supressao)
+      ? lido.supressao
+      : lido.ruido === false ? 'desligada' : PROCESSAMENTO_PADRAO.supressao
+    return {
+      supressao,
+      eco: lido.eco ?? PROCESSAMENTO_PADRAO.eco,
+      ganho: lido.ganho ?? PROCESSAMENTO_PADRAO.ganho,
+    }
   } catch {
     return PROCESSAMENTO_PADRAO
   }
@@ -311,6 +338,13 @@ export function guardarProcessamento(p: Processamento): void {
   } catch {
     // Nao poder lembrar a escolha nao pode impedir de faze-la agora.
   }
+}
+
+/** O modelo neural de cada modo, ou `null` quando a supressao nao e por IA. */
+export function modeloDaSupressao(s: Supressao): 'rnnoise' | 'gtcrn' | null {
+  if (s === 'ia') return 'gtcrn'
+  if (s === 'ia-leve') return 'rnnoise'
+  return null
 }
 
 export type PapelDaFaixa = 'camera' | 'tela' | 'audio' | 'audio-tela'
@@ -396,6 +430,17 @@ export type EstadoDaChamada = {
    * `fase === 'dentro'` continua certa. So o aviso muda.
    */
   reconectando: boolean
+  /** Como o ruido de fundo e tirado do microfone. Preferencia, lembrada. */
+  supressao: Supressao
+  /**
+   * A rede neural esta de fato limpando o microfone AGORA.
+   *
+   * Separado de `supressao` porque escolher nao e conseguir: o modelo pode
+   * falhar ao baixar, ou o navegador nao ter AudioWorklet. Nesses casos a
+   * chamada segue sem supressao, e a interface precisa poder dizer isso em
+   * vez de exibir um interruptor ligado que nao faz nada.
+   */
+  supressaoAtiva: boolean
   erro: string | null
 }
 
@@ -415,6 +460,8 @@ export const ESTADO_INICIAL: EstadoDaChamada = {
   sinais: {},
   surdo: false,
   reconectando: false,
+  supressao: PROCESSAMENTO_PADRAO.supressao,
+  supressaoAtiva: false,
   erro: null,
 }
 
@@ -530,7 +577,9 @@ function salaPadrao(lk: ModuloLiveKit): SalaDeMidia {
     // concluir que o ajuste nao funciona.
     audioCaptureDefaults: {
       ...(preferidos.audioinput === undefined ? {} : { deviceId: preferidos.audioinput }),
-      noiseSuppression: processamento.ruido,
+      // Com a IA ligada o filtro do navegador sai do caminho: os dois juntos
+      // brigam pela mesma voz e o resultado soa metalico.
+      noiseSuppression: processamento.supressao === 'navegador',
       echoCancellation: processamento.eco,
       autoGainControl: processamento.ganho,
     },
@@ -582,6 +631,19 @@ function dicaDeMovimento(track: unknown): void {
   alvo.mediaStreamTrack.contentHint = 'motion'
 }
 
+/**
+ * O pedaco de `LocalAudioTrack` que a supressao usa. Lido por capacidade, e
+ * nao por tipo, pela mesma razao de `aplicarVolume`: a sala de teste e falsa,
+ * e uma versao do SDK sem processadores nao pode derrubar o microfone.
+ */
+type FaixaDoMicrofone = {
+  mediaStreamTrack?: MediaStreamTrack
+  setAudioContext?: (contexto: AudioContext) => void
+  setProcessor?: (processador: unknown) => Promise<void>
+  stopProcessor?: () => Promise<void>
+  getProcessor?: () => unknown
+}
+
 export type Chamada = {
   entrar: () => Promise<void>
   sair: () => Promise<void>
@@ -619,6 +681,11 @@ export type Chamada = {
    */
   definirQualidade: (qualidade: QualidadeDaTela) => void
   /**
+   * Troca a supressao de ruido e guarda a escolha. Dentro da chamada vale na
+   * hora — a rede e plugada ou tirada do microfone sem recapturar nada.
+   */
+  definirSupressao: (modo: Supressao) => void
+  /**
    * A qualidade que EU recebo de UMA faixa remota, pelo `sid` dela. Vale so
    * para quem escolhe: nao muda nada do que a outra pessoa publica.
    */
@@ -638,12 +705,20 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
 
   let estado: EstadoDaChamada = {
     ...ESTADO_INICIAL, volumes: lerVolumes(), qualidade: lerQualidade(),
+    supressao: lerProcessamento().supressao,
   }
   let sala: SalaDeMidia | null = null
   /** Preenchido na entrada: e o `sub` do token, o mesmo userId da API. */
   let identidade = ''
   /** Desliga o medidor de nivel. Existe enquanto o microfone estiver ligado. */
   let pararDeMedir: (() => void) | null = null
+  /** A faixa do microfone publicada, onde a supressao por IA e plugada. */
+  let microfone: FaixaDoMicrofone | null = null
+  /**
+   * O contexto de audio da supressao, a 48 kHz — a taxa em que as duas redes
+   * foram treinadas. Um por chamada, fechado na saida.
+   */
+  let contextoDaSupressao: AudioContext | null = null
   /**
    * As publicacoes remotas vivas, por `sid`.
    *
@@ -733,6 +808,55 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     }
   }
 
+  /**
+   * Pluga (ou tira) a supressao no microfone que ja esta publicado.
+   *
+   * A ordem importa: primeiro sai o processador antigo, depois o filtro do
+   * navegador e reajustado na faixa CRUA, e so entao a rede entra. Ajustar
+   * com o processador plugado mexeria na faixa limpa, que nao tem filtro
+   * nenhum para ligar.
+   *
+   * Qualquer falha aqui vira "sem supressao", nunca "sem microfone": a rede e
+   * uma melhoria, e a chamada nao pode cair por causa dela.
+   */
+  async function aplicarSupressao(modo: Supressao): Promise<void> {
+    const faixa = microfone
+    if (faixa === null) return
+    const modelo = modeloDaSupressao(modo)
+    try {
+      if (typeof faixa.stopProcessor === 'function' && faixa.getProcessor?.() !== undefined) {
+        await faixa.stopProcessor()
+      }
+      await faixa.mediaStreamTrack?.applyConstraints?.({ noiseSuppression: modo === 'navegador' })
+        .catch(() => undefined)
+
+      if (modelo === null || typeof faixa.setProcessor !== 'function'
+        || typeof faixa.setAudioContext !== 'function' || typeof AudioContext === 'undefined'
+        || typeof AudioWorkletNode === 'undefined') {
+        aplicar({ supressaoAtiva: false })
+        return
+      }
+
+      contextoDaSupressao ??= new AudioContext({ sampleRate: 48_000, latencyHint: 'interactive' })
+      faixa.setAudioContext(contextoDaSupressao)
+      const { criarSupressorDeRuido } = await import('./supressao.js')
+      // A faixa pode ter sido despublicada durante o download do modelo.
+      if (microfone !== faixa) return
+      await faixa.setProcessor(criarSupressorDeRuido(modelo))
+      rastro('supressao ligada', { modelo })
+      aplicar({ supressaoAtiva: true })
+    } catch (erro) {
+      rastro('supressao falhou; o microfone segue sem ela', erro)
+      aplicar({ supressaoAtiva: false })
+    }
+  }
+
+  function definirSupressao(modo: Supressao): void {
+    guardarProcessamento({ ...lerProcessamento(), supressao: modo })
+    aplicar({ supressao: modo })
+    void aplicarSupressao(modo)
+  }
+
   function ligarEventos(s: SalaDeMidia, lk: ModuloLiveKit): void {
     const { RoomEvent } = lk
     const ouvir = (evento: string, fn: (...args: never[]) => void): void => {
@@ -793,7 +917,11 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
       // Audio proprio nao vira faixa — reproduzi-lo e eco —, mas vira medidor:
       // e assim que a pessoa ve que esta sendo captada.
       if (papel === 'audio') {
-        if (publicacao.track) medirNivel(publicacao.track, lk)
+        if (publicacao.track) {
+          microfone = publicacao.track as unknown as FaixaDoMicrofone
+          medirNivel(publicacao.track, lk)
+          void aplicarSupressao(estado.supressao)
+        }
         return
       }
       // O som da propria tela tambem nao volta pelo proprio alto-falante: seria
@@ -813,6 +941,8 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
       // apagaria o unico sinal de que o microfone continua captando.
       if (papelDe(publicacao as unknown as RemoteTrackPublication, lk) === 'audio') {
         pararDeMedir?.()
+        microfone = null
+        aplicar({ supressaoAtiva: false })
       }
       aplicar({ faixas: estado.faixas.filter(f => f.track !== publicacao.track) })
     }) as (...args: never[]) => void)
@@ -880,7 +1010,13 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
       // qualidade e uma escolha sobre a rede de agora, e o sinal e um fato
       // sobre uma conexao que acabou de deixar de existir.
       publicacoes.clear()
-      aplicar({ ...ESTADO_INICIAL, volumes: estado.volumes, qualidade: estado.qualidade })
+      microfone = null
+      void contextoDaSupressao?.close().catch(() => undefined)
+      contextoDaSupressao = null
+      aplicar({
+        ...ESTADO_INICIAL,
+        volumes: estado.volumes, qualidade: estado.qualidade, supressao: estado.supressao,
+      })
     }) as (...args: never[]) => void)
   }
 
@@ -1036,10 +1172,16 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     const s = sala
     sala = null
     pararDeMedir?.()
+    microfone = null
+    void contextoDaSupressao?.close().catch(() => undefined)
+    contextoDaSupressao = null
     // Avisar a API antes de desconectar: se o processo do SFU cair junto, a
     // sala da aplicacao ainda fica correta.
     opcoes.enviar({ t: 'voice.leave', d: { channelId: opcoes.channelId } })
-    aplicar({ ...ESTADO_INICIAL, volumes: estado.volumes, qualidade: estado.qualidade })
+    aplicar({
+      ...ESTADO_INICIAL,
+      volumes: estado.volumes, qualidade: estado.qualidade, supressao: estado.supressao,
+    })
     await s?.disconnect()
   }
 
@@ -1191,6 +1333,7 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
     definirQualidade,
     definirQualidadeDeRecepcao,
     definirSurdo,
+    definirSupressao,
     definirMicrofone: ligado => definir('microfone', ligado),
     definirCamera: ligado => definir('camera', ligado),
     definirTela: ligado => definir('tela', ligado),

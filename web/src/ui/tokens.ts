@@ -62,6 +62,13 @@ export type Palette = {
    * podem ser a mesma coisa para o olho.
    */
   accentLive: string
+  /**
+   * Quem esta falando AGORA, na foto: o anel e o halo verdes em volta do
+   * avatar, como no Discord. Separado de `presenceOnline` — os dois sao
+   * verdes, mas "esta online" e "esta com a voz no ar" mudam em ritmos
+   * completamente diferentes, e ajustar um nao pode mexer no outro.
+   */
+  speaking: string
   /** Aviso — sempre com icone e texto, nunca a cor sozinha. */
   warning: string
 }
@@ -90,6 +97,7 @@ export const LIGHT: Palette = {
   dangerFg: '#ffffff',
   presenceOnline: '#047857',
   accentLive: '#c2610a',
+  speaking: '#15803d',
   warning: '#9a5c06',
 }
 
@@ -111,6 +119,7 @@ export const DARK: Palette = {
   dangerFg: '#0f172a',
   presenceOnline: '#34d399',
   accentLive: '#fbbf24',
+  speaking: '#23a55a',
   warning: '#eab308',
 }
 
