@@ -165,7 +165,7 @@ function ItemDeCanal({ canal, ativo, naoLidas, mencoes = 0, silenciado = false, 
           */}
           <span
             aria-hidden="true"
-            className="size-1.5 rounded-full bg-accent-live motion-safe:animate-[pulse_2s_ease-in-out_infinite]"
+            className="size-1.5 rounded-full bg-presence-online motion-safe:animate-[pulse_2s_ease-in-out_infinite]"
           />
           <Contador para={naSala} />
           <span className="sr-only">

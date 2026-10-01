@@ -2,16 +2,15 @@
 
 > Fonte de verdade visual do app web e do desktop. Os valores de cor moram em
 > `src/ui/tokens.ts` (lidos pelo teste de contraste); este documento explica o
-> porquê e as regras de uso. Decisões D1-B (acento âmbar) e tipografia Geist
-> confirmadas pelo dono do produto em 2026-09-26.
+> porquê e as regras de uso. Tipografia Geist confirmada pelo dono do produto
+> em 2026-09-26. O acento âmbar (D1-B) foi revertido para o azul em 2026-09-30,
+> a pedido do dono do produto; a estrutura de tokens da v2 ficou.
 
 ## Ideia
 
-Altcast é um lugar para conversar e **transmitir**. A interface tinha o
-esqueleto do Discord e o azul padrão do Tailwind: trocando o logo, virava
-qualquer clone. A v2 liga o nome do produto à forma: o acento é o âmbar de uma
-luz de "no ar", e ele aparece com parcimônia — ação primária, seleção, menção
-e, no tom mais vivo (`accentLive`), **só** o que está transmitindo agora.
+Altcast é um lugar para conversar e **transmitir**. O acento é azul e aparece
+com parcimônia — ação primária, seleção, menção. O tom `accentLive` marca **só**
+o que está transmitindo agora; a sala com gente usa o verde de presença.
 
 Modo de superfície: **Operate** no app (tarefa, varredura, densidade; a marca
 mora nos detalhes) e **Persuade** na porta de entrada e no convite (pode
@@ -21,21 +20,21 @@ encantar, uma vez).
 
 | Token | Escuro | Claro | Uso |
 |---|---|---|---|
-| `accent` | `#f59e0b` | `#a14a06` | Ação primária, foco, seleção |
-| `accentFg` | `#1a1204` | `#ffffff` | Texto sobre o acento |
-| `accentSubtle` | `#f59e0b1f` | `#fef3c7` | Fundo de menção, canal com menção |
-| `accentLive` | `#fbbf24` | `#c2610a` | **Só** o "no ar": fala e transmissão ao vivo |
+| `accent` | `#60a5fa` | `#1d4ed8` | Ação primária, foco, seleção |
+| `accentFg` | `#0a1020` | `#ffffff` | Texto sobre o acento |
+| `accentSubtle` | `#60a5fa1f` | `#dbeafe` | Fundo de menção, canal com menção |
+| `accentLive` | `#fbbf24` | `#b45309` | **Só** o "no ar": fala e transmissão ao vivo |
 | `warning` | `#eab308` | `#9a5c06` | Aviso — sempre com ícone e texto |
 | `danger` | `#f87171` | `#b91c1c` | Só erro e destruição |
 | `presenceOnline` | `#34d399` | `#047857` | Só presença |
 | `bgSunken` | `#040507` | `#f8fafc` | Composer, campos |
 | neutros | slate | slate | Estrutura |
 
-- O claro é mais escuro do que o desenho original (`#b45309`) por conformidade:
-  o nome do canal ativo é escrito em `accent` sobre `bgHover`, e ali o `#b45309`
-  dava 4,07:1. A conformidade decide o tom.
+- O azul do claro é bem mais escuro que o do escuro por conformidade: o nome do
+  canal ativo é escrito em `accent` sobre `bgHover`, e ali um `#3b82f6` daria
+  3,1:1. A conformidade decide o tom.
 - `tokens.test.ts` exige 4,5:1 para texto e 3:1 para ícone/borda em todos os pares.
-- Âmbar ≠ aviso: o aviso tem token próprio (amarelo) e **nunca** aparece só como cor.
+- `accentLive` ≠ aviso: o aviso tem token próprio (amarelo) e **nunca** aparece só como cor.
 - Cores de cargo: escala OKLCH L 0,72 / C 0,14, matiz a cada 36° (10 cores +
   "sem cor"), nenhuma a menos de ΔE 20 de `danger` ou `presenceOnline`.
 
@@ -84,7 +83,7 @@ encantar uma vez. Sempre sob `MotionConfig reducedMotion="user"`.
 
 ## Proibido
 
-- Azul/violeta genérico como acento; gradiente em texto; glassmorphism no app.
+- Gradiente em texto; glassmorphism no app.
 - Texto funcional em 10–11px.
 - Âmbar como único sinal de aviso.
 - Cor como único portador de estado (sempre forma e texto juntos).

@@ -8,18 +8,17 @@
  * documento em tempo de execucao: o que e testado e exatamente o que e servido.
  *
  * Paleta multidimensional, jamais dominada por um matiz (spec 05 secao 4):
- * neutro frio como estrutura, AMBAR como unico acento de acao, verde apenas
+ * neutro frio como estrutura, azul como unico acento de acao, verde apenas
  * para presenca, vermelho apenas para erro e destruicao. Quando o vermelho
  * aparece, ele significa alguma coisa.
  *
- * O ambar e a luz de "no ar" de um estudio (Design System v2, decisao D1-B do
- * super plano). O acento era o azul padrao do Tailwind, e com ele o app era
- * intercambiavel com qualquer clone; o ambar liga o nome do produto — cast,
- * transmissao — a forma. O tom mais vivo dele (`accentLive`) e reservado ao
- * que esta no ar AGORA: quem fala, o que transmite.
+ * Os neutros sao levemente azulados (familia slate, e nao zinc) porque o
+ * acento e azul: um cinza morto ao lado de um azul saturado le como sujeira,
+ * e um cinza que compartilha o matiz do acento le como a mesma familia.
  *
- * Os neutros continuam slate, levemente frios: o contraste de temperatura com
- * um acento quente e o que faz o ambar ler como sinal, e nao como decoracao.
+ * (A v2 do design system chegou a trocar o acento por ambar; o produto voltou
+ * ao azul em 2026-09-30. A estrutura da v2 — accentSubtle, bgSunken,
+ * speaking — ficou.)
  */
 export type Palette = {
   /** Fundo da aplicacao. */
@@ -74,11 +73,11 @@ export type Palette = {
 }
 
 /**
- * O ambar do tema claro e bem mais escuro que o do escuro, e nao por gosto: ele
- * precisa alcancar 4.5:1 duas vezes — com texto branco por cima, quando e fundo
- * de botao, e sobre `bgHover`, quando e o nome do canal ativo. O `#b45309` do
- * desenho original passa no primeiro caso e da 4.07:1 no segundo, reprovando.
- * A conformidade decide o tom, e nao o inverso.
+ * O azul do tema claro e bem mais escuro que o do escuro, e nao por gosto: ele
+ * precisa alcancar 4.5:1 duas vezes - com texto branco por cima, quando e fundo
+ * de botao, e sobre `bgHover`, quando e o nome do canal ativo. Um azul vibrante
+ * como #3b82f6 passa no primeiro caso e da 3.1:1 no segundo, reprovando. A
+ * conformidade decide o tom, e nao o inverso.
  */
 export const LIGHT: Palette = {
   bg: '#ffffff',
@@ -88,15 +87,15 @@ export const LIGHT: Palette = {
   fgMuted: '#475569',
   border: '#64748b',
   borderSubtle: '#cbd5e1',
-  accent: '#a14a06',
+  accent: '#1d4ed8',
   accentFg: '#ffffff',
-  accentSubtle: '#fef3c7',
+  accentSubtle: '#dbeafe',
   bgSunken: '#f8fafc',
-  focusRing: '#a14a06',
+  focusRing: '#1d4ed8',
   danger: '#b91c1c',
   dangerFg: '#ffffff',
   presenceOnline: '#047857',
-  accentLive: '#c2610a',
+  accentLive: '#b45309',
   speaking: '#15803d',
   warning: '#9a5c06',
 }
@@ -110,11 +109,11 @@ export const DARK: Palette = {
   fgMuted: '#94a3b8',
   border: '#64748b',
   borderSubtle: '#2a313d',
-  accent: '#f59e0b',
-  accentFg: '#1a1204',
-  accentSubtle: '#f59e0b1f',
+  accent: '#60a5fa',
+  accentFg: '#0a1020',
+  accentSubtle: '#60a5fa1f',
   bgSunken: '#040507',
-  focusRing: '#f59e0b',
+  focusRing: '#60a5fa',
   danger: '#f87171',
   dangerFg: '#0f172a',
   presenceOnline: '#34d399',

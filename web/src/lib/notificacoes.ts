@@ -142,7 +142,7 @@ export function resumoDeAtencao(): { mencoes: number; canaisNaoLidos: number } {
 const TITULO_BASE = 'Altcast'
 let faviconOriginal: string | null = null
 
-/** O favicon com um ponto ambar no canto, desenhado uma vez por mudanca. */
+/** O favicon com um ponto azul no canto, desenhado uma vez por mudanca. */
 function desenharFavicon(comPonto: boolean): void {
   const link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]')
   if (link === null) return
@@ -158,7 +158,7 @@ function desenharFavicon(comPonto: boolean): void {
     ctx.drawImage(img, 0, 0, 32, 32)
     ctx.beginPath()
     ctx.arc(24, 8, 7, 0, Math.PI * 2)
-    ctx.fillStyle = '#f59e0b'
+    ctx.fillStyle = '#3b82f6'
     ctx.fill()
     ctx.lineWidth = 2
     ctx.strokeStyle = '#06070a'

@@ -52,7 +52,7 @@
   inline-size: 100%;
   block-size: 100%;
   border-radius: 50%;
-  /* Metal com 10% de ambar: o mercurio continua cinza, mas puxa a mesma
+  /* Metal com 10% do acento: o mercurio continua cinza, mas puxa a mesma
      temperatura do acento, e a porta passa a pertencer ao app que ela abre. */
   background: linear-gradient(
     135deg,
@@ -71,9 +71,9 @@
   will-change: transform;
 }
 
-/* Uma delas e o proprio ambar: a gota "no ar" no meio do metal. */
+/* Uma delas leva o proprio acento: a gota de cor no meio do metal. */
 .massa-camada:nth-child(2) .massa {
-  background: linear-gradient(135deg, var(--color-accent-live), var(--color-fg-muted));
+  background: linear-gradient(135deg, var(--color-accent), var(--color-fg-muted));
 }
 
 @keyframes flutuar {
@@ -178,14 +178,14 @@
   text-transform: uppercase;
 }
 
-/* O ponto "no ar" da marca: ambar vivo, pulsando devagar. */
+/* O ponto "no ar" da marca: a cor do acento, pulsando devagar. */
 .ponto-no-ar {
   display: inline-block;
   inline-size: 0.5rem;
   block-size: 0.5rem;
   border-radius: 999px;
-  background: var(--color-accent-live);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent-live) 22%, transparent);
+  background: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent) 22%, transparent);
   animation: no-ar 2.4s ease-in-out infinite;
 }
 .ponto-no-ar--titulo {

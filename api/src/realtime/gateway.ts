@@ -325,24 +325,32 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         return
       }
       const tipo = (quadro as { t?: unknown })?.t
-      if (tipo === 'pong') {
-        return connectionId === null ? undefined : registry.markAlive(connectionId)
+      // Os tratadores vao ao banco. Uma consulta que falha (banco fora,
+      // deadlock) vira rejeicao, e rejeicao solta derruba o processo Node
+      // inteiro — todas as conexoes, por causa de um quadro. Aqui ela vira log.
+      const tratar = (): unknown => {
+        if (tipo === 'pong') {
+          return connectionId === null ? undefined : registry.markAlive(connectionId)
+        }
+        if (tipo === 'typing') return repassarTyping(userId, quadro)
+        if (tipo === 'voice.join') return entrarNaChamada(userId, quadro)
+        if (tipo === 'voice.leave') {
+          const canal = canalDoQuadro(quadro)
+          return canal === null ? undefined : sairDaChamada(userId, canal)
+        }
+        if (tipo === 'voice.state') return atualizarMidia(userId, quadro)
+        if (tipo === 'presence.idle') {
+          // O cliente avisa "fiquei dez minutos sem uso" e "voltei". So vale
+          // um booleano: qualquer outra coisa e ignorada, como todo frame torto.
+          const ocioso = (quadro as { d?: { idle?: unknown } })?.d?.idle
+          if (typeof ocioso !== 'boolean') return
+          return anunciarSeMudou(userId, presence.ocioso(userId, ocioso))
+        }
+        req.log.warn({ connectionId, tipo }, 'frame de tipo desconhecido descartado')
       }
-      if (tipo === 'typing') return repassarTyping(userId, quadro)
-      if (tipo === 'voice.join') return entrarNaChamada(userId, quadro)
-      if (tipo === 'voice.leave') {
-        const canal = canalDoQuadro(quadro)
-        return canal === null ? undefined : sairDaChamada(userId, canal)
-      }
-      if (tipo === 'voice.state') return atualizarMidia(userId, quadro)
-      if (tipo === 'presence.idle') {
-        // O cliente avisa "fiquei dez minutos sem uso" e "voltei". So vale
-        // um booleano: qualquer outra coisa e ignorada, como todo frame torto.
-        const ocioso = (quadro as { d?: { idle?: unknown } })?.d?.idle
-        if (typeof ocioso !== 'boolean') return
-        return anunciarSeMudou(userId, presence.ocioso(userId, ocioso))
-      }
-      req.log.warn({ connectionId, tipo }, 'frame de tipo desconhecido descartado')
+      Promise.resolve(tratar()).catch((erro: unknown) => {
+        req.log.error({ err: erro, connectionId, tipo }, 'falha ao tratar quadro do socket')
+      })
     })
 
     /**
