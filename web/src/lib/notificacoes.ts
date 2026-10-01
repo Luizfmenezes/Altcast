@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
-import { useStore } from './store.js'
+import { ehConversa, useStore } from './store.js'
+import { MOSTRAR_CANAL } from './instalacao.js'
 import { decidir, meMenciona, canalSilenciado } from './atencao.js'
 import { tocar } from './sons.js'
 import { irPara } from './rota.js'
@@ -29,7 +30,7 @@ export const usePedidoDeNotificacao = create<EstadoDoPedido>(set => ({
   definirOferta: oferecer => set({ oferecer }),
 }))
 
-function permissao(): NotificationPermission | 'indisponivel' {
+export function permissao(): NotificationPermission | 'indisponivel' {
   if (typeof Notification === 'undefined') return 'indisponivel'
   return Notification.permission
 }
@@ -53,11 +54,24 @@ export async function ativarNotificacoes(): Promise<void> {
   } catch { /* navegador antigo: fica sem */ }
 }
 
+/**
+ * A conversa do canal ativo esta mesmo na tela?
+ *
+ * No desktop sempre esta: o canal ativo e a coluna do meio. No celular nao —
+ * o canal ativo continua escolhido enquanto a pessoa olha a lista de grupos,
+ * e calar o aviso ali seria engolir justamente a mensagem que ela nao viu.
+ * O shell do celular avisa por aqui quando a conversa sai e volta.
+ */
+let conversaNaTela = true
+export function definirConversaNaTela(naTela: boolean): void {
+  conversaNaTela = naTela
+}
+
 /** A pagina esta na frente, com foco, olhando este canal? */
 function estaOlhando(channelId: string): boolean {
   const visivel = typeof document !== 'undefined' && document.visibilityState === 'visible'
     && document.hasFocus()
-  return visivel && useStore.getState().canalAtivo === channelId
+  return visivel && conversaNaTela && useStore.getState().canalAtivo === channelId
 }
 
 /**
@@ -79,50 +93,48 @@ export function avisarMensagem(mensagem: Mensagem): void {
     usePedidoDeNotificacao.getState().definirOferta(true)
   }
 
-  // Nivel Inteligente sem mencao: quem decide e o servidor (ver `ia/`), que
-  // manda `attention.suggested` quando a triagem julga que vale.
   if (decisao !== 'notificar') return
   if (estaOlhando(mensagem.channelId)) return
 
-  tocar(mencao ? 'mencao' : 'mensagem')
-  mostrarNotificacao(mensagem, canal.groupId, canal.name)
+  // Numa conversa direta toda mensagem e dirigida a mim: soa como mencao.
+  const direta = ehConversa(estado.groups.find(g => g.id === canal.groupId))
+  tocar(mencao || direta ? 'mencao' : 'mensagem')
+  mostrarNotificacao(mensagem, canal.groupId, direta ? null : canal.name)
 }
 
 /**
- * A triagem do servidor julgou que esta mensagem merece a atencao desta
- * pessoa, que escolheu o nivel Inteligente (secao 7.3). A mensagem ja esta na
- * store (chegou antes, pelo `message.created`); aqui so se decide o aviso,
- * pelas mesmas regras de silencio, foco e "nao perturbe".
+ * O aviso do sistema. `nomeDoCanal` nulo e conversa direta: o titulo e so a
+ * pessoa, como em todo mensageiro.
  */
-export function avisarAtencaoSugerida(d: { channelId: string; messageId: string }): void {
-  const estado = useStore.getState()
-  const canal = estado.channels.find(c => c.id === d.channelId)
-  const mensagem = estado.mensagens[d.channelId]?.find(m => m.id === d.messageId)
-  if (canal === undefined || mensagem === undefined) return
-  if (estado.user?.status === 'dnd' || canalSilenciado(estado, canal)) return
-  if (estaOlhando(d.channelId)) return
-  tocar('mensagem')
-  mostrarNotificacao(mensagem, canal.groupId, canal.name)
-}
-
-export function mostrarNotificacao(mensagem: Mensagem, grupo: string, nomeDoCanal: string): void {
+export function mostrarNotificacao(mensagem: Mensagem, grupo: string, nomeDoCanal: string | null): void {
   if (permissao() !== 'granted') return
   const estado = useStore.getState()
   const autor = estado.members.find(m => m.userId === mensagem.authorId)
+  const nome = autor?.displayName ?? 'Alguém'
+  const titulo = nomeDoCanal === null ? nome : `${nome} em #${nomeDoCanal}`
+  const opcoes: NotificationOptions = {
+    body: mensagem.content === '' ? 'Enviou um arquivo' : mensagem.content.slice(0, 180),
+    // Uma notificacao por canal, que se substitui: dez mensagens seguidas
+    // num canal viram um aviso atualizado, e nao uma pilha de dez.
+    tag: mensagem.channelId,
+    icon: autor?.avatarUrl ?? '/android-chrome-192x192.png',
+    data: { url: `/g/${grupo}/c/${mensagem.channelId}/m/${mensagem.id}` },
+  }
   try {
-    const aviso = new Notification(`${autor?.displayName ?? 'Alguém'} em #${nomeDoCanal}`, {
-      body: mensagem.content === '' ? 'Enviou um arquivo' : mensagem.content.slice(0, 180),
-      // Uma notificacao por canal, que se substitui: dez mensagens seguidas
-      // num canal viram um aviso atualizado, e nao uma pilha de dez.
-      tag: mensagem.channelId,
-      icon: autor?.avatarUrl ?? '/android-chrome-192x192.png',
-    })
+    const aviso = new Notification(titulo, opcoes)
     aviso.onclick = () => {
       window.focus()
       irPara({ nome: 'canal', grupo, canal: mensagem.channelId, mensagem: mensagem.id })
+      window.dispatchEvent(new Event(MOSTRAR_CANAL))
       aviso.close()
     }
-  } catch { /* alguns navegadores so notificam via Service Worker: fica sem */ }
+  } catch {
+    // O Chrome do Android so notifica pelo Service Worker — e e la que o app
+    // instalado mora. O clique e tratado em `sw.js`, que foca a janela.
+    void navigator.serviceWorker?.getRegistration()
+      .then(r => r?.showNotification(titulo, opcoes))
+      .catch(() => undefined)
+  }
 }
 
 /** A contagem que aparece no titulo, no favicon e no icone do app. */

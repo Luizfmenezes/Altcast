@@ -1,7 +1,14 @@
 import { useState } from 'react'
-import { Volume2 } from 'lucide-react'
+import { Phone, PhoneOff, Volume2 } from 'lucide-react'
 import type { ReactNode, RefObject } from 'react'
-import { useStore } from '../../lib/store.js'
+import { canalDeVoz, ehConversa, outroDaConversa, useStore } from '../../lib/store.js'
+import type { ParticipanteDeVoz } from '../../lib/store.js'
+import { useChamadaAtiva } from '../voice/chamadaAtiva.js'
+import { usePerfilAberto } from '../presence/perfilAberto.js'
+import { Presenca, ROTULO_DE_PRESENCA } from '../presence/Presenca.js'
+import { Avatar } from '../../ui/Avatar.js'
+import { Botao } from '../../ui/Botao.js'
+import { Dica } from '../../ui/Tooltip.js'
 import { LARGURA_CHAT_NA_CHAMADA, usaLarguraMinima } from '../../lib/pontosDeQuebra.js'
 import { MessageList } from '../messages/MessageList.js'
 import { Composer } from '../messages/Composer.js'
@@ -11,6 +18,9 @@ import { useRascunhos } from '../messages/rascunhos.js'
 
 /** Chamada primeiro: quem abriu um canal de voz veio pela transmissao. */
 const ABAS = ['chamada', 'conversa'] as const
+
+/** Referencia estavel para "ninguem na sala" — ver `PainelDeVoz`. */
+const NINGUEM: ParticipanteDeVoz[] = []
 
 /**
  * A coluna flexivel: cabecalho, historico e escrita.
@@ -42,6 +52,29 @@ export function Conversa({ campoEscrita, aoDigitar, antes, depois }: {
   const members = useStore(e => e.members)
 
   const definirResposta = useRascunhos(e => e.definirResposta)
+
+  // Numa conversa direta o cabecalho e a PESSOA, e a chamada mora em cima do
+  // historico — como em todo mensageiro —, e nao numa sala separada.
+  const direta = useStore(e => ehConversa(e.groups.find(g => g.id === canal?.groupId)))
+  const outro = useStore(e => (canal === null ? null : outroDaConversa(e, canal.groupId)))
+  const voz = useStore(e => (direta && canal !== null ? canalDeVoz(e.channels, canal.groupId) : null))
+  const naSala = useStore(e => (voz === null ? NINGUEM : e.chamadas[voz.id] ?? NINGUEM))
+  const canalEmChamada = useChamadaAtiva(e => e.canal)
+  const entrarNaChamada = useChamadaAtiva(e => e.entrar)
+  const sairDaChamada = useChamadaAtiva(e => e.sair)
+  const abrirPerfil = usePerfilAberto(e => e.abrirPerfil)
+  const nestaChamada = voz !== null && canalEmChamada === voz.id
+  // So no canal de TEXTO da conversa: aberta a propria sala de voz, o painel
+  // ja ocupa a tela inteira e um segundo seria a mesma chamada duas vezes.
+  const chamadaAqui = voz !== null && canal?.type === 'text' && (nestaChamada || naSala.length > 0)
+
+  async function ligar(): Promise<void> {
+    if (voz === null) return
+    if (nestaChamada) { await sairDaChamada(); return }
+    // Sair antes de entrar: duas sessoes de midia disputariam o microfone.
+    if (canalEmChamada !== null) await sairDaChamada()
+    await entrarNaChamada(voz.id)
+  }
 
   const nomeDe = (autorId: string | null): string =>
     autorId === null
@@ -101,6 +134,24 @@ export function Conversa({ campoEscrita, aoDigitar, antes, depois }: {
         className="flex h-12 shrink-0 items-center gap-2 border-b border-border-subtle px-2"
       >
         {antes}
+        {direta ? (
+          <button
+            type="button"
+            onClick={() => { if (outro !== null) abrirPerfil(outro.userId) }}
+            className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 hover:bg-bg-hover"
+          >
+            <span className="relative flex shrink-0">
+              <Avatar nome={outro?.displayName ?? 'Conta removida'} url={outro?.avatarUrl ?? null} tamanho="sm" />
+              <Presenca status={outro?.status ?? 'offline'} modo="cracha" />
+            </span>
+            <h1 className="min-w-0 truncate text-sm font-semibold text-fg">
+              {outro?.displayName ?? 'Conta removida'}
+            </h1>
+            <span className="hidden text-xs text-fg-muted sm:inline">
+              {ROTULO_DE_PRESENCA[outro?.status ?? 'offline']}
+            </span>
+          </button>
+        ) : (
         <h1 className="min-w-0 truncate text-sm font-semibold text-fg">
           {/*
             O cerquilha e o alto-falante sao decorativos: o rotulo de status
@@ -112,6 +163,7 @@ export function Conversa({ campoEscrita, aoDigitar, antes, depois }: {
             : <span aria-hidden="true">#</span>)}
           {canal === null ? 'Nenhum canal' : ` ${canal.name}`}
         </h1>
+        )}
         {/*
           O titulo da estrutura ao documento; o anuncio e uma regiao de status
           separada porque `role=status` nao e permitido num cabecalho — e
@@ -119,18 +171,47 @@ export function Conversa({ campoEscrita, aoDigitar, antes, depois }: {
         */}
         <p role="status" aria-label="Canal atual" className="sr-only">
           {canal === null ? 'Nenhum canal selecionado'
-            : `Canal ${canal.type === 'voice' ? 'de voz ' : ''}${canal.name}`}
+            : direta ? `Conversa com ${outro?.displayName ?? 'conta removida'}`
+              : `Canal ${canal.type === 'voice' ? 'de voz ' : ''}${canal.name}`}
         </p>
-        {canal?.topic !== null && canal !== null ? (
+        {!direta && canal?.topic !== null && canal !== null ? (
           <p className="min-w-0 flex-1 truncate border-l border-border-subtle pl-3 text-xs text-fg-muted">
             {canal.topic}
           </p>
         ) : <span className="flex-1" />}
 
+        {direta && voz !== null && (
+          <Dica texto={nestaChamada ? 'Sair da chamada' : 'Ligar'} lado="bottom">
+            <Botao
+              variante={nestaChamada ? 'perigo' : 'fantasma'}
+              tamanho="iconeSm"
+              onClick={() => { void ligar() }}
+             
+            >
+              {nestaChamada
+                ? <PhoneOff aria-hidden="true" strokeWidth={1.75} />
+                : <Phone aria-hidden="true" strokeWidth={1.75} />}
+              <span className="sr-only">
+                {nestaChamada ? 'Sair da chamada' : `Ligar para ${outro?.displayName ?? 'esta pessoa'}`}
+              </span>
+            </Botao>
+          </Dica>
+        )}
         {depois === undefined ? null : (
           <span className="flex shrink-0 items-center gap-1">{depois}</span>
         )}
       </header>
+
+      {/*
+        A chamada de uma conversa aparece EM CIMA do historico, e so enquanto
+        existe: ninguem precisa trocar de tela para atender, e o texto continua
+        a um olhar de distancia.
+      */}
+      {chamadaAqui && voz !== null && (
+        <div className="flex max-h-[60%] min-h-[14rem] shrink-0 flex-col border-b border-border-subtle bg-bg-sunken">
+          <PainelDeVoz channelId={voz.id} nomeDoCanal={`Chamada com ${outro?.displayName ?? 'conta removida'}`} />
+        </div>
+      )}
 
       {/*
         Canal de voz TEM historico e escrita.

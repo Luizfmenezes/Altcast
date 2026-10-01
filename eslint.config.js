@@ -63,6 +63,18 @@ export default tseslint.config(
     },
   },
   {
+    // O service worker roda num escopo proprio, sem `window` nem modulo: os
+    // globais dele sao estes, e nao os da pagina.
+    files: ['web/public/sw.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        self: 'readonly', caches: 'readonly', fetch: 'readonly', URL: 'readonly',
+        Response: 'readonly', Promise: 'readonly',
+      },
+    },
+  },
+  {
     files: ['api/test/**/*.ts', 'web/test/**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',

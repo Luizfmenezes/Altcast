@@ -12,6 +12,13 @@ import { useEffect, useState } from 'react'
  * entao ela so fica fixa a partir de 900. O painel de membros aguenta ate
  * 1199 e colapsa abaixo de 1200.
  */
+/**
+ * Abaixo disto o app deixa de ser colunas e vira telas (`ShellMovel`): uma
+ * por vez, com abas no pe. 768 e o tablet em retrato — ali as colunas ainda
+ * cabem, e abaixo dele a gaveta de canais cobria a conversa inteira.
+ */
+export const LARGURA_MOVEL = 768
+
 export const LARGURA_CANAIS_FIXOS = 900
 export const LARGURA_MEMBROS_FIXOS = 1200
 

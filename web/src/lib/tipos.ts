@@ -95,6 +95,13 @@ export type Grupo = {
   name: string
   iconUrl: string | null
   role: Papel
+  /**
+   * `dm` e uma conversa direta: um grupo por dentro, invisivel na barra de
+   * grupos. Ausente e servidor anterior as conversas — logo, grupo.
+   */
+  kind?: 'group' | 'dm'
+  /** Conversa que fechei. Continua na store para a proxima mensagem reabrir. */
+  hidden?: boolean
 }
 
 /**
@@ -148,8 +155,8 @@ export type Membro = {
 /** O status que a pessoa ESCOLHEU (nao o que os outros veem). */
 export type StatusEscolhido = 'online' | 'idle' | 'dnd' | 'invisible'
 
-/** Quanto um grupo ou canal pode interromper. `smart` e o nivel Inteligente (Jev). */
-export type NivelDeNotificacao = 'all' | 'mentions' | 'none' | 'smart'
+/** Quanto um grupo ou canal pode interromper. */
+export type NivelDeNotificacao = 'all' | 'mentions' | 'none'
 
 export type PreferenciaDeNotificacao = {
   scopeType: 'group' | 'channel'

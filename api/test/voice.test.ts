@@ -3,7 +3,8 @@ import type { FastifyInstance } from 'fastify'
 import { withTestDb } from './helpers/db.js'
 import { cenarioComAdmin, loginComo } from './helpers/fixtures.js'
 import { ateQue, comServidor, conectado, conectarEscutando, espere, esperarFrame } from './helpers/ws.js'
-import { groupMembers } from '../src/db/schema.js'
+import { and, eq } from 'drizzle-orm'
+import { channels, groupMembers } from '../src/db/schema.js'
 import { calls } from '../src/realtime/calls.js'
 
 /**
@@ -36,6 +37,32 @@ async function criarCanal(
 }
 
 describe('chamada — credencial de entrada', () => {
+  it('conversa direta: os dois entram na chamada da conversa, e quem esta fora nao', async () => {
+    await withTestDb(async db => {
+      await comServidor(async app => {
+        const base = await cenarioComAdmin(app, db)
+        const fora = await loginComo(app, db, 'fora-da-conversa@x.com')
+        await db.insert(groupMembers).values({ groupId: base.groupId, userId: fora.userId, role: 'member' })
+        const aberta = await app.inject({
+          method: 'POST', url: '/api/dms', headers: { cookie: base.cookieDono },
+          payload: { userId: base.adminId },
+        })
+        expect(aberta.statusCode).toBe(201)
+        const [voz] = await db.select({ id: channels.id }).from(channels)
+          .where(and(eq(channels.groupId, aberta.json().groupId as string), eq(channels.type, 'voice')))
+
+        for (const cookie of [base.cookieDono, base.cookieAdmin]) {
+          const r = await app.inject({ method: 'POST', url: `/api/channels/${voz!.id}/call-token`, headers: { cookie } })
+          expect(r.statusCode).toBe(200)
+        }
+        const intruso = await app.inject({
+          method: 'POST', url: `/api/channels/${voz!.id}/call-token`, headers: { cookie: fora.cookie },
+        })
+        expect(intruso.statusCode).toBe(404)
+      })
+    })
+  })
+
   it('canal de voz publico devolve token com a sala certa', async () => {
     await withTestDb(async db => {
       await comServidor(async app => {

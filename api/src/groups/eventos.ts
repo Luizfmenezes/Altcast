@@ -1,9 +1,10 @@
 import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm'
 import { getTableColumns } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { channelMembers, channels, groups } from '../db/schema.js'
+import { channelMembers, channels, groupMembers, groups, users } from '../db/schema.js'
 import { serializeChannel } from '../channels/serializar.js'
 import { emit } from '../realtime/emit.js'
+import { presence } from '../realtime/presence.js'
 
 /**
  * Os eventos de grupo.
@@ -70,9 +71,33 @@ export async function emitirEntradaEmGrupo(
   emit.toUser(userId, {
     t: tipo,
     d: {
-      group: { id: g.id, name: g.name, iconUrl: g.iconUrl, role: papel },
+      group: { id: g.id, name: g.name, iconUrl: g.iconUrl, role: papel, kind: g.kind, hidden: false },
       channels: await canaisVisiveis(userId, groupId),
+      // Numa conversa a tela inteira e "com quem": sem os membros juntos, o
+      // cliente desenharia a conversa nova sem nome nem foto ate reconectar.
+      ...(g.kind === 'dm' ? { members: await membrosDaConversa(groupId) } : {}),
     },
+  })
+}
+
+/** Os participantes de uma conversa, no mesmo formato dos membros do `ready`. */
+export async function membrosDaConversa(groupId: string): Promise<unknown[]> {
+  const linhas = await db.select({
+    groupId: groupMembers.groupId, userId: users.id, displayName: users.displayName,
+    username: users.username, avatarUrl: users.avatarUrl, role: groupMembers.role,
+    statusText: users.statusText, statusEmoji: users.statusEmoji,
+  })
+    .from(groupMembers)
+    .innerJoin(users, eq(users.id, groupMembers.userId))
+    .where(eq(groupMembers.groupId, groupId))
+  return linhas.map(m => {
+    const status = presence.visivel(m.userId)
+    const visivel = status !== 'offline'
+    return {
+      ...m, status,
+      statusText: visivel ? m.statusText : null,
+      statusEmoji: visivel ? m.statusEmoji : null,
+    }
   })
 }
 

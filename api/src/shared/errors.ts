@@ -61,6 +61,8 @@ export const ERROR_CATALOG = {
   // A trava que impede escalar privilegio por cargo: ninguem concede o que
   // nao tem. Sem ela, quem pudesse gerenciar cargos se daria qualquer coisa.
   cannot_grant_unheld: { status: 409, message: 'Você não pode conceder uma permissão que você mesmo não tem.' },
+  // Conversa direta nao se deixa: fecha-se, e a proxima mensagem a reabre.
+  dm_cannot_leave:     { status: 409, message: 'Conversas se fecham, não se deixam.' },
   internal_error:      { status: 500, message: 'Algo deu errado. Tente novamente.' },
 } as const
 

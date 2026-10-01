@@ -3,7 +3,7 @@ import {
   AudioWaveform, Headphones, HeadphoneOff, Loader2, Mic, MicOff, PhoneOff, RotateCw, WifiOff,
 } from 'lucide-react'
 import { modeloDaSupressao } from '../../lib/midia.js'
-import { useStore } from '../../lib/store.js'
+import { canalDeTexto, ehConversa, useStore } from '../../lib/store.js'
 import { cn } from '../../lib/utils.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { AnelDeFala } from '../../ui/bits/AnelDeFala.js'
@@ -27,7 +27,11 @@ const BOTAO_DE_ICONE = `inline-flex size-8 items-center justify-center rounded h
  * escolhido — inclusive quando a entrada tinha falhado e o painel, ao lado,
  * dizia "Fora da chamada".
  */
-export function BarraDeChamada(): ReactNode {
+/**
+ * `aoAbrir` e o celular: la, escolher o canal nao basta para ve-lo — a
+ * conversa e uma tela por cima da lista, e quem a empurra e o shell.
+ */
+export function BarraDeChamada({ aoAbrir }: { aoAbrir?: () => void } = {}): ReactNode {
   const canal = useChamadaAtiva(e => e.canal)
   const chamada = useChamadaAtiva(e => e.chamada)
   const alternarMicrofone = useChamadaAtiva(e => e.alternarMicrofone)
@@ -44,6 +48,24 @@ export function BarraDeChamada(): ReactNode {
   const naSala = useStore(e => (canal === null ? undefined : e.chamadas[canal]))
 
   if (canal === null) return null
+
+  /**
+   * Voltar a chamada. Numa conversa direta, a chamada mora em cima do
+   * historico da conversa — entao o destino e o canal de TEXTO dela, e nao
+   * a sala de voz, que mostraria o painel sem a conversa.
+   */
+  function abrirChamada(): void {
+    if (canal === null) return
+    const e = useStore.getState()
+    const sala = e.channels.find(c => c.id === canal)
+    const grupo = e.groups.find(g => g.id === sala?.groupId)
+    const destino = sala !== undefined && ehConversa(grupo)
+      ? canalDeTexto(e.channels, sala.groupId)?.id ?? canal
+      : canal
+    if (sala !== undefined && e.grupoAtivo !== sala.groupId) e.escolherGrupo(sala.groupId)
+    escolherCanal(destino)
+    aoAbrir?.()
+  }
 
   const situacao = situacaoDaChamada(canal, chamada)
   const conectada = situacao === 'conectado' || situacao === 'reconectando'
@@ -72,8 +94,8 @@ export function BarraDeChamada(): ReactNode {
         */}
         <button
           type="button"
-          onClick={() => { escolherCanal(canal) }}
-          disabled={canalAberto === canal}
+          onClick={() => { abrirChamada() }}
+          disabled={canalAberto === canal && aoAbrir === undefined}
           className={cn(
             `flex min-w-0 flex-1 items-center gap-2 rounded px-1.5 py-1 text-left text-sm
              hover:bg-bg-hover focus-visible:bg-bg-hover disabled:cursor-default`,

@@ -1,5 +1,5 @@
 import {
-  boolean, customType, index, integer, jsonb, pgEnum, pgTable, primaryKey,
+  boolean, customType, index, integer, pgEnum, pgTable, primaryKey,
   text, timestamp, uniqueIndex, uuid,
 } from 'drizzle-orm/pg-core'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
@@ -136,10 +136,18 @@ export const groups = pgTable('groups', {
   // RESTRICT e deliberado: apagar um usuario nao pode apagar os grupos dele
   // em silencio. A titularidade precisa ser transferida antes.
   ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  /**
+   * `dm` e uma conversa direta (migracao 0018): um grupo invisivel, fora da
+   * barra de grupos, cujas negacoes moram em `context.ts`.
+   */
+  kind: text('kind', { enum: ['group', 'dm'] }).notNull().default('group'),
+  /** Os dois uuids ordenados — o indice unico impede duas conversas por par. */
+  dmKey: text('dm_key'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, t => [
   // A contagem do teto de grupos passa por aqui a cada criacao.
   index('groups_owner_idx').on(t.ownerId),
+  uniqueIndex('groups_dm_key').on(t.dmKey).where(sql`dm_key IS NOT NULL`),
 ])
 
 export const groupMembers = pgTable('group_members', {
@@ -147,6 +155,8 @@ export const groupMembers = pgTable('group_members', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   role: roleEnum('role').notNull().default('member'),
   joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+  /** So em conversa: fechada da MINHA lista. A proxima mensagem reabre. */
+  hiddenAt: timestamp('hidden_at', { withTimezone: true }),
 }, t => [
   primaryKey({ columns: [t.groupId, t.userId] }),
   index('group_members_user_idx').on(t.userId),
@@ -417,7 +427,7 @@ export const notificationPrefs = pgTable('notification_prefs', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   groupId: uuid('group_id').references(() => groups.id, { onDelete: 'cascade' }),
   channelId: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
-  level: text('level', { enum: ['all', 'mentions', 'none', 'smart'] }),
+  level: text('level', { enum: ['all', 'mentions', 'none'] }),
   mutedUntil: timestamp('muted_until', { withTimezone: true }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, t => [
@@ -425,35 +435,3 @@ export const notificationPrefs = pgTable('notification_prefs', {
   uniqueIndex('notification_prefs_canal_key').on(t.userId, t.channelId).where(sql`channel_id IS NOT NULL`),
 ])
 
-/** O que cada grupo ligou da camada de IA (migracao 0015). Ausente = desligado. */
-export const groupAiSettings = pgTable('group_ai_settings', {
-  groupId: uuid('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
-  recurso: text('recurso', {
-    enum: ['triagem', 'automod', 'rerank', 'ja_respondida', 'denuncias', 'cargos', 'sugestoes'],
-  }).notNull(),
-  ativo: boolean('ativo').notNull().default(false),
-  incluiPrivados: boolean('inclui_privados').notNull().default(false),
-  limiar: jsonb('limiar').notNull().default({}),
-  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, t => [
-  primaryKey({ columns: [t.groupId, t.recurso] }),
-])
-
-/**
- * Cada julgamento feito, e o que se fez com ele (migracao 0015). Guarda o
- * hash da entrada, nunca o texto: existe para calibrar limiares.
- */
-export const iaDecisoes = pgTable('ia_decisoes', {
-  id: uuid('id').primaryKey(),
-  groupId: uuid('group_id').references(() => groups.id, { onDelete: 'cascade' }),
-  recurso: text('recurso').notNull(),
-  versao: text('versao').notNull(),
-  entradaHash: text('entrada_hash').notNull(),
-  resposta: jsonb('resposta'),
-  latenciaMs: integer('latencia_ms'),
-  acao: text('acao').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, t => [
-  index('ia_decisoes_grupo_idx').on(t.groupId, t.recurso, t.createdAt.desc()),
-])

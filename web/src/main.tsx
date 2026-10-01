@@ -5,7 +5,13 @@ import { ThemeProvider } from './ui/ThemeProvider.js'
 import { ProvedorDeDicas } from './ui/Tooltip.js'
 import { Faisca } from './ui/bits/Faisca.js'
 import { App } from './App.js'
+import { ligarApp } from './lib/instalacao.js'
+import { nativo } from './lib/nativo.js'
 import './ui/tokens.css'
+
+// O app instalavel. No desktop (Electron) quem cuida de janela, atualizacao e
+// notificacao e o proprio aplicativo — um service worker la so atrapalharia.
+ligarApp({ registrar: import.meta.env.PROD && nativo() === null })
 
 const raiz = document.getElementById('root')
 if (!raiz) throw new Error('elemento #root ausente no index.html')

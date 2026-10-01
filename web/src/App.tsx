@@ -13,7 +13,7 @@ import { conectarSocket, type Conexao } from './lib/socket.js'
 import { canaisComHistorico, useStore } from './lib/store.js'
 import { cueDeEvento } from './features/voice/cues.js'
 import type { Mensagem, Ready, Usuario } from './lib/tipos.js'
-import { avisarAtencaoSugerida, avisarMensagem, useIndicadorDeAtencao } from './lib/notificacoes.js'
+import { avisarMensagem, useIndicadorDeAtencao } from './lib/notificacoes.js'
 import { useOciosidade } from './lib/ociosidade.js'
 import { carregarHistorico } from './features/messages/historico.js'
 
@@ -91,9 +91,6 @@ export function App(): ReactNode {
         // "veio do servidor" e um fato estrutural — e nao uma suposicao.
         cueDeEvento(evento)
         if (evento.t === 'message.created') avisarMensagem(evento.d as Mensagem)
-        if (evento.t === 'attention.suggested') {
-          avisarAtencaoSugerida(evento.d as { channelId: string; messageId: string })
-        }
       },
     })
 

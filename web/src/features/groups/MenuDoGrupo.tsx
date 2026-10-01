@@ -76,7 +76,7 @@ export function MenuDoGrupo({ grupo, variante = 'linha' }: {
     await api.delete(`/groups/${grupo.id}/members/${eu}`)
     // O `ready` do socket traz a lista sem este grupo; apontar para outro
     // agora evita a tela ficar num grupo que a pessoa acabou de deixar.
-    const outro = useStore.getState().groups.find(g => g.id !== grupo.id)
+    const outro = useStore.getState().groups.find(g => g.id !== grupo.id && g.kind !== 'dm')
     if (outro !== undefined) escolherGrupo(outro.id)
   }
 

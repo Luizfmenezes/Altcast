@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { useStore, naoLidasDoCanal } from '../../lib/store.js'
+import { MessageCircle } from 'lucide-react'
+import { ehConversa, useStore, naoLidasDoCanal } from '../../lib/store.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { Dica } from '../../ui/Tooltip.js'
 import { Separador } from '../../ui/Separador.js'
@@ -16,10 +17,16 @@ import { canalSilenciado } from '../../lib/atencao.js'
  * pula ao passar o mouse obriga a reencontrar o alvo a cada movimento.
  */
 export function BarraGrupos(): ReactNode {
-  const groups = useStore(e => e.groups)
+  const todos = useStore(e => e.groups)
   const channels = useStore(e => e.channels)
   const grupoAtivo = useStore(e => e.grupoAtivo)
   const escolherGrupo = useStore(e => e.escolherGrupo)
+  const area = useStore(e => e.area)
+  const abrirConversas = useStore(e => e.abrirConversas)
+  // Conversa direta nao e grupo para quem usa: mora atras do botao de
+  // Conversas, no topo, e nunca no trilho.
+  const groups = todos.filter(g => !ehConversa(g))
+  const idsDeConversa = new Set(todos.filter(g => ehConversa(g) && g.hidden !== true).map(g => g.id))
   const mensagens = useStore(e => e.mensagens)
   const leituras = useStore(e => e.leituras)
   const user = useStore(e => e.user)
@@ -38,6 +45,12 @@ export function BarraGrupos(): ReactNode {
     .filter(c => c.groupId === groupId)
     .reduce((soma, c) => soma + (naoLidas[c.id]?.mentions ?? 0), 0)
 
+  // Numa conversa toda nao lida e dirigida a mim: o numero conta como mencao.
+  const naoLidasDiretas = channels
+    .filter(c => idsDeConversa.has(c.groupId))
+    .reduce((soma, c) => soma + (naoLidas[c.id]?.n ?? 0), 0)
+  const emConversas = area === 'conversas'
+
   return (
     <nav
       aria-label="Grupos"
@@ -48,8 +61,54 @@ export function BarraGrupos(): ReactNode {
                  border-border-subtle bg-bg-raised py-3"
       style={{ width: 'var(--w-groups)' }}
     >
+      <Dica texto="Conversas" lado="right">
+        <button
+          type="button"
+          onClick={abrirConversas}
+          aria-current={emConversas ? 'true' : undefined}
+          data-conversas
+          className="group/grupo relative flex size-12 items-center justify-center"
+        >
+          {emConversas ? (
+            <motion.span
+              layoutId="pilula-do-grupo-ativo"
+              aria-hidden="true"
+              transition={{ type: 'spring', stiffness: 520, damping: 40 }}
+              className="absolute left-0 h-6 w-1 rounded-r-full bg-fg"
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              className={cn(
+                'absolute left-0 w-1 rounded-r-full bg-fg transition-all duration-200 ease-out',
+                naoLidasDiretas > 0 ? 'h-2' : 'h-0',
+              )}
+            />
+          )}
+          <span
+            className={cn(
+              'flex size-10 items-center justify-center rounded-full transition-[border-radius,background-color] duration-200',
+              emConversas
+                ? 'rounded-[14px] bg-accent text-accent-fg'
+                : 'bg-bg-hover text-fg group-hover/grupo:rounded-[14px] group-hover/grupo:bg-accent group-hover/grupo:text-accent-fg',
+            )}
+          >
+            <MessageCircle aria-hidden="true" className="size-5" strokeWidth={1.75} />
+          </span>
+          {naoLidasDiretas > 0 && (
+            <Badge className="absolute -bottom-0.5 -right-0.5 ring-2 ring-bg-raised">
+              {naoLidasDiretas > 99 ? '99+' : naoLidasDiretas}
+            </Badge>
+          )}
+          <span className="sr-only">
+            Conversas{naoLidasDiretas > 0 ? ` (${String(naoLidasDiretas)} não lidas)` : ''}
+          </span>
+        </button>
+      </Dica>
+      <Separador className="my-1 w-8" />
+
       {groups.map(grupo => {
-        const ativo = grupo.id === grupoAtivo
+        const ativo = !emConversas && grupo.id === grupoAtivo
         const novidade = !ativo && temNovidade(grupo.id)
         const mencoes = mencoesNoGrupo(grupo.id)
         return (

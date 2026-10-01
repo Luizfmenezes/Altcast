@@ -52,6 +52,9 @@ export function PaletaDeComandos({ aberta, aoFechar }: {
   const resultados = useMemo((): Resultado[] => {
     const alvo = normalizar(busca.trim())
     const nomeDoGrupo = (id: string): string => groups.find(g => g.id === id)?.name ?? ''
+    // Conversas diretas tem lugar proprio. Aqui elas apareceriam como um grupo
+    // chamado "Conversa" com um canal "conversa" — ruido, e nao resultado.
+    const conversas = new Set(groups.filter(g => g.kind === 'dm').map(g => g.id))
 
     /**
      * Uma pessoa, uma linha. `members` tem uma entrada por (grupo, pessoa), e
@@ -60,6 +63,7 @@ export function PaletaDeComandos({ aberta, aoFechar }: {
      */
     const porPessoa = new Map<string, { nome: string; avatarUrl: string | null; grupos: string[] }>()
     for (const m of members) {
+      if (conversas.has(m.groupId)) continue
       const atual = porPessoa.get(m.userId)
       if (atual === undefined) {
         porPessoa.set(m.userId, {
@@ -71,11 +75,11 @@ export function PaletaDeComandos({ aberta, aoFechar }: {
     }
 
     const todos: Resultado[] = [
-      ...channels.map((c): Resultado => ({
+      ...channels.filter(c => !conversas.has(c.groupId)).map((c): Resultado => ({
         tipo: 'canal', id: c.id, nome: c.name, contexto: nomeDoGrupo(c.groupId),
         voz: c.type === 'voice', privado: c.visibility === 'private',
       })),
-      ...groups.map((g): Resultado => ({
+      ...groups.filter(g => !conversas.has(g.id)).map((g): Resultado => ({
         tipo: 'grupo', id: g.id, nome: g.name, contexto: 'Grupo',
       })),
       ...[...porPessoa].map(([userId, p]): Resultado => ({

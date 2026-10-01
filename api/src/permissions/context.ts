@@ -1,10 +1,10 @@
 import { and, eq, inArray, or } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import {
-  channelMembers, channelOverwrites, channels, groupMembers, memberRoles, roles,
+  channelMembers, channelOverwrites, channels, groupMembers, groups, memberRoles, roles,
 } from '../db/schema.js'
 import { AppError } from '../shared/errors.js'
-import { apenasAcoes, type Action } from './acoes.js'
+import { PERMISSOES_DA_CONVERSA, apenasAcoes, type Action } from './acoes.js'
 import { can, type Actor, type Resource } from './can.js'
 import { POSICAO_PADRAO as POSICAO_LEGADA, permissoesDoPapel } from './papeis.js'
 
@@ -72,13 +72,24 @@ function altura(cargos: readonly RoleRow[]): number {
  * primeiro portao de `can`.
  */
 export async function loadGroupActor(userId: string, groupId: string): Promise<Actor> {
-  const [linha] = await db.select({ role: groupMembers.role })
+  const [linha] = await db.select({ role: groupMembers.role, kind: groups.kind })
     .from(groupMembers)
+    .innerJoin(groups, eq(groups.id, groupMembers.groupId))
     .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
     .limit(1)
 
   if (linha === undefined) {
     return { userId, permissoes: null, ehDono: false, inChannel: false, topo: 0, papel: null }
+  }
+
+  // Conversa direta: o conjunto e fixo e ninguem e dono. As seis negacoes da
+  // proposta (renomear, apagar, convidar, expulsar, cargo, canal) saem daqui,
+  // de uma vez, sem nenhuma rota precisar saber que conversas existem.
+  if (linha.kind === 'dm') {
+    return {
+      userId, permissoes: new Set(PERMISSOES_DA_CONVERSA), ehDono: false,
+      inChannel: false, topo: 0, papel: 'member',
+    }
   }
 
   // Desestruturado, e nao lido como `linha.role`: a regra de lint proibe

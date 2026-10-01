@@ -1,4 +1,4 @@
-import { count, eq } from 'drizzle-orm'
+import { and, count, eq } from 'drizzle-orm'
 import { db, type Database } from '../db/client.js'
 import { groups, users } from '../db/schema.js'
 import { AppError } from '../shared/errors.js'
@@ -15,7 +15,8 @@ import { AppError } from '../shared/errors.js'
  *
  * Conta so o que a pessoa e DONA (`groups.owner_id`). Participar de grupo por
  * convite e ilimitado: o teto existe contra quem fabrica grupos, nao contra
- * quem e convidado para muitos.
+ * quem e convidado para muitos. Conversa direta tambem nao conta: abrir uma
+ * conversa nao e fabricar grupo, mesmo que por dentro ela seja um.
  */
 
 export const MAXIMO_DE_GRUPOS_POR_PESSOA = 3
@@ -37,7 +38,7 @@ export async function cotaDeGrupos(
     .from(users).where(eq(users.id, userId)).limit(1)
 
   const [c] = await executor.select({ n: count() })
-    .from(groups).where(eq(groups.ownerId, userId))
+    .from(groups).where(and(eq(groups.ownerId, userId), eq(groups.kind, 'group')))
 
   return {
     used: c?.n ?? 0,
@@ -71,7 +72,7 @@ export async function assertPodeCriarGrupo(
   if (u.admin) return
 
   const [c] = await tx.select({ n: count() })
-    .from(groups).where(eq(groups.ownerId, userId))
+    .from(groups).where(and(eq(groups.ownerId, userId), eq(groups.kind, 'group')))
 
   if ((c?.n ?? 0) >= MAXIMO_DE_GRUPOS_POR_PESSOA) {
     throw new AppError('group_limit_reached')

@@ -643,6 +643,7 @@ export async function authRoutes(app: FastifyInstance, opcoes?: {
     const meus = await db
       .select({
         id: groups.id, name: groups.name, iconUrl: groups.iconUrl, role: groupMembers.role,
+        kind: groups.kind,
       })
       .from(groupMembers)
       .innerJoin(groups, eq(groups.id, groupMembers.groupId))

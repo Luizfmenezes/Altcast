@@ -31,9 +31,11 @@ import { useDialogoDeConfiguracoes, type AbaDeConfiguracoes } from './dialogoDeC
 
 type Chave = AbaDeConfiguracoes
 
-export function Configuracoes({ groupId, podeAdministrar }: {
+export function Configuracoes({ groupId, podeAdministrar, semGatilho = false }: {
   groupId: string | null
   podeAdministrar: boolean
+  /** No celular quem abre e a aba "Voce", e a engrenagem sobraria solta na tela. */
+  semGatilho?: boolean
 }): ReactNode {
   const aberto = useDialogoDeConfiguracoes(e => e.aberto)
   const setAberto = useDialogoDeConfiguracoes(e => e.definirAberto)
@@ -60,7 +62,7 @@ export function Configuracoes({ groupId, podeAdministrar }: {
 
   return (
     <Dialog.Root open={aberto} onOpenChange={setAberto}>
-      <Dialog.Trigger asChild>
+      {!semGatilho && <Dialog.Trigger asChild>
         <button
           type="button"
           aria-label="Configurações"
@@ -69,7 +71,7 @@ export function Configuracoes({ groupId, podeAdministrar }: {
         >
           <Settings aria-hidden="true" className="size-5" />
         </button>
-      </Dialog.Trigger>
+      </Dialog.Trigger>}
 
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-bg/70 backdrop-blur-sm" />

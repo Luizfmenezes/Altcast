@@ -286,6 +286,10 @@ export async function groupsRoutes(app: FastifyInstance): Promise<void> {
     const g = await carregarGrupo(groupId)
     await membroOu404(groupId, alvo)
 
+    // Conversa se FECHA (`DELETE /api/dms/:id`), e nao se deixa: sair dela
+    // apagaria a conversa da lista do outro tambem, por tabela.
+    if (g.kind === 'dm') throw new AppError('dm_cannot_leave')
+
     // Vale para sair e para ser expulso: o dono nao e removivel. Transferir a
     // titularidade e o unico caminho.
     if (alvo === g.ownerId) throw new AppError('owner_cannot_leave')

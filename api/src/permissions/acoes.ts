@@ -60,6 +60,15 @@ export const PERMISSOES_DE_TODOS: readonly Action[] = [
   'attachment.read', 'message.react', 'channel.join_call', 'channel.publish',
 ]
 
+/**
+ * O que cada pessoa pode numa conversa direta — e nada alem.
+ *
+ * Fixo, e nao lido de cargo: conversa nao tem cargo, e o dono dela (quem
+ * abriu) nao atravessa nada. E assim que renomear, convidar, expulsar, criar
+ * canal e mexer em cargo ficam negados para os dois sem um `if` por rota.
+ */
+export const PERMISSOES_DA_CONVERSA: readonly Action[] = PERMISSOES_DE_TODOS
+
 /** Como o `admin` de antes: o de todos, mais administrar grupo e canal. */
 export const PERMISSOES_DE_ADMIN: readonly Action[] = [
   ...PERMISSOES_DE_TODOS,

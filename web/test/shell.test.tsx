@@ -147,8 +147,9 @@ describe('estrutura da aplicacao', () => {
     expect(document.activeElement).toHaveTextContent('Pular para a conversa')
   })
 
-  it('em 640px a lista de canais vira gaveta sob demanda', async () => {
-    larguraDe(640)
+  // Entre o celular (abaixo de 768px, telas com abas) e a coluna fixa (900px).
+  it('em 800px a lista de canais vira gaveta sob demanda', async () => {
+    larguraDe(800)
     const usuario = userEvent.setup()
     render(<AppShell />)
 

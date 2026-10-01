@@ -57,6 +57,13 @@
 		# web/scripts/modelo-dfn3.mjs muda. Um dia de cache poupa baixar tudo de
 		# novo a cada chamada; o ETag cobre a revalidacao depois disso.
 		header /modelos/* Cache-Control "public, max-age=86400"
+		# O service worker nunca de cache HTTP: e por comparar este arquivo
+		# byte a byte que o navegador descobre que ha versao nova do app.
+		header /sw.js Cache-Control "no-cache"
+		header /sw.js Service-Worker-Allowed "/"
+		# Sem o tipo certo alguns navegadores ignoram o manifesto, e o app
+		# deixa de ser instalavel sem erro nenhum na tela.
+		header /manifest.webmanifest Content-Type "application/manifest+json"
 		file_server
 	}
 

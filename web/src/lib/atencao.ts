@@ -78,15 +78,9 @@ export function meMenciona(mensagem: Pick<Mensagem, 'mentions' | 'mentionsEveryo
   return eu !== null && (mensagem.mentionsEveryone === true || (mensagem.mentions ?? []).includes(eu))
 }
 
-export type Decisao = 'notificar' | 'calar' | 'perguntar-ao-jev'
+export type Decisao = 'notificar' | 'calar'
 
-/**
- * Esta mensagem deve interromper quem esta lendo?
- *
- * `perguntar-ao-jev` e o nivel Inteligente sem mencao: a decisao e do
- * servidor (a triagem nunca roda no cliente, a chave nunca sai de la), e ele
- * avisa por evento quando julgar que vale.
- */
+/** Esta mensagem deve interromper quem esta lendo? */
 export function decidir(
   ctx: Contexto & { user: Pick<Usuario, 'id' | 'status'> | null },
   canal: Pick<Canal, 'id' | 'groupId'>,
@@ -101,7 +95,6 @@ export function decidir(
   if (nivel === 'none') return 'calar'
   if (meMenciona(mensagem, eu)) return 'notificar'
   if (nivel === 'all') return 'notificar'
-  if (nivel === 'smart') return 'perguntar-ao-jev'
   return 'calar'
 }
 
@@ -123,6 +116,5 @@ export function prazoDoSilencio(minutos: number | null, agora: number = Date.now
 export const ROTULO_DO_NIVEL: Record<NivelDeNotificacao, string> = {
   all: 'Todas as mensagens',
   mentions: 'Só menções',
-  smart: 'Inteligente',
   none: 'Nada',
 }

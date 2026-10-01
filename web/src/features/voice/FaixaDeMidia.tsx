@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Maximize2, Minimize2, PictureInPicture2, Volume1, Volume2, VolumeX } from 'lucide-react'
+import {
+  Maximize2, Minimize2, PictureInPicture2, Volume1, Volume2, VolumeX, ZoomIn, ZoomOut,
+} from 'lucide-react'
 import type { Faixa, QualidadeDeRecepcao } from '../../lib/midia.js'
+import { ZOOM_MAXIMO, useZoom } from './zoom.js'
 
 /**
  * Uma faixa remota ligada a um elemento de midia.
@@ -47,6 +50,11 @@ export function FaixaDeMidia({
   const moldura = useRef<HTMLElement>(null)
   const [cheia, setCheia] = useState(false)
   const [flutuando, setFlutuando] = useState(false)
+  const janela = useRef<HTMLDivElement>(null)
+  // Zoom so no palco: a miniatura inteira e o botao que escolhe o palco, e
+  // arrastar dentro dela brigaria com o clique.
+  const ehVideo = faixa.papel !== 'audio' && faixa.papel !== 'audio-tela'
+  const zoom = useZoom(janela, faixa.track, ehVideo && tamanho === 'palco')
 
   useEffect(() => {
     const alvo = elemento.current
@@ -129,6 +137,20 @@ export function FaixaDeMidia({
       className={`group relative overflow-hidden border border-border bg-bg-raised ${
         cheia ? 'flex h-full w-full items-center justify-center rounded-none bg-black' : 'rounded'}`}
     >
+      {/*
+        A janela do zoom. O video escala DENTRO dela, com a origem no canto,
+        e o recorte do `overflow-hidden` e o que faz aproximar parecer
+        aproximar — e nao o video crescendo por cima do painel.
+
+        `touch-action`: sem zoom, o toque vertical continua rolando o painel
+        (so a pinca fica com a gente); com zoom, todo gesto e arrasto.
+      */}
+      <div
+        ref={janela}
+        className={`relative overflow-hidden ${cheia ? 'h-full w-full' : ''} ${
+          zoom.aproximado ? 'cursor-grab touch-none active:cursor-grabbing' : 'touch-pan-y'}`}
+        {...(pequena ? {} : zoom.eventos)}
+      >
       <video
         ref={elemento}
         autoPlay
@@ -145,7 +167,12 @@ export function FaixaDeMidia({
         className={`w-full bg-black ${cheia ? 'h-full' : 'aspect-video'} ${
           ehTela || cheia ? 'object-contain' : 'object-cover'} ${
           faixa.local && faixa.papel === 'camera' ? '-scale-x-100' : ''}`}
+        style={zoom.aproximado ? {
+          transform: `translate(${String(zoom.vista.x)}px, ${String(zoom.vista.y)}px) scale(${String(zoom.vista.s)})`,
+          transformOrigin: '0 0',
+        } : undefined}
       />
+      </div>
 
       {/*
         Numa miniatura nao ha controle nenhum: o quadro inteiro pertence ao
@@ -169,6 +196,37 @@ export function FaixaDeMidia({
                    opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100
                    [@media(hover:none)]:opacity-100"
       >
+        {/*
+          Os botoes de zoom sao a alternativa ao gesto que a WCAG 2.5.7 exige:
+          pinca e roda nao existem para todo mundo, e o clique existe.
+        */}
+        <BotaoDaFaixa
+          rotulo={`Afastar ${legenda}`}
+          aoClicar={zoom.maisLonge}
+          desativado={!zoom.aproximado}
+        >
+          <ZoomOut aria-hidden="true" className="size-4" />
+        </BotaoDaFaixa>
+        {zoom.aproximado && (
+          <button
+            type="button"
+            onClick={zoom.restaurar}
+            aria-label={`Zoom de ${String(Math.round(zoom.vista.s * 100))}%. Voltar ao tamanho inteiro`}
+            title="Voltar ao tamanho inteiro"
+            className="numerico inline-flex h-8 min-w-11 items-center justify-center rounded px-1.5
+                       text-xs font-medium text-white hover:bg-white/20 focus-visible:bg-white/20"
+          >
+            {Math.round(zoom.vista.s * 100)}%
+          </button>
+        )}
+        <BotaoDaFaixa
+          rotulo={`Aproximar ${legenda}`}
+          aoClicar={zoom.maisPerto}
+          desativado={zoom.vista.s >= ZOOM_MAXIMO}
+        >
+          <ZoomIn aria-hidden="true" className="size-4" />
+        </BotaoDaFaixa>
+
         {volume !== undefined && aoMudarVolume !== undefined && (
           <ControleDeVolume rotulo={legenda} volume={volume} aoMudar={aoMudarVolume} />
         )}
@@ -231,11 +289,13 @@ const TONS: Record<Tom, string> = {
 }
 
 /** Um botao de canto de video: alvo de 32px, sem texto, rotulo no acessivel. */
-function BotaoDaFaixa({ rotulo, aoClicar, pressionado, tom = 'video', children }: {
+function BotaoDaFaixa({ rotulo, aoClicar, pressionado, tom = 'video', desativado = false, children }: {
   rotulo: string
   aoClicar: () => void
-  pressionado: boolean
+  /** Ausente em botao de acao (zoom): so os de estado sao `aria-pressed`. */
+  pressionado?: boolean
   tom?: Tom
+  desativado?: boolean
   children: ReactNode
 }): ReactNode {
   return (
@@ -245,7 +305,8 @@ function BotaoDaFaixa({ rotulo, aoClicar, pressionado, tom = 'video', children }
       aria-label={rotulo}
       aria-pressed={pressionado}
       title={rotulo}
-      className={`inline-flex size-8 items-center justify-center rounded ${TONS[tom]}`}
+      disabled={desativado}
+      className={`inline-flex size-8 items-center justify-center rounded disabled:opacity-40 ${TONS[tom]}`}
     >
       {children}
     </button>

@@ -129,16 +129,11 @@ describe('2.4 · a regra unica de interromper', () => {
     expect(decidir(ctx(), canal, msg('m', { mentions: ['u1'] }))).toBe('calar')
   })
 
-  it('nivel none cala ate a mencao; smart pergunta ao servidor', () => {
+  it('nivel none cala ate a mencao', () => {
     act(() => {
       useStore.getState().aplicarEvento({ t: 'notification-prefs.updated', d: { scopeType: 'channel', scopeId: C2, level: 'none', mutedUntil: null } })
     })
     expect(decidir(ctx(), canal, msg('m', { mentions: ['u1'] }))).toBe('calar')
-    act(() => {
-      useStore.getState().aplicarEvento({ t: 'notification-prefs.updated', d: { scopeType: 'channel', scopeId: C2, level: 'smart', mutedUntil: null } })
-    })
-    expect(decidir(ctx(), canal, msg('m'))).toBe('perguntar-ao-jev')
-    expect(decidir(ctx(), canal, msg('m', { mentions: ['u1'] }))).toBe('notificar')
   })
 
   it('grupo com mais de 50 pessoas comeca em "so mencoes"', () => {

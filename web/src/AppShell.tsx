@@ -11,10 +11,12 @@ import type { LayoutDoShell } from './lib/layout.js'
 import { usaLarguraDe } from './lib/medida.js'
 import { ManipuladorDePainel } from './ui/ManipuladorDePainel.js'
 import {
-  LARGURA_CANAIS_FIXOS, LARGURA_MEMBROS_FIXOS, usaLarguraMinima,
+  LARGURA_CANAIS_FIXOS, LARGURA_MEMBROS_FIXOS, LARGURA_MOVEL, usaLarguraMinima,
 } from './lib/pontosDeQuebra.js'
+import { ShellMovel } from './features/movel/ShellMovel.js'
 import { BarraGrupos } from './features/groups/BarraGrupos.js'
 import { ListaCanais } from './features/channels/ListaCanais.js'
+import { ListaConversas } from './features/conversas/ListaConversas.js'
 import { Conversa } from './features/channels/Conversa.js'
 import { PainelMembros } from './features/presence/PainelMembros.js'
 import { BarraConexao } from './features/presence/BarraConexao.js'
@@ -59,8 +61,10 @@ export function AppShell({ aoDigitar, latenciaMs }: {
   const grupoAtivo = useStore(e => e.grupoAtivo)
   const canalAtivo = useStore(e => e.canalAtivo)
   const escolherCanal = useStore(e => e.escolherCanal)
+  const area = useStore(e => e.area)
 
   const canaisFixos = usaLarguraMinima(LARGURA_CANAIS_FIXOS)
+  const movel = !usaLarguraMinima(LARGURA_MOVEL)
   const membrosFixos = usaLarguraMinima(LARGURA_MEMBROS_FIXOS)
 
   const [gavetaCanais, setGavetaCanais] = useState(false)
@@ -384,6 +388,20 @@ export function AppShell({ aoDigitar, latenciaMs }: {
     )
   }
 
+  // No celular as colunas viram telas. Os atalhos, a saida da aba e o
+  // reanuncio da chamada (acima) valem igual: sao do app, e nao do desenho.
+  if (movel) {
+    return (
+      <ProvedorDeDicas>
+        <ShellMovel
+          campoEscrita={campoEscrita}
+          {...(aoDigitar === undefined ? {} : { aoDigitar })}
+          latenciaMs={latenciaMs ?? null}
+        />
+      </ProvedorDeDicas>
+    )
+  }
+
   return (
     // O provedor tambem envolve a raiz em main.tsx; repeti-lo aqui e de
     // proposito. Aninhar dois nao custa nada, e sem este o AppShell so monta
@@ -468,10 +486,10 @@ export function AppShell({ aoDigitar, latenciaMs }: {
                 {!layout.canaisRecolhido && (
                   <>
                     <nav
-                      aria-label="Canais do grupo"
+                      aria-label={area === 'conversas' ? 'Conversas diretas' : 'Canais do grupo'}
                       className="flex min-h-0 flex-1 flex-col overflow-y-auto"
                     >
-                      <ListaCanais />
+                      {area === 'conversas' ? <ListaConversas /> : <ListaCanais />}
                     </nav>
                     {/*
                       A chamada e a identidade no RODAPE desta coluna, e nao
@@ -562,13 +580,15 @@ export function AppShell({ aoDigitar, latenciaMs }: {
         */}
         {!canaisFixos && gavetaCanais && (
           <nav
-            aria-label="Canais do grupo"
+            aria-label={area === 'conversas' ? 'Conversas diretas' : 'Canais do grupo'}
             className="absolute inset-y-0 left-16 z-20 overflow-y-auto border-r
                        border-border bg-bg-raised
                        shadow-[8px_0_16px_-8px_rgb(0_0_0/0.30)]"
             style={{ width: 'var(--w-channels)' }}
           >
-            <ListaCanais aoEscolher={() => setGavetaCanais(false)} />
+            {area === 'conversas'
+              ? <ListaConversas aoEscolher={() => setGavetaCanais(false)} />
+              : <ListaCanais aoEscolher={() => setGavetaCanais(false)} />}
           </nav>
         )}
 

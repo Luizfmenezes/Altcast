@@ -2,12 +2,23 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- viewport-fit=cover: no app instalado o conteudo vai ate as bordas, e
+         as margens seguras (entalhe, barra de gestos) sao respeitadas no CSS.
+         resizes-content: no Android o teclado encolhe a tela, e o campo de
+         escrita sobe junto em vez de ficar escondido atras dele. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="description" content="Grupos, conversas e chamadas com quem você conhece." />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#0b0e14" />
+    <meta name="theme-color" content="#06070a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Altcast" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Altcast</title>
   </head>
   <body>

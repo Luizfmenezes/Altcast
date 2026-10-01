@@ -28,7 +28,7 @@ const statusSchema = z.object({
   expiresAt: z.iso.datetime().nullable().optional(),
 })
 
-const nivel = z.enum(['all', 'mentions', 'none', 'smart'])
+const nivel = z.enum(['all', 'mentions', 'none'])
 
 const preferenciaSchema = z.object({
   scopeType: z.enum(['group', 'channel']),

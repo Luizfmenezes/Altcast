@@ -22,6 +22,14 @@ type Estado = {
   mensagens: Record<string, Mensagem[]>
   grupoAtivo: string | null
   canalAtivo: string | null
+  /**
+   * Onde a pessoa esta: nos grupos ou nas conversas diretas.
+   *
+   * Nao da para derivar so do grupo ativo: abrir "Conversas" sem conversa
+   * nenhuma ainda e um lugar de verdade (a lista vazia com "Nova conversa"),
+   * e nele nao ha grupo ativo para perguntar.
+   */
+  area: 'grupos' | 'conversas'
   conexao: SocketStatus
   /**
    * Quem esta em chamada, por canal. Espelha `calls.ts` do servidor e some no
@@ -92,6 +100,10 @@ type Estado = {
   semearSala: (channelId: string, participantes: ParticipanteDeVoz[]) => void
   escolherGrupo: (groupId: string) => void
   escolherCanal: (channelId: string) => void
+  /** A area de conversas, na conversa mais recente — ou na lista vazia. */
+  abrirConversas: () => void
+  /** De volta aos grupos, no primeiro grupo comum. */
+  abrirGrupos: () => void
   carregarMensagens: (channelId: string, mensagens: Mensagem[]) => void
   registrarEco: (mensagem: Mensagem) => void
   marcarEnvio: (id: string, envio: Mensagem['envio']) => void
@@ -240,6 +252,59 @@ function primeiroCanalDoGrupo(channels: Canal[], groupId: string): string | null
   return channels.filter(c => c.groupId === groupId).sort(porPosicao)[0]?.id ?? null
 }
 
+/** Conversa direta? Servidor anterior nao manda `kind`, e ai e grupo. */
+export const ehConversa = (g: Pick<Grupo, 'kind'> | undefined): boolean => g?.kind === 'dm'
+
+/** O primeiro GRUPO de verdade — conversa nunca e o destino padrao. */
+function primeiroGrupo(grupos: readonly Grupo[]): string | null {
+  return grupos.find(g => !ehConversa(g))?.id ?? null
+}
+
+/**
+ * A ultima atividade conhecida de um grupo: o maior id entre as mensagens em
+ * memoria, os marcos de leitura e o proprio grupo. Ids sao UUIDv7, entao
+ * ordenar por eles e ordenar por tempo — sem o servidor mandar data nenhuma.
+ */
+export function atividadeDe(
+  estado: Pick<Estado, 'channels' | 'mensagens' | 'leituras'>, groupId: string,
+): string {
+  let maior = groupId
+  for (const c of estado.channels) {
+    if (c.groupId !== groupId) continue
+    const ultima = estado.mensagens[c.id]?.at(-1)?.id ?? ''
+    const lida = estado.leituras[c.id] ?? ''
+    if (ultima > maior) maior = ultima
+    if (lida > maior) maior = lida
+  }
+  return maior
+}
+
+/** As conversas abertas, da mais recente para a mais antiga. */
+export function conversasVisiveis(
+  estado: Pick<Estado, 'groups' | 'channels' | 'mensagens' | 'leituras'>,
+): Grupo[] {
+  return estado.groups
+    .filter(g => ehConversa(g) && g.hidden !== true)
+    .sort((a, b) => atividadeDe(estado, b.id).localeCompare(atividadeDe(estado, a.id)))
+}
+
+/** Com quem e esta conversa. Nulo se a outra conta foi apagada. */
+export function outroDaConversa(
+  estado: Pick<Estado, 'members' | 'user'>, groupId: string,
+): Membro | null {
+  return estado.members.find(m => m.groupId === groupId && m.userId !== estado.user?.id) ?? null
+}
+
+/** O canal de texto de um grupo — numa conversa, a propria conversa. */
+export function canalDeTexto(channels: readonly Canal[], groupId: string): Canal | null {
+  return channels.filter(c => c.groupId === groupId && c.type === 'text').sort(porPosicao)[0] ?? null
+}
+
+/** O canal de voz de uma conversa: e por ele que a chamada direta acontece. */
+export function canalDeVoz(channels: readonly Canal[], groupId: string): Canal | null {
+  return channels.find(c => c.groupId === groupId && c.type === 'voice') ?? null
+}
+
 export const useStore = create<Estado>(set => ({
   user: null,
   groups: [],
@@ -248,6 +313,7 @@ export const useStore = create<Estado>(set => ({
   mensagens: {},
   grupoAtivo: null,
   canalAtivo: null,
+  area: 'grupos',
   conexao: 'reconectando',
   chamadas: {},
   leituras: {},
@@ -264,7 +330,7 @@ export const useStore = create<Estado>(set => ({
     const grupoAtivo = estado.grupoAtivo !== null
       && ready.groups.some(g => g.id === estado.grupoAtivo)
       ? estado.grupoAtivo
-      : ready.groups[0]?.id ?? null
+      : primeiroGrupo(ready.groups)
 
     // O canal ativo pode ter sumido do ready porque a pessoa foi removida dele
     // enquanto estava desconectada. Cair no primeiro visivel e melhor do que
@@ -427,9 +493,17 @@ export const useStore = create<Estado>(set => ({
        */
       case 'group.created':
       case 'group.joined': {
-        const { group, channels } = d as unknown as { group: Grupo; channels: Canal[] }
+        const { group, channels, members } = d as unknown as {
+          group: Grupo; channels: Canal[]; members?: Membro[]
+        }
         const puxarParaCa = evento.t === 'group.created'
         return set(estado => {
+          // Numa conversa os participantes vem junto: e deles que sai o nome e
+          // a foto da conversa inteira.
+          const membros = members === undefined ? estado.members : [
+            ...estado.members.filter(m => m.groupId !== group.id),
+            ...members,
+          ]
           const grupos = [...estado.groups.filter(g => g.id !== group.id), group]
             .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
           const canais = [
@@ -444,10 +518,14 @@ export const useStore = create<Estado>(set => ({
           return {
             groups: grupos,
             channels: canais,
+            members: membros,
             ...(puxarParaCa || esperandoCanais
               ? {
                 grupoAtivo: group.id,
-                canalAtivo: primeiroCanalDoGrupo(canais, group.id),
+                canalAtivo: ehConversa(group)
+                  ? canalDeTexto(canais, group.id)?.id ?? null
+                  : primeiroCanalDoGrupo(canais, group.id),
+                area: ehConversa(group) ? 'conversas' as const : 'grupos' as const,
               }
               : {}),
           }
@@ -476,6 +554,25 @@ export const useStore = create<Estado>(set => ({
         }))
       }
 
+      /** Fechei (ou reabri) esta conversa — nesta aba ou em outra. */
+      case 'dm.hidden':
+      case 'dm.shown': {
+        const { groupId } = d as { groupId: string }
+        const oculta = evento.t === 'dm.hidden'
+        return set(estado => {
+          const groups = estado.groups.map(g => g.id === groupId ? { ...g, hidden: oculta } : g)
+          if (!oculta || estado.grupoAtivo !== groupId) return { groups }
+          // Fechei a conversa que estava aberta: vou para a proxima, ou para a
+          // lista vazia — nunca para um grupo, que seria trocar de lugar.
+          const proxima = conversasVisiveis({ ...estado, groups })[0] ?? null
+          return {
+            groups,
+            grupoAtivo: proxima?.id ?? null,
+            canalAtivo: proxima === null ? null : canalDeTexto(estado.channels, proxima.id)?.id ?? null,
+          }
+        })
+      }
+
       case 'group.deleted': {
         const { id } = d as { id: string }
         return set(estado => {
@@ -491,7 +588,7 @@ export const useStore = create<Estado>(set => ({
             Object.entries(estado.mensagens).filter(([canal]) => !canaisQueSaem.has(canal)),
           )
           const grupoAtivo = estado.grupoAtivo === id
-            ? grupos[0]?.id ?? null
+            ? primeiroGrupo(grupos)
             : estado.grupoAtivo
           return {
             groups: grupos,
@@ -592,7 +689,7 @@ export const useStore = create<Estado>(set => ({
           )
           const canais = estado.channels.filter(c => c.groupId !== groupId)
           const grupoAtivo = estado.grupoAtivo === groupId
-            ? grupos[0]?.id ?? null
+            ? primeiroGrupo(grupos)
             : estado.grupoAtivo
           return {
             members: membros.filter(m => m.groupId !== groupId),
@@ -795,10 +892,43 @@ export const useStore = create<Estado>(set => ({
     }
   }),
 
-  escolherGrupo: groupId => set(estado => ({
-    grupoAtivo: groupId,
-    canalAtivo: primeiroCanalDoGrupo(estado.channels, groupId),
-  })),
+  escolherGrupo: groupId => set(estado => {
+    const conversa = ehConversa(estado.groups.find(g => g.id === groupId))
+    return {
+      grupoAtivo: groupId,
+      canalAtivo: conversa
+        ? canalDeTexto(estado.channels, groupId)?.id ?? null
+        : primeiroCanalDoGrupo(estado.channels, groupId),
+      area: conversa ? 'conversas' : 'grupos',
+      // Abrir uma conversa fechada e reabri-la aqui; o servidor ja a reabriu
+      // pelo `POST /dms` que trouxe a pessoa ate ela.
+      ...(conversa ? {
+        groups: estado.groups.map(g => g.id === groupId && g.hidden === true ? { ...g, hidden: false } : g),
+      } : {}),
+    }
+  }),
+
+  abrirConversas: () => set(estado => {
+    const atual = estado.groups.find(g => g.id === estado.grupoAtivo)
+    const destino = atual !== undefined && ehConversa(atual) && atual.hidden !== true
+      ? atual
+      : conversasVisiveis(estado)[0] ?? null
+    return {
+      area: 'conversas',
+      grupoAtivo: destino?.id ?? null,
+      canalAtivo: destino === null ? null : canalDeTexto(estado.channels, destino.id)?.id ?? null,
+    }
+  }),
+
+  abrirGrupos: () => set(estado => {
+    if (estado.area === 'grupos') return {}
+    const destino = primeiroGrupo(estado.groups)
+    return {
+      area: 'grupos',
+      grupoAtivo: destino,
+      canalAtivo: destino === null ? null : primeiroCanalDoGrupo(estado.channels, destino),
+    }
+  }),
 
   escolherCanal: channelId => set({ canalAtivo: channelId }),
 
@@ -849,7 +979,7 @@ export const useStore = create<Estado>(set => ({
 
   limpar: () => set({
     user: null, groups: [], channels: [], members: [], mensagens: {},
-    grupoAtivo: null, canalAtivo: null, chamadas: {}, leituras: {}, convites: [],
+    grupoAtivo: null, canalAtivo: null, area: 'grupos', chamadas: {}, leituras: {}, convites: [],
     cotaDeGrupos: null, cargos: {}, cargosDoMembro: {},
     naoLidas: {}, contagemDoServidor: false, preferencias: [],
   }),

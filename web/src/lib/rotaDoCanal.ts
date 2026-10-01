@@ -47,6 +47,8 @@ export function useRotaDoCanal(rota: Rota, ativo: boolean): void {
   /** O canal que a URL acabou de impor: nao vira um novo `pushState`. */
   const vindoDaUrl = useRef<string | null>(null)
   const jaSincronizou = useRef(false)
+  /** O canal que a tela mostrava na ultima passada de tela -> URL. */
+  const canalVisto = useRef<string | null>(null)
 
   // URL -> tela
   useEffect(() => {
@@ -63,6 +65,18 @@ export function useRotaDoCanal(rota: Rota, ativo: boolean): void {
   // tela -> URL
   useEffect(() => {
     if (!ativo || canalAtivo === null || grupoAtivo === null) return
+    /**
+     * So a TELA mudar empurra endereco; a URL mudar sozinha, nao.
+     *
+     * No Voltar, este efeito roda no mesmo commit do de cima, ainda com o
+     * canal ANTIGO no render: a rota ja e a anterior e a store ainda nao foi
+     * lida de novo. Sem esta guarda ele empilhava o endereco antigo de volta,
+     * o de cima o desfazia, e os dois trocavam de canal sem parar ate o React
+     * derrubar a arvore (erro 185) — o Voltar do celular deixava a tela preta.
+     */
+    const mudouDeCanal = canalVisto.current !== canalAtivo
+    canalVisto.current = canalAtivo
+    if (!mudouDeCanal && jaSincronizou.current) return
     const destino: Rota = { nome: 'canal', grupo: grupoAtivo, canal: canalAtivo }
     const jaEstaLa = rota.nome === 'canal' && rota.canal === canalAtivo && rota.grupo === grupoAtivo
     if (vindoDaUrl.current === canalAtivo || jaEstaLa) {

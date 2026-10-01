@@ -51,6 +51,7 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
 
   const meusGrupos = await db.select({
     id: groups.id, name: groups.name, iconUrl: groups.iconUrl, role: groupMembers.role,
+    kind: groups.kind, hiddenAt: groupMembers.hiddenAt,
   })
     .from(groupMembers)
     .innerJoin(groups, eq(groups.id, groupMembers.groupId))
@@ -113,7 +114,9 @@ async function montarReady(userId: string): Promise<Record<string, unknown>> {
 
   return {
     user: eu ?? null,
-    groups: meusGrupos,
+    // Conversas fechadas vem junto, marcadas: a proxima mensagem as reabre, e
+    // o cliente so consegue reabrir o que ja conhece.
+    groups: meusGrupos.map(({ hiddenAt, ...g }) => ({ ...g, hidden: hiddenAt !== null })),
     channels: meusCanais.map(serializeChannel),
     // Quem ja esta em chamada, apenas nos canais que ESTE usuario enxerga. A
     // lista sai de `meusCanais`, que ja veio filtrado pela visibilidade: uma

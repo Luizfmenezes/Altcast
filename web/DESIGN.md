@@ -87,3 +87,21 @@ encantar uma vez. Sempre sob `MotionConfig reducedMotion="user"`.
 - Texto funcional em 10–11px.
 - Âmbar como único sinal de aviso.
 - Cor como único portador de estado (sempre forma e texto juntos).
+
+## Celular (abaixo de 768px)
+
+A pedido do dono do produto (2026-09-30), o celular tem voz própria — cartões
+grandes e redondos, no espírito de app de banco — sem mudar a paleta do desktop.
+
+- **Navegação por telas, não por colunas** (`features/movel/ShellMovel.tsx`):
+  abas fixas no pé (Início, Conversas, Você), o grupo como tela, a conversa em
+  tela cheia. O Voltar do Android desce um nível (cada tela empilha histórico).
+- **Pastéis só no celular** (`features/movel/cores.ts`): o cartão principal e
+  os cartões de grupo usam pastel com tinta escura `#0b0f19` nos dois temas
+  (≥ 12:1, conferido em `conversas-e-movel.test.tsx`). Fora desses cartões, os
+  tokens de sempre.
+- Raios: 20–28px nos cartões e linhas, `full` em botões pílula. Linhas de lista
+  com 56px+ de altura; alvos de toque ≥ 44px.
+- Margens seguras (`env(safe-area-inset-*)`) no topo, nas abas e no campo de
+  escrita: o app instalado vai até as bordas (`viewport-fit=cover`).
+- O botão de enviar aparece só abaixo de `md`; no desktop, Enter envia.

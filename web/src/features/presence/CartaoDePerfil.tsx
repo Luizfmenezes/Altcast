@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as Dialogo from '@radix-ui/react-dialog'
-import { X } from 'lucide-react'
+import { MessageCircle, X } from 'lucide-react'
 import { api } from '../../lib/api.js'
-import { corDoMembro, useStore } from '../../lib/store.js'
+import { corDoMembro, ehConversa, useStore } from '../../lib/store.js'
+import { abrirConversaCom } from '../../lib/conversas.js'
 import type { PerfilPublico } from '../../lib/tipos.js'
 import { Avatar } from '../../ui/Avatar.js'
 import { Botao } from '../../ui/Botao.js'
@@ -51,7 +52,20 @@ export function CartaoDePerfil(): ReactNode {
 
   const vinculos = userId === null ? [] : members.filter(m => m.userId === userId)
   const pessoa = vinculos.find(m => m.groupId === grupoAtivo) ?? vinculos[0]
-  const emComum = groups.filter(g => vinculos.some(v => v.groupId === g.id))
+  const emComum = groups.filter(g => !ehConversa(g) && vinculos.some(v => v.groupId === g.id))
+  const [abrindo, setAbrindo] = useState(false)
+
+  async function mandarMensagem(alvo: string): Promise<void> {
+    setAbrindo(true)
+    try {
+      await abrirConversaCom(alvo)
+      fechar()
+    } catch {
+      // O botao volta a ficar disponivel; tentar de novo e o caminho.
+    } finally {
+      setAbrindo(false)
+    }
+  }
   const cor = pessoa === undefined ? null : corDoMembro({ cargos, cargosDoMembro }, pessoa.groupId, pessoa.userId)
   const status = pessoa?.status ?? 'offline'
   const online = estaPresente(status)
@@ -90,6 +104,19 @@ export function CartaoDePerfil(): ReactNode {
                         </span>
                       )}
                     </Dialogo.Description>
+
+                    {pessoa.userId !== eu && emComum.length > 0 && (
+                      <Botao
+                        variante="primario"
+                        largura="cheia"
+                        className="rounded-full"
+                        disabled={abrindo}
+                        onClick={() => { void mandarMensagem(pessoa.userId) }}
+                      >
+                        <MessageCircle aria-hidden="true" />
+                        {abrindo ? 'Abrindo…' : 'Enviar mensagem'}
+                      </Botao>
+                    )}
 
                     {perfil !== null && (
                       <p className="text-xs text-fg-muted">

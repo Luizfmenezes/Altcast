@@ -15,9 +15,9 @@ import {
   extrairMencoes, membrosParaMencao, mencoesDe, reacoesDe,
 } from './chatRico.routes.js'
 import { mentions } from '../db/schema.js'
-import { triarAtencao } from '../atencao/triagem.js'
 import type { ReacaoSerializada } from './chatRico.routes.js'
 import { MAXIMO_POR_MENSAGEM } from '../media/armazenamento.js'
+import { reabrirConversa } from './dms.routes.js'
 
 type Message = typeof messages.$inferSelect
 
@@ -217,14 +217,8 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
       // O autor tambem esta na audiencia: e o que mantem as outras abas dele
       // em dia e permite reconciliar o eco otimista pelo mesmo ID.
       await emit.toChannel(channelId, { t: 'message.created', d: dados })
-      // A triagem "Inteligente" corre depois, sem ninguem esperar (secao 7.3).
-      void triarAtencao({
-        id: criada!.id, channelId, authorId: userId, content: campos.content,
-        mentionsEveryone: mencionados.todos, mencionados: mencionados.userIds,
-      }, {
-        groupId: carregado.channel.groupId, visibility: carregado.channel.visibility,
-        name: carregado.channel.name, topic: carregado.channel.topic,
-      })
+      // Numa conversa fechada por alguem, a mensagem nova a devolve a lista.
+      await reabrirConversa(carregado.channel.groupId, userId)
       return reply.status(201).send(dados)
     } catch (erro) {
       // Reenviar o mesmo ID e o sintoma normal de um cliente que reconectou

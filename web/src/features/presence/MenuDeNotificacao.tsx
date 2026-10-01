@@ -12,7 +12,7 @@ import { cn } from '../../lib/utils.js'
 const ITEM = `flex cursor-pointer select-none items-center gap-2 rounded px-2 py-1.5 text-sm
               text-fg outline-none data-[highlighted]:bg-bg-hover`
 
-const NIVEIS: NivelDeNotificacao[] = ['all', 'mentions', 'smart', 'none']
+const NIVEIS: NivelDeNotificacao[] = ['all', 'mentions', 'none']
 
 const QUANDO = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })
 
@@ -20,7 +20,7 @@ const QUANDO = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', hour: '2-dig
  * "O que quero ouvir daqui", para um canal ou um grupo (Etapa 2.4).
  *
  * Dois eixos independentes, como a pessoa pensa neles: o NIVEL (tudo, so
- * mencoes, inteligente, nada — ou herdar) e o SILENCIO por um tempo. Silenciar
+ * mencoes, nada — ou herdar) e o SILENCIO por um tempo. Silenciar
  * por uma hora nao deveria obrigar a lembrar qual era o nivel para voltar a
  * ele depois, e por isso nao mexe no nivel.
  *
@@ -148,12 +148,7 @@ export function MenuDeNotificacao({ scopeType, scopeId, groupId, gatilho }: {
                 <span className="flex w-4 justify-center">
                   <Menu.ItemIndicator><Check aria-hidden="true" className="size-4" /></Menu.ItemIndicator>
                 </span>
-                <span className="flex flex-col">
-                  {ROTULO_DO_NIVEL[n]}
-                  {n === 'smart' && (
-                    <span className="text-xs text-fg-muted">Menções e o que a triagem julgar importante</span>
-                  )}
-                </span>
+                {ROTULO_DO_NIVEL[n]}
               </Menu.RadioItem>
             ))}
           </Menu.RadioGroup>

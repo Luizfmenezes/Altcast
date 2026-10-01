@@ -2,7 +2,7 @@ import { useId, useRef, useState } from 'react'
 import type {
   ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent, ReactNode, RefObject,
 } from 'react'
-import { Paperclip, X } from 'lucide-react'
+import { Paperclip, SendHorizontal, X } from 'lucide-react'
 import { useStore } from '../../lib/store.js'
 import {
   MAXIMO_POR_MENSAGEM, descartarAnexo, enviarArquivo, formatarTamanho,
@@ -350,7 +350,8 @@ export function Composer({
           onPaste={aoColar}
           placeholder="Escrever..."
           className="w-full resize-none rounded-md border border-border bg-bg-sunken px-3 py-2
-                     text-corpo text-fg placeholder:text-fg-muted"
+                     text-corpo text-fg placeholder:text-fg-muted
+                     max-md:rounded-[22px] max-md:px-4 max-md:py-2.5"
         />
         <Mencoes
           id={idDaLista}
@@ -403,6 +404,23 @@ export function Composer({
             Enviando arquivo…
           </p>
         )}
+
+        {/*
+          No celular, um botao de enviar. O teclado de toque nao tem Shift, e o
+          Enter dele e o lugar natural de quebrar linha; esperar que a pessoa
+          descubra que "pular linha" envia seria esconder a acao principal.
+          Acima de md continua o Enter, como em todo chat de desktop.
+        */}
+        <button
+          type="button"
+          onClick={enviar}
+          disabled={!podeEnviar || canalAtivo === null}
+          aria-label="Enviar mensagem"
+          className="ml-auto flex size-11 items-center justify-center rounded-full bg-accent
+                     text-accent-fg transition-transform active:scale-95 disabled:opacity-40 md:hidden"
+        >
+          <SendHorizontal aria-hidden="true" className="size-5" />
+        </button>
       </div>
 
       {texto.length >= AVISAR_A_PARTIR_DE && (
