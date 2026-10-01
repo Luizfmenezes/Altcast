@@ -69,6 +69,7 @@ function chamadaDuble(): Chamada & {
     definirQualidadeDeRecepcao: () => undefined,
     definirSurdo: nada,
     definirSupressao: () => undefined,
+    definirTratamento: () => undefined,
     estado: () => useChamadaAtiva.getState().chamada,
   } as Chamada & {
     sair: ReturnType<typeof vi.fn>

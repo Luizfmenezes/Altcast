@@ -22,7 +22,11 @@ import type { Ready } from '../src/lib/tipos.js'
  */
 
 vi.mock('../src/lib/supressao.js', () => ({
-  criarSupressorDeRuido: (modelo: string) => ({ name: `falso-${modelo}` }),
+  ModeloIndisponivel: class extends Error {},
+  criarProcessadorDeVoz: (ajuste: { modelo: string | null }) => ({
+    name: `falso-${String(ajuste.modelo)}`, ajustar: () => undefined,
+  }),
+  criarLimpezaDeEscuta: async () => ({ nos: [], desmontar: () => undefined }),
 }))
 
 describe('a preferencia de supressao', () => {
@@ -36,7 +40,12 @@ describe('a preferencia de supressao', () => {
     // O formato anterior: um booleano do filtro do navegador. Quem desligou
     // de proposito — quem transmite musica — nao pode ser religado a forca.
     localStorage.setItem('altcast:processamento', JSON.stringify({ ruido: false, eco: true, ganho: false }))
-    expect(lerProcessamento()).toEqual({ supressao: 'desligada', eco: true, ganho: false })
+    // E o portao tambem nao liga sozinho para ela: ele cortaria a nota que se
+    // apaga devagar.
+    expect(lerProcessamento()).toEqual({
+      supressao: 'desligada', eco: true, ganho: false,
+      intensidade: 100, portao: 'desligado', limiarDb: -50, nivelador: false, limparRecebido: false,
+    })
   })
 
   it('valor desconhecido cai no padrão, e não quebra a tela', () => {
@@ -46,6 +55,7 @@ describe('a preferencia de supressao', () => {
 
   it('cada modo de IA tem o seu modelo, e os outros nenhum', () => {
     expect(modeloDaSupressao('ia')).toBe('gtcrn')
+    expect(modeloDaSupressao('ia-alta')).toBe('dfn3')
     expect(modeloDaSupressao('ia-leve')).toBe('rnnoise')
     expect(modeloDaSupressao('navegador')).toBeNull()
     expect(modeloDaSupressao('desligada')).toBeNull()
@@ -240,7 +250,7 @@ describe('a barra de chamada mostra fotos, e nao nomes piscando', () => {
         destravarAudio: nada, definirMicrofone: nada, definirCamera: nada, definirTela: nada,
         definirVolume: () => undefined, restaurarVolumes: () => undefined,
         definirQualidade: () => undefined, definirQualidadeDeRecepcao: () => undefined,
-        definirSurdo: nada, definirSupressao: () => undefined,
+        definirSurdo: nada, definirSupressao: () => undefined, definirTratamento: () => undefined,
         estado: () => useChamadaAtiva.getState().chamada,
       } as Chamada, 'c-voz')
       useChamadaAtiva.setState(e => ({ chamada: { ...e.chamada, fase: 'dentro', falando: ['u2'] } }))
@@ -264,7 +274,7 @@ describe('a barra de chamada mostra fotos, e nao nomes piscando', () => {
         destravarAudio: nada, definirMicrofone: nada, definirCamera: nada, definirTela: nada,
         definirVolume: () => undefined, restaurarVolumes: () => undefined,
         definirQualidade: () => undefined, definirQualidadeDeRecepcao: () => undefined,
-        definirSurdo: nada, definirSupressao,
+        definirSurdo: nada, definirSupressao, definirTratamento: () => undefined,
         estado: () => useChamadaAtiva.getState().chamada,
       } as Chamada, 'c-voz')
       useChamadaAtiva.setState(e => ({ chamada: { ...e.chamada, fase: 'dentro', supressao: 'ia' } }))

@@ -51,3 +51,15 @@ substanciais do software — e o que este arquivo faz.
 A OFL permite usar, embutir e redistribuir as fontes junto com o software,
 inclusive comercialmente; so proibe vende-las sozinhas e reutilizar o nome
 reservado numa versao modificada. Os arquivos sao os originais, sem alteracao.
+
+## Supressao de ruido
+
+| Componente | Arquivos | Licenca |
+|---|---|---|
+| **GTCRN** e **RNNoise**, via `@sapphi-red/web-noise-suppressor` | empacotados pelo Vite a partir do pacote | MIT (GTCRN, o pacote), BSD-3 (RNNoise), Apache-2.0 (`@shiguredo/rnnoise-wasm`) |
+| **DeepFilterNet3** — Copyright (c) 2021 Hendrik Schroeter (<https://github.com/Rikorose/DeepFilterNet>); build web Copyright (c) 2025 MezonAI (<https://github.com/mezonai/mezon-noise-suppression>) | `web/public/modelos/dfn3/worklet.js` (extraido sem alteracao de `deepfilternet3-noise-filter` 1.3.0); `df_bg.wasm` e `DeepFilterNet3_onnx.tar.gz` baixados no build por `web/scripts/modelo-dfn3.mjs`, com SHA-256 conferido | MIT OR Apache-2.0 |
+
+Os tres rodam no navegador de quem fala; nenhum audio sai da maquina para ser
+limpo. O DeepFilterNet3 nao fica no repositorio (24 MB): o build o baixa do
+CDN da MezonAI e o serve do proprio dominio, porque a CSP nao aceita script
+de terceiros nem `blob:`.

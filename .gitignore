@@ -37,3 +37,7 @@ baixar/*
 !baixar/.gitkeep
 *.tsbuildinfo
 react-bits-main/
+# O DeepFilterNet3 (24 MB) e baixado no build, com hash conferido; so o
+# worklet, que e texto pequeno, fica versionado.
+web/public/modelos/dfn3/*.wasm
+web/public/modelos/dfn3/*.tar.gz

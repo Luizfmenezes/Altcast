@@ -53,6 +53,10 @@
 		# o index para o roteamento acontecer no cliente. Sem isto, recarregar
 		# em /convite/K7M2P9XQ daria 404.
 		try_files {path} /index.html
+		# O DeepFilterNet3 sao 24 MB que so mudam quando o hash fixado em
+		# web/scripts/modelo-dfn3.mjs muda. Um dia de cache poupa baixar tudo de
+		# novo a cada chamada; o ETag cobre a revalidacao depois disso.
+		header /modelos/* Cache-Control "public, max-age=86400"
 		file_server
 	}
 

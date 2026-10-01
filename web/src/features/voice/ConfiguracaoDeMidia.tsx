@@ -4,13 +4,16 @@ import {
   guardarProcessamento, guardarQualidade, lerPreferencias, lerProcessamento, lerQualidade,
   listarDispositivos, QUALIDADES,
 } from '../../lib/midia.js'
+import { modeloDaSupressao } from '../../lib/midia.js'
 import type {
-  Dispositivo, Processamento, QualidadeDaTela, Supressao, TipoDeDispositivo,
+  AjusteDoTratamento, Dispositivo, Processamento, QualidadeDaTela, Supressao, TipoDeDispositivo,
 } from '../../lib/midia.js'
 import { useChamadaAtiva } from './chamadaAtiva.js'
 import { guardarFala, lerFala, nomeDaTecla } from './atalhos.js'
 import type { ModoDeFala } from './atalhos.js'
 import { AjusteDeSons } from './AjusteDeSons.js'
+import { TratamentoDaVoz } from './TratamentoDaVoz.js'
+import { TesteDeMicrofone } from './TesteDeMicrofone.js'
 
 /**
  * Os tres tratamentos que o navegador aplica ao microfone.
@@ -28,15 +31,16 @@ const TRATAMENTOS: { chave: 'eco' | 'ganho'; rotulo: string; nota: string }[] = 
   },
   {
     chave: 'ganho',
-    rotulo: 'Volume automático',
-    nota: 'Nivela a voz, mas levanta o chiado no silencio.',
+    rotulo: 'Ganho automático do navegador',
+    nota: 'Nivela a voz antes da supressão, mas levanta o chiado no silêncio. Prefira o nivelador de voz.',
   },
 ]
 
 /**
- * Os quatro modos da supressao de ruido, do mais forte ao nenhum.
+ * Os cinco modos da supressao de ruido, do padrao ao nenhum.
  *
- * A nota de cada um diz o que ele custa. "IA leve" existe para maquina fraca,
+ * A nota de cada um diz o que ele custa. "IA alta qualidade" pesa mais e baixa
+ * um modelo grande; "IA leve" existe para maquina fraca,
  * e "Desligada" existe para quem toca: toda supressao trata instrumento como
  * ruido e o corta.
  */
@@ -45,6 +49,11 @@ export const SUPRESSOES: { valor: Supressao; rotulo: string; nota: string }[] = 
     valor: 'ia',
     rotulo: 'IA (recomendado)',
     nota: 'Rede neural na sua máquina, como o Krisp. Tira teclado, ventilador e barulho da casa.',
+  },
+  {
+    valor: 'ia-alta',
+    rotulo: 'IA alta qualidade',
+    nota: 'Voz mais natural, em qualidade cheia. Baixa cerca de 24 MB na primeira vez e usa mais processador.',
   },
   {
     valor: 'ia-leve',
@@ -264,6 +273,9 @@ export function ConfiguracaoDeMidia({
   const [tratamento, setTratamento] = useState<Processamento>(lerProcessamento)
   const definirSupressao = useChamadaAtiva(e => e.definirSupressao)
   const supressaoAtiva = useChamadaAtiva(e => e.chamada.supressaoAtiva)
+  const modeloAtivo = useChamadaAtiva(e => e.chamada.modeloAtivo)
+  const medidaDaVoz = useChamadaAtiva(e => e.chamada.medidaDaVoz)
+  const definirTratamento = useChamadaAtiva(e => e.definirTratamento)
   const naChamada = useChamadaAtiva(e => e.chamada.fase === 'dentro')
   const [fala, setFala] = useState(lerFala)
   const [recarga, setRecarga] = useState(0)
@@ -393,14 +405,28 @@ export function ConfiguracaoDeMidia({
             </label>
           ))}
         </div>
-        {naChamada && (tratamento.supressao === 'ia' || tratamento.supressao === 'ia-leve') && (
+        {naChamada && modeloDaSupressao(tratamento.supressao) !== null && (
           <p role="status" className="text-xs text-fg-muted">
-            {supressaoAtiva
-              ? 'A IA está limpando seu microfone agora.'
-              : 'Ligue o microfone para a IA começar a limpar o som.'}
+            {!supressaoAtiva
+              ? 'Ligue o microfone para a IA começar a limpar o som.'
+              : modeloAtivo !== modeloDaSupressao(tratamento.supressao)
+                ? 'A alta qualidade não está disponível neste servidor. A IA padrão está limpando seu microfone.'
+                : 'A IA está limpando seu microfone agora.'}
           </p>
         )}
       </fieldset>
+
+      <TratamentoDaVoz
+        tratamento={tratamento}
+        aoMudar={(mudanca: AjusteDoTratamento) => {
+          setTratamento(atual => ({ ...atual, ...mudanca }))
+          definirTratamento(mudanca)
+        }}
+        medida={medidaDaVoz}
+        naChamada={naChamada}
+      />
+
+      <TesteDeMicrofone />
 
       <fieldset className="flex flex-wrap gap-4 border-t border-border-subtle p-3">
         <legend className="sr-only">Tratamento do microfone</legend>
