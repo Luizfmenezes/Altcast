@@ -4,6 +4,7 @@ import { origemDoAltcast, urlDoAltcast } from './config'
 import { registrarCaptura } from './captura'
 import { guardarEstado, lerEstado } from './estadoDaJanela'
 import { registrarPresencaNoDiscord } from './presencaNoDiscord'
+import { registrarAtualizacao } from './atualizacao'
 
 /**
  * O processo principal.
@@ -73,6 +74,7 @@ function prepararApp(): void {
 
   registrarCaptura(sessao, () => (janela === null ? [] : [janela.getMediaSourceId()]))
   registrarPresencaNoDiscord(ORIGEM, ehNossa)
+  registrarAtualizacao(ehNossa, () => janela)
 
   criarJanela()
 

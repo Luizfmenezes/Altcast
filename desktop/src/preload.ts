@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { CANAIS } from './ponte'
-import type { FonteDeTela, PedidoDeAtencao, PedidoDeAtividade, SomDaTela } from './ponte'
+import type {
+  EstadoDaAtualizacao, FonteDeTela, LeituraDaAtualizacao, PedidoDeAtencao, PedidoDeAtividade, SomDaTela,
+} from './ponte'
 
 /**
  * Este arquivo e EMPACOTADO por esbuild antes de virar `dist/preload.js`, e nao
@@ -100,6 +102,25 @@ const ponte = {
    */
   definirAtividade: async (pedido: PedidoDeAtividade | null): Promise<void> => {
     await ipcRenderer.invoke(CANAIS.atividade, pedido)
+  },
+
+  /**
+   * A atualizacao automatica: so leitura, mais "procure agora".
+   *
+   * Nao ha "instalar agora" de proposito — a decisao e instalar em silencio ao
+   * fechar o app, sem nunca derrubar uma chamada.
+   */
+  atualizacao: {
+    ler: (): Promise<LeituraDaAtualizacao | null> =>
+      ipcRenderer.invoke(CANAIS.lerAtualizacao) as Promise<LeituraDaAtualizacao | null>,
+    procurar: async (): Promise<void> => {
+      await ipcRenderer.invoke(CANAIS.procurarAtualizacao)
+    },
+    aoMudar: (ouvinte: (estado: EstadoDaAtualizacao) => void): (() => void) => {
+      const fn = (_e: unknown, estado: EstadoDaAtualizacao): void => { ouvinte(estado) }
+      ipcRenderer.on(CANAIS.atualizacao, fn)
+      return () => { ipcRenderer.off(CANAIS.atualizacao, fn) }
+    },
   },
 
   /** A bandeja pediu para encerrar a chamada. Mesmo contrato de `aoFalar`. */

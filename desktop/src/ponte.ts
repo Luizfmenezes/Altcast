@@ -28,7 +28,31 @@ export const CANAIS = {
   sairDaChamada: 'altcast:sair-da-chamada',
   /** Renderer -> principal: o que o Discord deve mostrar no perfil (ou nada). */
   atividade: 'altcast:atividade',
+  /** Renderer -> principal: a versao instalada e o estado da atualizacao. */
+  lerAtualizacao: 'altcast:ler-atualizacao',
+  /** Renderer -> principal: procure atualizacao agora. */
+  procurarAtualizacao: 'altcast:procurar-atualizacao',
+  /** Principal -> renderer: o estado da atualizacao mudou. */
+  atualizacao: 'altcast:atualizacao',
 } as const
+
+/**
+ * Onde a atualizacao automatica esta.
+ *
+ * `indisponivel` e o app rodando fora do instalador (desenvolvimento): ali nao
+ * ha o que atualizar. `pronta` quer dizer baixada — ela entra sozinha quando a
+ * pessoa fecha o Altcast.
+ */
+export type EstadoDaAtualizacao =
+  | { fase: 'indisponivel' }
+  | { fase: 'parado' }
+  | { fase: 'procurando' }
+  | { fase: 'em-dia' }
+  | { fase: 'baixando'; versao: string; progresso: number }
+  | { fase: 'pronta'; versao: string }
+  | { fase: 'erro' }
+
+export type LeituraDaAtualizacao = { versao: string; estado: EstadoDaAtualizacao }
 
 /**
  * O que a interface pede para aparecer no Discord.

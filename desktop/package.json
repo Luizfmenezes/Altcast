@@ -1,7 +1,7 @@
 {
   "name": "@altcast/desktop",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Altcast para Windows",
   "author": "Altcast",
   "main": "dist/main.js",

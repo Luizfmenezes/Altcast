@@ -48,12 +48,30 @@ export type PedidoDeAtividade = {
   linkParaAssistir: string | null
 }
 
+/** Espelha `EstadoDaAtualizacao` de `desktop/src/ponte.ts`. */
+export type EstadoDaAtualizacao =
+  | { fase: 'indisponivel' }
+  | { fase: 'parado' }
+  | { fase: 'procurando' }
+  | { fase: 'em-dia' }
+  | { fase: 'baixando'; versao: string; progresso: number }
+  | { fase: 'pronta'; versao: string }
+  | { fase: 'erro' }
+
+export type LeituraDaAtualizacao = { versao: string; estado: EstadoDaAtualizacao }
+
 export type PonteNativa = {
   versao: string
   listarFontes: () => Promise<FonteDeTela[]>
   escolherFonte: (id: string, som: SomDaTela) => Promise<void>
   /** O cartao do Discord; `null` limpa. Opcional: versoes antigas do desktop nao tem. */
   definirAtividade?: (pedido: PedidoDeAtividade | null) => Promise<void>
+  /** A atualizacao automatica (desktop 0.3.0+). So leitura e "procure agora". */
+  atualizacao?: {
+    ler: () => Promise<LeituraDaAtualizacao | null>
+    procurar: () => Promise<void>
+    aoMudar: (ouvinte: (estado: EstadoDaAtualizacao) => void) => () => void
+  }
   /**
    * Contador de nao lidas no icone do app, ou piscar para chamar atencao.
    * Opcional: versoes antigas do desktop nao tem.
