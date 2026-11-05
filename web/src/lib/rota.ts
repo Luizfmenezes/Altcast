@@ -38,6 +38,11 @@ export type Rota =
    * na memoria da aba, e nenhum link levava a lugar nenhum dentro do app.
    */
   | { nome: 'canal'; grupo: string; canal: string; mensagem?: string }
+  /**
+   * O botao "Assistir no Altcast" do cartao do Discord: quem transmite e o
+   * canal. Leva a um PEDIDO, nunca direto para dentro do grupo.
+   */
+  | { nome: 'assistir'; anfitriao: string; canal: string }
 
 /** O `?convite=` da busca, quando ha um codigo plausivel. */
 function conviteDaBusca(search: string): { convite?: string } {
@@ -59,6 +64,9 @@ const PADROES: Array<[RegExp, (m: RegExpExecArray, search: string) => Rota]> = [
   [/^\/convite\/([0-9A-Za-z-]+)\/?$/, m => ({ nome: 'convite', codigo: m[1]! })],
   [/^\/g\/([0-9a-f-]{36})\/c\/([0-9a-f-]{36})(?:\/m\/([0-9a-f-]{36}))?\/?$/, m => ({
     nome: 'canal', grupo: m[1]!, canal: m[2]!, ...(m[3] === undefined ? {} : { mensagem: m[3] }),
+  })],
+  [/^\/assistir\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/?$/, m => ({
+    nome: 'assistir', anfitriao: m[1]!, canal: m[2]!,
   })],
 ]
 
@@ -87,6 +95,7 @@ export function caminhoDe(rota: Rota): string {
     case 'redefinir': return `/redefinir/${rota.token}`
     case 'verificar': return `/verificar/${rota.token}`
     case 'convite': return `/convite/${rota.codigo}`
+    case 'assistir': return `/assistir/${rota.anfitriao}/${rota.canal}`
     case 'canal': return `/g/${rota.grupo}/c/${rota.canal}${rota.mensagem === undefined ? '' : `/m/${rota.mensagem}`}`
   }
 }

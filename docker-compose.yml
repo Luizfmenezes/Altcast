@@ -74,6 +74,10 @@ services:
       # precisa ser exatamente ${PUBLIC_URL}/api/auth/google/callback.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # O cartao "Transmitindo no Altcast" no perfil do Discord, pelo app de
+      # desktop. Client ID da Application no Discord Developer Portal; vazio
+      # desliga o cartao sem afetar mais nada.
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
       # Assina o cookie de dez minutos que leva `state` e verificador PKCE ate
       # o Google e de volta. Ausente, cai no DATABASE_URL: qualquer segredo
       # estavel serve, e exigir variavel nova impediria toda instalacao

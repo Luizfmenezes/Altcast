@@ -26,7 +26,29 @@ export const CANAIS = {
   emChamada: 'altcast:em-chamada',
   /** Principal -> renderer: a bandeja pediu para sair da chamada. */
   sairDaChamada: 'altcast:sair-da-chamada',
+  /** Renderer -> principal: o que o Discord deve mostrar no perfil (ou nada). */
+  atividade: 'altcast:atividade',
 } as const
+
+/**
+ * O que a interface pede para aparecer no Discord.
+ *
+ * Sao FATOS, e nao o texto do cartao: quem escreve "Transmitindo a tela" e o
+ * processo principal, em `atividade.ts`. A pagina e conteudo remoto, e deixa-la
+ * compor o cartao inteiro daria a qualquer script nela um anuncio no perfil
+ * de quem usa o app — com o link que ela quisesse no botao.
+ */
+export type PedidoDeAtividade = {
+  /** O Client ID da Application no Discord Developer Portal. */
+  clientId: string
+  estado: 'chamada' | 'transmitindo'
+  /** Nome do grupo, ou `null` para nao dizer onde. */
+  grupo: string | null
+  /** Inicio, em milissegundos desde a epoca. O Discord conta o tempo a partir dele. */
+  desde: number
+  /** `/assistir/...` do proprio Altcast, ou `null` para cartao sem botao. */
+  linkParaAssistir: string | null
+}
 
 /**
  * O que a barra de tarefas deve mostrar.

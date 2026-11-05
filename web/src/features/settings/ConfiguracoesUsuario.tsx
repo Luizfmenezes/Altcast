@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { api } from '../../lib/api.js'
 import { Botao } from '../../ui/Botao.js'
 import { TrocarSenha } from './TrocarSenha.js'
+import { PreferenciaDoDiscord } from '../assistir/PreferenciaDoDiscord.js'
 import { ConfirmarAcao } from '../../ui/ConfirmarAcao.js'
 import { useDensity, useTheme } from '../../ui/ThemeProvider.js'
 import { descreverAparelho, haQuanto } from '../../lib/userAgent.js'
@@ -98,6 +99,8 @@ export function ConfiguracoesUsuario(): ReactNode {
           </Botao>
         </div>
       </div>
+
+      <PreferenciaDoDiscord />
 
       <TrocarSenha />
 

@@ -35,6 +35,10 @@ export const ERROR_CATALOG = {
   // Conta nascida pelo Google nao tem senha para conferir. Dizer isso e
   // seguro: quem recebe a mensagem ja provou ser o dono da sessao.
   no_password_set:     { status: 409, message: 'Esta conta entra pelo Google. Use "esqueci a senha" para criar uma senha.' },
+  // Uma mensagem para todas as causas (acabou, canal privado, sem permissao):
+  // o link e publico, e detalhar a causa contaria a estranhos o que existe.
+  stream_unavailable:  { status: 404, message: 'Esta transmissão terminou ou não aceita pedidos.' },
+  watch_request_not_found: { status: 404, message: 'Este pedido não está mais aberto.' },
   google_unavailable:  { status: 503, message: 'A entrada pelo Google não está configurada neste servidor.' },
   // 409 e nao 403: o pedido esta bem formado e quem pede esta autorizado — o
   // que ha e conflito com o estado do mundo, que e o que 409 significa. Mesma

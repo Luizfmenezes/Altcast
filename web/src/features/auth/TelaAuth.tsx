@@ -6,6 +6,7 @@ import { RedefinirSenha } from './RedefinirSenha.js'
 import { VerificarEmail } from './VerificarEmail.js'
 import { Porta } from './PalcoMercurio.js'
 import { usarRota } from '../../lib/rota.js'
+import { AvisoDeAssistir } from '../assistir/PedirParaAssistir.js'
 import type { Usuario } from '../../lib/tipos.js'
 
 /**
@@ -33,6 +34,13 @@ export function TelaAuth({ aoEntrar }: {
       {rota.nome === 'verificar' && <VerificarEmail token={rota.token} />}
       {rota.nome === 'entrar' && <Login convite={rota.convite} aoEntrar={aoEntrar} />}
       {rota.nome === 'app' && <Login aoEntrar={aoEntrar} />}
+      {/* O "Assistir no Altcast" do Discord, aberto por quem ainda nao entrou. */}
+      {rota.nome === 'assistir' && (
+        <>
+          <AvisoDeAssistir rota={rota} />
+          <Login aoEntrar={aoEntrar} />
+        </>
+      )}
     </Porta>
   )
 }

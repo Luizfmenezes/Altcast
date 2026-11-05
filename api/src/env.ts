@@ -59,6 +59,17 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   /**
+   * O cartao "Transmitindo no Altcast" no perfil do Discord (app de desktop).
+   * E o Client ID da Application criada no Discord Developer Portal — publico,
+   * e nao segredo. Ausente, o app de desktop simplesmente nao fala com o Discord.
+   *
+   * Vazio vale como ausente: o compose passa `${DISCORD_CLIENT_ID:-}`, e um ID
+   * mal colado derrubar a API inteira no arranque seria um preco absurdo por
+   * um cartao no Discord. Invalido tambem vira ausente, pelo mesmo motivo.
+   */
+  DISCORD_CLIENT_ID: z.string().optional()
+    .transform(v => (v !== undefined && /^\d{17,20}$/.test(v.trim()) ? v.trim() : undefined)),
+  /**
    * Assina o cookie de dez minutos que carrega o `state` e o verificador PKCE
    * entre a ida ao Google e a volta.
    *

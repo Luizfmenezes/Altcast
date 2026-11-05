@@ -35,10 +35,25 @@ export type FonteDeTela = {
  */
 export type SomDaTela = 'sistema' | 'nenhum'
 
+/**
+ * O que o perfil do Discord deve mostrar. Espelha `PedidoDeAtividade` de
+ * `desktop/src/ponte.ts`: sao fatos, e o texto do cartao e escrito (e o link
+ * conferido) pelo processo principal.
+ */
+export type PedidoDeAtividade = {
+  clientId: string
+  estado: 'chamada' | 'transmitindo'
+  grupo: string | null
+  desde: number
+  linkParaAssistir: string | null
+}
+
 export type PonteNativa = {
   versao: string
   listarFontes: () => Promise<FonteDeTela[]>
   escolherFonte: (id: string, som: SomDaTela) => Promise<void>
+  /** O cartao do Discord; `null` limpa. Opcional: versoes antigas do desktop nao tem. */
+  definirAtividade?: (pedido: PedidoDeAtividade | null) => Promise<void>
   /**
    * Contador de nao lidas no icone do app, ou piscar para chamar atencao.
    * Opcional: versoes antigas do desktop nao tem.

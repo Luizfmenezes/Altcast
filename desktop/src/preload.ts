@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { CANAIS } from './ponte'
-import type { FonteDeTela, PedidoDeAtencao, SomDaTela } from './ponte'
+import type { FonteDeTela, PedidoDeAtencao, PedidoDeAtividade, SomDaTela } from './ponte'
 
 /**
  * Este arquivo e EMPACOTADO por esbuild antes de virar `dist/preload.js`, e nao
@@ -90,6 +90,16 @@ const ponte = {
    */
   informarChamada: async (emChamada: boolean): Promise<void> => {
     await ipcRenderer.invoke(CANAIS.emChamada, emChamada)
+  },
+
+  /**
+   * O que o perfil do Discord deve mostrar; `null` limpa.
+   *
+   * Leva fatos, nao o cartao: o texto e o botao sao escritos e conferidos no
+   * processo principal (`atividade.ts`).
+   */
+  definirAtividade: async (pedido: PedidoDeAtividade | null): Promise<void> => {
+    await ipcRenderer.invoke(CANAIS.atividade, pedido)
   },
 
   /** A bandeja pediu para encerrar a chamada. Mesmo contrato de `aoFalar`. */

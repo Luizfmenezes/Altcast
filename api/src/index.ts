@@ -16,6 +16,7 @@ import { rolesRoutes } from './routes/roles.routes.js'
 import { invitesRoutes } from './routes/invites.routes.js'
 import { invitationsRoutes } from './routes/invitations.routes.js'
 import { googleRoutes } from './routes/google.routes.js'
+import { assistirRoutes } from './routes/assistir.routes.js'
 import { channelsRoutes } from './routes/channels.routes.js'
 import { messagesRoutes } from './routes/messages.routes.js'
 import { chatRicoRoutes } from './routes/chatRico.routes.js'
@@ -155,6 +156,7 @@ export async function buildServer(opcoes: OpcoesDoServidor = {}): Promise<Fastif
     invitationsRoutes, opcoes.correio === undefined ? {} : { correio: opcoes.correio },
   )
   await app.register(googleRoutes)
+  await app.register(assistirRoutes)
   await app.register(channelsRoutes)
   await app.register(messagesRoutes)
   await app.register(chatRicoRoutes)

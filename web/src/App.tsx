@@ -16,6 +16,10 @@ import type { Mensagem, Ready, Usuario } from './lib/tipos.js'
 import { avisarMensagem, useIndicadorDeAtencao } from './lib/notificacoes.js'
 import { useOciosidade } from './lib/ociosidade.js'
 import { carregarHistorico } from './features/messages/historico.js'
+import { aplicarEventoDePedido, usePedidosParaAssistir } from './features/assistir/pedidos.js'
+import { PedidosRecebidos } from './features/assistir/PedidosRecebidos.js'
+import { PedirParaAssistir, retomarAssistir } from './features/assistir/PedirParaAssistir.js'
+import { usarAtividadeNoDiscord } from './features/assistir/atividadeNoDiscord.js'
 
 type Sessao = 'verificando' | 'fora' | 'dentro'
 
@@ -58,6 +62,7 @@ export function App(): ReactNode {
   useEffect(() => {
     const aoExpirar = (): void => {
       limpar()
+      usePedidosParaAssistir.getState().limpar()
       setSessao('fora')
     }
     window.addEventListener(SESSAO_EXPIROU, aoExpirar)
@@ -85,6 +90,8 @@ export function App(): ReactNode {
           setLatencia(Date.now() - enviadoEm.current)
           return
         }
+        // Os pedidos para assistir tem store propria; nao passam pela principal.
+        if (aplicarEventoDePedido(evento)) return
         aplicarEvento(evento)
         // DEPOIS de aplicar: o som acompanha a lista que a pessoa acabou de
         // ver mudar. E so aqui, porque este e o unico lugar do sistema onde
@@ -121,6 +128,16 @@ export function App(): ReactNode {
   useIndicadorDeAtencao(sessao === 'dentro')
   // Dez minutos sem uso: os outros passam a ver "ausente".
   useOciosidade(sessao === 'dentro')
+  // O cartao 'Transmitindo no Altcast' no Discord (so no app de desktop).
+  usarAtividadeNoDiscord(sessao === 'dentro')
+
+  // O 'Assistir no Altcast' que esperou o login — em especial o do Google, que
+  // sai do Altcast e volta pela raiz, sem o endereco de antes.
+  useEffect(() => {
+    if (sessao !== 'dentro' || rota.nome !== 'app') return
+    const guardada = retomarAssistir()
+    if (guardada !== null) trocarPor(guardada)
+  }, [sessao, rota])
 
   /**
    * Com sessao, os enderecos da porta nao significam mais nada.
@@ -173,6 +190,10 @@ export function App(): ReactNode {
   return (
     <>
       <AppShell latenciaMs={latencia} />
+      <PedidosRecebidos />
+      {rota.nome === 'assistir' && (
+        <PedirParaAssistir key={rota.anfitriao + rota.canal} anfitriao={rota.anfitriao} canal={rota.canal} />
+      )}
       {rota.nome === 'convite' && <AceitarConvite codigo={rota.codigo} />}
       {conviteDaPorta !== undefined && (
         <AceitarConvite key={conviteDaPorta} codigo={conviteDaPorta} automatico />

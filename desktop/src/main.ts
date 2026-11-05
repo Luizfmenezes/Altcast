@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { origemDoAltcast, urlDoAltcast } from './config'
 import { registrarCaptura } from './captura'
 import { guardarEstado, lerEstado } from './estadoDaJanela'
+import { registrarPresencaNoDiscord } from './presencaNoDiscord'
 
 /**
  * O processo principal.
@@ -71,6 +72,7 @@ function prepararApp(): void {
     origem === ORIGEM && PERMITIDAS.has(permissao))
 
   registrarCaptura(sessao, () => (janela === null ? [] : [janela.getMediaSourceId()]))
+  registrarPresencaNoDiscord(ORIGEM, ehNossa)
 
   criarJanela()
 
