@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { RoomEvent } from 'livekit-client'
-import { criarChamada, type Credencial, type SalaDeMidia } from '../src/lib/midia.js'
+import { anexarFaixa, criarChamada, type Credencial, type SalaDeMidia } from '../src/lib/midia.js'
 
 const CREDENCIAL: Credencial = {
   url: 'ws://localhost:7880', token: 'token-falso', room: 'c1', identity: 'u1',
@@ -366,7 +366,27 @@ describe('som da tela compartilhada', () => {
     await chamada.definirTela(true)
 
     expect(sala.chamadas).toContain('tela:true')
-    expect(sala.opcoesDaTela).toMatchObject({ audio: true })
+    // Um objeto, e nao `true`: e ele que carrega o `restrictOwnAudio` abaixo.
+    // Qualquer valor verdadeiro faz o Chrome oferecer a caixa de audio.
+    expect(sala.opcoesDaTela).toMatchObject({ audio: expect.anything() })
+    expect((sala.opcoesDaTela as { audio: unknown }).audio).toBeTruthy()
+  })
+
+  /**
+   * O som do PC vai na transmissao; o do PROPRIO Altcast, nao.
+   *
+   * Sem isto, o loopback de sistema grava tambem a chamada que o Altcast esta
+   * tocando: quem assiste a tela ouve as vozes da sala de novo — inclusive a
+   * propria, com atraso. `restrictOwnAudio` exclui o som do documento que
+   * capturou (no app de desktop, o Electron troca o loopback por
+   * `loopbackWithoutChrome`, que tira o processo inteiro do Altcast).
+   */
+  it('o som da própria chamada fica fora da transmissão', async () => {
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    await chamada.definirTela(true)
+
+    expect(sala.opcoesDaTela).toMatchObject({ audio: { restrictOwnAudio: true } })
   })
 
   it('a captura e pedida a 60 quadros, e não só a codificação', async () => {
@@ -668,6 +688,75 @@ describe('volume por transmissao', () => {
     // Sem isto, ficar surdo silenciaria so quem ja estava na sala, e cada
     // pessoa que entrasse depois voltaria a ser ouvida.
     expect(atrasado.volume).toBe(0)
+    localStorage.clear()
+  })
+
+  /**
+   * Uma faixa que imita o `attach` do LiveKit 2.22 AO PE DA LETRA, inclusive o
+   * defeito: `if (this.elementVolume)` reaplica o volume ao elemento novo — e
+   * `0` e falso. O volume guardado entra no `TrackSubscribed`, ANTES de a
+   * interface anexar o `<audio>`; com 0,3 isso funciona, com 0 (mutado) o
+   * elemento nascia com volume 1.
+   */
+  const faixaComoNoLiveKit = (): {
+    sid: string; elementVolume: number | undefined; attachedElements: HTMLMediaElement[]
+    setVolume: (v: number) => void; attach: (el: HTMLMediaElement) => HTMLMediaElement
+    detach: (el: HTMLMediaElement) => HTMLMediaElement
+  } => {
+    const f = {
+      sid: 'TR_TELA',
+      elementVolume: undefined as number | undefined,
+      attachedElements: [] as HTMLMediaElement[],
+      setVolume(v: number) {
+        for (const el of f.attachedElements) el.volume = v
+        f.elementVolume = v
+      },
+      attach(el: HTMLMediaElement) {
+        f.attachedElements.push(el)
+        if (f.elementVolume) f.setVolume(f.elementVolume)
+        return el
+      },
+      detach(el: HTMLMediaElement) {
+        f.attachedElements = f.attachedElements.filter(e => e !== el)
+        return el
+      },
+    }
+    return f
+  }
+
+  it('mutado continua mudo quando a pessoa para e volta a transmitir', async () => {
+    localStorage.clear()
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+
+    const primeira = faixaComoNoLiveKit()
+    sala.emitir(RoomEvent.TrackSubscribed, primeira, SOM_DA_TELA, { identity: 'u2' })
+    const elPrimeira = document.createElement('audio')
+    anexarFaixa(primeira, elPrimeira)
+    chamada.definirVolume('u2', 'audio-tela', 0)
+    expect(elPrimeira.volume).toBe(0)
+
+    // Parou e voltou: faixa NOVA, elemento NOVO.
+    const segunda = faixaComoNoLiveKit()
+    sala.emitir(RoomEvent.TrackSubscribed, segunda, SOM_DA_TELA, { identity: 'u2' })
+    const elSegunda = document.createElement('audio')
+    anexarFaixa(segunda, elSegunda)
+
+    expect(chamada.estado().volumes['u2:audio-tela']).toBe(0)
+    expect(elSegunda.volume).toBe(0)
+    localStorage.clear()
+  })
+
+  it('volume parcial tambem sobrevive ao elemento novo', async () => {
+    localStorage.clear()
+    localStorage.setItem('altcast:volumes', JSON.stringify({ 'u2:audio': 0.3 }))
+    const { chamada, sala } = montar()
+    await chamada.entrar()
+    const som = faixaComoNoLiveKit()
+    sala.emitir(RoomEvent.TrackSubscribed, som, MICROFONE, { identity: 'u2' })
+    const el = document.createElement('audio')
+    anexarFaixa(som, el)
+    expect(el.volume).toBeCloseTo(0.3)
     localStorage.clear()
   })
 

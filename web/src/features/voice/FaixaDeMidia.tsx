@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import {
   Maximize2, Minimize2, PictureInPicture2, Volume1, Volume2, VolumeX, ZoomIn, ZoomOut,
 } from 'lucide-react'
+import { anexarFaixa } from '../../lib/midia.js'
 import type { Faixa, QualidadeDeRecepcao } from '../../lib/midia.js'
 import { ZOOM_MAXIMO, useZoom } from './zoom.js'
 
@@ -59,7 +60,9 @@ export function FaixaDeMidia({
   useEffect(() => {
     const alvo = elemento.current
     if (alvo === null) return
-    faixa.track.attach(alvo)
+    // Por `anexarFaixa`, e nao `attach` direto: o do LiveKit descarta volume 0,
+    // e o mutado voltava a tocar a cada faixa nova.
+    anexarFaixa(faixa.track, alvo)
     return () => {
       faixa.track.detach(alvo)
     }

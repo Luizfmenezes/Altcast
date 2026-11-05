@@ -561,7 +561,7 @@ export type SalaDeMidia = {
     setScreenShareEnabled: (
       ligado: boolean,
       opcoes?: {
-        audio: boolean
+        audio: boolean | typeof SOM_DA_TELA
         /** O que o NAVEGADOR grava. Sem isto a captura sai a 30 quadros. */
         resolution?: { width: number; height: number; frameRate?: number }
       },
@@ -684,7 +684,51 @@ function papelDe(publicacao: RemoteTrackPublication, lk: ModuloLiveKit): PapelDa
 function aplicarVolume(track: unknown, volume: number): void {
   const alvo = track as { setVolume?: (v: number) => void }
   if (typeof alvo.setVolume !== 'function') return
+  volumesPedidos.set(track as object, volume)
   alvo.setVolume(volume)
+}
+
+/**
+ * O som que acompanha a tela compartilhada: o do PC, MENOS o do proprio Altcast.
+ *
+ * Sem `restrictOwnAudio`, o loopback de sistema grava tudo o que sai pelo
+ * alto-falante — e isso inclui a chamada que o Altcast esta tocando. Quem
+ * assistia a tela ouvia as vozes da sala uma segunda vez, inclusive a propria,
+ * com atraso.
+ *
+ * No app de desktop, o Electron (44+) le este pedido e troca o `loopback` do
+ * `setDisplayMediaRequestHandler` por `loopbackWithoutChrome`: sai o processo
+ * inteiro do Altcast, e o jogo, a musica e o resto do PC continuam indo. No
+ * Chrome (140+) vale para o som de sistema da tela inteira. Navegador que nao
+ * conhece a restricao a ignora e segue capturando como antes.
+ */
+const SOM_DA_TELA = { restrictOwnAudio: true } as const
+
+/**
+ * O ultimo volume que o Altcast pediu para cada faixa.
+ *
+ * Existe por causa de um defeito do LiveKit (2.22): o `attach` reaplica o
+ * volume ao elemento novo com `if (this.elementVolume)` — e `0` e falso. O
+ * volume guardado entra no `TrackSubscribed`, antes de a interface anexar o
+ * `<audio>`; para 0,3 dava certo, para MUTADO o elemento nascia com volume 1.
+ * Era o "mutei, a pessoa parou e voltou a transmitir, e o som voltou". O
+ * `WeakMap` nao segura a faixa viva depois que ela sai da sala.
+ */
+const volumesPedidos = new WeakMap<object, number>()
+
+/**
+ * Anexa a faixa ao elemento SEM perder o volume escolhido.
+ *
+ * Todo `attach` de faixa remota passa por aqui, e nao direto pelo LiveKit:
+ * depois de anexar, o volume pedido e reaplicado — inclusive o zero que o
+ * `attach` dele descarta.
+ */
+export function anexarFaixa(
+  track: { attach: (el: HTMLMediaElement) => unknown }, elemento: HTMLMediaElement,
+): void {
+  track.attach(elemento)
+  const pedido = volumesPedidos.get(track)
+  if (pedido !== undefined) aplicarVolume(track, pedido)
 }
 
 /**
@@ -1434,7 +1478,7 @@ export function criarChamada(opcoes: OpcoesDaChamada): Chamada {
         // 30, sem erro em lugar nenhum.
         : (v: boolean) => local.setScreenShareEnabled(
           v,
-          { audio: true, resolution: QUALIDADES[estado.qualidade].captura },
+          { audio: SOM_DA_TELA, resolution: QUALIDADES[estado.qualidade].captura },
           { screenShareEncoding: QUALIDADES[estado.qualidade].codificacao },
         )
 
